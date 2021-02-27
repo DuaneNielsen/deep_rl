@@ -27,7 +27,7 @@ def fast_collate(data):
 
 def train(buffer, policy_net, optim, device='cpu', dtype=torch.float):
 
-    dl = DataLoader(buffer, batch_size=10000, num_workers=8, collate_fn=fast_collate)
+    dl = DataLoader(buffer, batch_size=10000, num_workers=0, collate_fn=fast_collate)
 
     for transitions in dl:
         state, action, G = to(transitions.s, transitions.a, transitions.i['g'], device=device, dtype=dtype)

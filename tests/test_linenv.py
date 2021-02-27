@@ -80,8 +80,6 @@ def test_REINFORCE():
         action = policy_net(state)
         return action.rsample().item()
 
-    eps = torch.finfo(torch.float32).eps
-
     last_reward = 0
     for epoch in range(16):
         for ep in range(16):
@@ -91,6 +89,8 @@ def test_REINFORCE():
         for s, i, a, s_prime, r, d, i_p in buffer:
             reward += r
         last_reward = reward
+
+        print(last_reward)
 
         reinforce.train(buffer, policy_net, optim)
 
