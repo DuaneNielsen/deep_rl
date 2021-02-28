@@ -72,7 +72,7 @@ def test_REINFORCE():
             loc = state * self.w + self.b
             return torch.distributions.Normal(loc=loc, scale=0.25)
 
-    policy_net = PolicyNet()
+    policy_net = PolicyNet().double()
     optim = torch.optim.SGD(policy_net.parameters(), lr=0.1)
 
     def policy(state):
@@ -89,10 +89,9 @@ def test_REINFORCE():
         for s, i, a, s_prime, r, d, i_p in buffer:
             reward += r
         last_reward = reward
+        print(reward)
 
-        print(last_reward)
-
-        reinforce.train(buffer, policy_net, optim)
+        reinforce.train(buffer, policy_net, optim, dtype=torch.double)
 
         buffer.clear()
 
