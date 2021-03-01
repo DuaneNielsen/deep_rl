@@ -87,6 +87,7 @@ def discrete_state(state, size):
 class LineGrid(gym.Env):
     def __init__(self, initial_state, n_states, reward_map):
         super().__init__()
+        self.initial_state = initial_state
         self.state = initial_state
         self.observation_space = gym.spaces.Discrete(n_states)
         self.action_space = gym.spaces.Discrete(2)
@@ -94,7 +95,7 @@ class LineGrid(gym.Env):
         self.reward_map = reward_map
 
     def reset(self):
-        self.state = 1
+        self.state = self.initial_state
         return discrete_state(self.state, self.observation_space.n)
 
     def step(self, action: int):
@@ -118,3 +119,14 @@ class Bandit(LineGrid):
         [T(-1.0), S, T(1.0)]
         """
         super().__init__(1, 3, dict([(0, -1.0), (2, 1.0)]))
+
+
+class DelayedBandit(LineGrid):
+    def __init__(self):
+        """
+        S : Start state
+        T : Terminal state
+        () : Reward
+        [T(-1.0), E, E, S, E, E, T(1.0)]
+        """
+        super().__init__(3, 7, dict([(0, -1.0), (6, 1.0)]))
