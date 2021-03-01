@@ -3,7 +3,7 @@ from torch import nn
 import buffer as bf
 import gym
 import random
-import algos.deepq as dqn
+import algos.dqn as dqn
 
 if __name__ == '__main__':
 

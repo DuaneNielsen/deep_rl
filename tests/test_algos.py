@@ -1,5 +1,5 @@
 import torch
-from algos.deepq import max_q, replicate_states, replicate_actions
+from algos.dqn import max_q, replicate_states, replicate_actions
 
 
 def test_replicate_states():
