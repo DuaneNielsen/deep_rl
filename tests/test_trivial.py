@@ -1,13 +1,14 @@
 import buffer as run
 import torch
 from torch import nn
+import numpy as np
 
 from algos import reinforce
-from env.trivial import LinearEnv
+from env import trivial
 
 
 def test_linear_env():
-    env = LinearEnv()
+    env = trivial.LinearEnv()
 
     env.reset()
     assert env.state[0] == 0.0
@@ -96,3 +97,22 @@ def test_REINFORCE():
         buffer.clear()
 
     assert last_reward >= 14.0
+
+
+def test_bandit():
+    env = trivial.Bandit()
+
+    state = env.reset()
+    assert np.allclose(state, np.array([0.0, 1.0, 0.0]))
+
+    state = env.reset()
+    state, reward, done, info = env.step(0)
+    assert np.allclose(state, np.array([1.0, 0.0, 0.0]))
+    assert reward == -1.0
+    assert done
+
+    state = env.reset()
+    state, reward, done, info = env.step(1)
+    assert np.allclose(state, np.array([0.0, 0.0, 1.0]))
+    assert reward == 1.0
+    assert done

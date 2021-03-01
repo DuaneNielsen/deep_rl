@@ -375,30 +375,6 @@ class SubjectWrapper(gym.Wrapper):
         return state, reward, done, info
 
 
-def render_env(env, render, delay):
-    if render:
-        env.render(render)
-        time.sleep(delay)
-
-
-def episode(env, policy, render=False, delay=0.01, **kwargs):
-    """
-    Runs one episode using the provided policy on the environment
-    :param policy: takes state as input, must output an action runnable on the environment
-    :param render: if True will call environments render function
-    :param delay: rendering delay
-    :param kwargs: kwargs will be passed to policy, environment step, and observers
-    """
-    with torch.no_grad():
-        state, reward, done, info = env.reset(**kwargs), 0.0, False, {}
-        action = policy(state, **kwargs)
-        render_env(env, render, delay)
-        while not done:
-            state, reward, done, info = env.step(action, **kwargs)
-            action = policy(state, **kwargs)
-            render_env(env, render, delay)
-
-
 class Plot(EnvObserver):
     """
     An Observer that will plot episode returns and lengths
@@ -440,14 +416,15 @@ class Plot(EnvObserver):
         self.epi_reward[-1] += reward
         self.epi_len[-1] += 1
 
-        if done and self.update_cooldown():
-
-            if len(self.epi_len) % self.blocksize:
+        if done:
+            """ calculate mean over prev block"""
+            if len(self.epi_len) % self.blocksize == 0:
                 n = len(self.epi_len) // self.blocksize
-                start, end = n * self.blocksize, (n + 1) * self.blocksize
+                start, end = (n-1) * self.blocksize, n * self.blocksize
                 self.block_ave_reward += [mean(list(self.epi_reward)[start:end])]
                 self.block_ave_len += [mean(list(self.epi_len)[start:end])]
 
+        if self.update_cooldown():
             self.epi_reward_ax.clear()
             self.epi_reward_ax.plot(self.block_ave_reward)
             self.epi_len_ax.clear()
@@ -487,3 +464,67 @@ class Cooldown:
         if expired:
             self.last_cooldown = now
         return expired
+
+
+def wrap(env, plot=False, plot_blocksize=1):
+    """
+    convenience wrapper to wrap environment with replay_buffer
+    plot: add a plot
+    plot_blocksize: number of episodes per plot datapoint
+    returns: env, buffer
+    """
+    buffer = ReplayBuffer()
+    env = SubjectWrapper(env)
+    env.attach_observer('replay_buffer', buffer)
+    if plot:
+        env.attach_observer('plot', Plot(blocksize=plot_blocksize))
+    return env, buffer
+
+
+def render_env(env, render, delay):
+    if render:
+        env.render(render)
+        time.sleep(delay)
+
+
+def episode(env, policy, render=False, delay=0.01, **kwargs):
+    """
+    Runs one episode using the provided policy on the environment
+    :param policy: takes state as input, must output an action runnable on the environment
+    :param render: if True will call environments render function
+    :param delay: rendering delay
+    :param kwargs: kwargs will be passed to policy, environment step, and observers
+    """
+    with torch.no_grad():
+        state, reward, done, info = env.reset(**kwargs), 0.0, False, {}
+        action = policy(state, **kwargs)
+        render_env(env, render, delay)
+        while not done:
+            state, reward, done, info = env.step(action, **kwargs)
+            action = policy(state, **kwargs)
+            render_env(env, render, delay)
+
+
+def transitions(env, policy, render=False):
+    """
+    Transition generator, advances a single transition each iteration
+    """
+    done = True
+    state = None
+    state_info = None
+
+    while True:
+        if done:
+            state, state_info = env.reset(), {}
+            if render:
+                env.render()
+        action = policy(state)
+        state_p, reward, done, state_p_info = env.step(action)
+        if render:
+            env.render()
+
+        yield state, state_info, action, state_p, reward, done, state_p_info
+
+        state = state_p
+        state_info = state_info
+        done = done

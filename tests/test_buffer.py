@@ -272,3 +272,14 @@ def test_dataload():
         g = data.i['g']
         assert torch.allclose(g, torch.tensor([2.0, 2.0, 1.0, 0.0], dtype=torch.double))
 
+
+def get_step(end):
+    s = 0
+    while s < end:
+        yield s
+        s += 1
+
+
+def test_generator():
+    for _ in range(100):
+        print(get_step())

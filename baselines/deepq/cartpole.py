@@ -9,8 +9,8 @@ from algos.deepq import max_q
 if __name__ == '__main__':
 
     batchsize = 8
-    epsilon = 0.05
-    discount = 0.95
+    epsilon = 0.1
+    discount = 0.9
 
     env = gym.make('CartPole-v1')
     env = bf.SubjectWrapper(env)
@@ -38,7 +38,7 @@ if __name__ == '__main__':
             return action
 
     q_net = QNet()
-    optim = torch.optim.Adam(q_net.parameters(), lr=1e-4)
+    optim = torch.optim.SGD(q_net.parameters(), lr=1e-3)
 
 
     def policy(state):
@@ -51,14 +51,25 @@ if __name__ == '__main__':
 
     bf.episode(env, policy)
 
-    done = True
-    state = None
-    for step in range(10000000):
-        if done:
-            state = env.reset()
-            done = False
-        else:
-            action = policy(state)
-            state, reward, done, info = env.step(action)
+    class Stepper:
+        def __init__(self):
+            self.done = True
+            self.state = None
 
+        def step(self, env, policy, render=False):
+            if self.done:
+                self.state = env.reset()
+                if render:
+                    env.render()
+            action = policy(self.state)
+            state, reward, done, info = env.step(action)
+            if render:
+                env.render()
+            self.state = state
+            self.done = done
+
+    stepper = Stepper()
+
+    while True:
+        stepper.step(env, policy, render=False)
         deepq.train(buffer, q_net, optim, batchsize, n_actions, discount)

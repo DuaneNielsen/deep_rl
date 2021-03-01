@@ -66,14 +66,14 @@ def train(buffer, q_net, optim, batch_size, n_actions, discount, device='cpu', d
     dl = DataLoader(buffer, batch_size=batch_size, sampler=sampler)
 
     for s, i, a, s_p, r, d, i_p in dl:
-        s, s_p, r = algos.utils.to(s, s_p, r, device=device, dtype=dtype)
-        a = a.to(device)
-        a = one_hot(a, n_actions)
+        s, s_p, r, d = algos.utils.to(s, s_p, r, d, device=device, dtype=dtype)
+        a = one_hot(a, n_actions).type(dtype).to(device)
 
         optim.zero_grad()
         v0 = q_net(s, a)
         with torch.no_grad():
             v1, _ = max_q(q_net, s_p, n_actions)
+            v1[d] = 0.0
             v1 = r + v1 * discount
         loss = torch.mean((v1 - v0) ** 2)
 
