@@ -57,7 +57,7 @@ def test_linear_env():
 
 
 def test_REINFORCE():
-    env = LinearEnv(inital_state=0.1)
+    env = trivial.LinearEnv(inital_state=0.1)
     buffer = run.ReplayBuffer()
     buffer.attach_enrichment(run.DiscountedReturns())
     env = run.SubjectWrapper(env)
