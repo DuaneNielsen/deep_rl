@@ -8,6 +8,7 @@ Minimal pytorch framework for developing Deep Reinforcement Learning algorithms.
 * Wrappers to drive gym environment and store transitions
 * Supports on-policy and off-policy
 * Visualizes statistics during agent runs on environment
+* Extensible replay buffer, supports data enrichment using gym type interface
 * All core functions in a single file, just drag and drop into your project
 
 ## Replay buffer
@@ -35,7 +36,7 @@ or collect an episode
 bf.episode(env, policy)
 ```
 
-sample an off policy batch from the replay buffer
+sample an off-policy batch from the replay buffer
 
 ```python
 from buffer import ReplayBufferDataset
@@ -48,13 +49,13 @@ sampler = SubsetRandomSampler(random.sample(range(len(ds)), batch_size))
 dl = DataLoader(buffer, batch_size=batch_size, sampler=sampler)
 ```
 
-sample an on policy batch
+sample an on-policy batch
 
 ```python
 from buffer import ReplayBufferDataset
 from torch.utils.data import DataLoader
 
-ds = ReplayBufferDataset(buffer, fields=('s', 'a'), info_keys=['g'])
+ds = ReplayBufferDataset(buffer)
 dl = DataLoader(ds, batch_size=10000, num_workers=0)
 ```
 
@@ -77,6 +78,11 @@ only fetch state at t0 and action from the buffer
 import buffer as bf
 
 ds = bf.ReplayBufferDataset(buffer, fields=('s', 'a'))
+
+>>> ds[0]
+Transition(s=array([ 0.01236617,  0.04175304, ...]), 
+           a=0
+           )
 ```
 
 You can also enrich the information collected in the buffer by implementing an Enricher or using a provided enricher
@@ -96,7 +102,8 @@ replay_buffer.attach_enrichment(bf.DiscountedReturns(key='g', ))
 ds = bf.ReplayBufferDataset(replay_buffer, info_keys=['g'])
 
 >>> ds[0]
-Transition(s=array([ 0.01236617,  0.04175304, ...]), a=0, 
+Transition(s=array([ 0.01236617,  0.04175304, ...]), 
+           a=0, 
            s_p=array([ 0.01320123, -0.15324907, ...]), 
            r=1.0, 
            d=False, 
