@@ -74,13 +74,16 @@ class Returns(Enricher):
     for transition (s, i, a, s_p, r, d, i_p), return = transition.i['g']
     """
 
+    def __init__(self, key='g'):
+        self.key = key
+
     def step(self, buffer, action, state, reward, done, info, **kwargs):
         if done:
             # terminal state returns are always 0
             g = 0
             for s, a, s_p, r, d, i in TrajectoryTransitionsReverse(buffer, buffer.trajectories[-1]):
                 g += r
-                i['g'] = g
+                i[self.key] = g
 
 
 class DiscountedReturns(Enricher):
@@ -90,7 +93,8 @@ class DiscountedReturns(Enricher):
     for transition (s, i, a, s_p, r, d, i_p), return = transition.i['g']
     """
 
-    def __init__(self, discount=0.95):
+    def __init__(self, key='g', discount=0.95):
+        self.key = key
         self.discount = discount
 
     def step(self, buffer, action, state, reward, done, info, **kwargs):
@@ -100,7 +104,7 @@ class DiscountedReturns(Enricher):
             # get the last trajectory and reverse iterate over transitions
             for s, a, s_p, r, d, i in TrajectoryTransitionsReverse(buffer, buffer.trajectories[-1]):
                 g = r + g * self.discount
-                i['g'] = g
+                i[self.key] = g
 
 
 """
