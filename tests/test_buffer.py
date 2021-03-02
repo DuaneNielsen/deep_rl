@@ -1,6 +1,6 @@
 import buffer as run
 import pytest
-from env.trivial import DummyEnv
+from env.debug import DummyEnv
 import torch
 from torch.utils.data import DataLoader
 

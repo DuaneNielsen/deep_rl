@@ -1,6 +1,9 @@
 import gym
 import numpy as np
-import math
+
+"""
+A set of super simple environments for testing RL code during development
+"""
 
 
 class StaticEnv:
@@ -43,8 +46,8 @@ class LinearEnv(gym.Env):
     """
     A continuous environment such that...
 
-            | - 0 -------- 1.0 |
-    Reward  | - 0 -------- 1.0 |
+            T - 0 -------- 1.0 - T
+    Reward  T - 0 -------- 1.0 - T
 
     Action is deterministic float, simply adds or subtracts from the state
 

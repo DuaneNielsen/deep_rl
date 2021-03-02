@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from env import trivial
+from env import debug
 from env import wrappers
 import buffer as bf
 import random
@@ -16,7 +16,7 @@ if __name__ == '__main__':
         () : Reward
         [T(-1.0), E, E, S, E, E, T(1.0)]
     """
-    env = trivial.DelayedBandit()
+    env = debug.DelayedBandit()
     env = wrappers.TimeLimit(env, max_episode_steps=10)
     env, buffer = bf.wrap(env, plot=True, plot_blocksize=16)
 

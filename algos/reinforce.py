@@ -1,7 +1,6 @@
 import torch
 from buffer import ReplayBufferDataset
 from torch.utils.data import DataLoader
-import algos.utils
 
 
 def train(buffer, policy_net, optim, device='cpu', dtype=torch.float):
@@ -18,8 +17,11 @@ def train(buffer, policy_net, optim, device='cpu', dtype=torch.float):
     ds = ReplayBufferDataset(buffer, fields=('s', 'a'), info_keys=['g'])
     dl = DataLoader(ds, batch_size=10000, num_workers=0)
 
-    for transitions in dl:
-        state, action, G = algos.utils.to(transitions.s, transitions.a, transitions.g, device=device, dtype=dtype)
+    for trs in dl:
+        state= trs.s.type(dtype).to(device)
+        action = trs.a.type(dtype).to(device)
+        G = trs.g.type(dtype).to(device).unsqueeze(1)
+
         optim.zero_grad()
         a_dist = policy_net(state)
         G = (G - torch.mean(G)) / (G.max() - G.min()).detach()

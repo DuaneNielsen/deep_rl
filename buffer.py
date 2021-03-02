@@ -3,15 +3,14 @@ import time
 from datetime import datetime
 from math import floor
 from statistics import mean
+from collections import OrderedDict, deque, namedtuple
+from pathlib import Path
 
 import imageio
 import numpy as np
 import torch
-from collections import OrderedDict, deque, namedtuple
-
-from matplotlib import pyplot as plt
 from torchvision.io import write_video, write_jpeg, write_png
-from pathlib import Path
+from matplotlib import pyplot as plt
 import gym
 
 
@@ -112,12 +111,11 @@ Transition
 
 Attributes:
     s: state
-    i: info dict for state
     a: action
     s_p: state prime, the resultant state
     r: reward
     d: done
-    i_p: info dict for state prime
+    i: info dict for transition
 """
 
 

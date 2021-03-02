@@ -4,11 +4,11 @@ from torch import nn
 import numpy as np
 
 from algos import reinforce
-from env import trivial
+from env import debug
 
 
 def test_linear_env():
-    env = trivial.LinearEnv()
+    env = debug.LinearEnv()
 
     env.reset()
     assert env.state[0] == 0.0
@@ -57,7 +57,7 @@ def test_linear_env():
 
 
 def test_REINFORCE():
-    env = trivial.LinearEnv(inital_state=0.1)
+    env = debug.LinearEnv(inital_state=0.1)
     buffer = run.ReplayBuffer()
     buffer.attach_enrichment(run.DiscountedReturns())
     env = run.SubjectWrapper(env)
@@ -100,7 +100,7 @@ def test_REINFORCE():
 
 
 def test_bandit():
-    env = trivial.Bandit()
+    env = debug.Bandit()
 
     state = env.reset()
     assert np.allclose(state, np.array([0.0, 1.0, 0.0]))

@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from env import trivial
+from env import debug
 import buffer as bf
 import random
 import algos.dqn as dqn
@@ -15,7 +15,7 @@ if __name__ == '__main__':
         () : Reward
         [T(-1.0), S, T(1.0)]
     """
-    env = trivial.Bandit()
+    env = debug.Bandit()
     env, buffer = bf.wrap(env, plot=True, plot_blocksize=16)
 
     """ configuration """
