@@ -198,7 +198,9 @@ class ReplayBufferDataset:
     def __init__(self, buffer, fields=None, info_keys=None):
         self.buffer = buffer
         self.fields = fields if fields is not None else ['s', 'a', 's_p', 'r', 'd']
-        self.info_keys = info_keys
+        if isinstance(info_keys, str):
+            self.info_keys = [info_keys]
+        self.info_keys = info_keys if info_keys is not None else []
 
     def __getitem__(self, item):
         item = self.buffer.transitions[item]

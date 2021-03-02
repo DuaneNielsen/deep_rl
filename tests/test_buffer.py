@@ -256,7 +256,7 @@ def test_dataload():
     run.episode(env, policy)
     run.episode(env, policy)
 
-    dataset = run.ReplayBufferDataset(buffer, info_keys=['g'])
+    dataset = run.ReplayBufferDataset(buffer, info_keys='g')
     dl = DataLoader(dataset, batch_size=4)
 
     for data in dl:
@@ -266,3 +266,14 @@ def test_dataload():
         assert (~torch.bitwise_xor(data.d, torch.tensor([False, False, True, True]))).all()
         assert torch.allclose(data.s_p, torch.tensor([1, 2, 3, 1]))
         assert torch.allclose(data.g, torch.tensor([2.0, 2.0, 1.0, 0.0], dtype=torch.double))
+
+    dataset = run.ReplayBufferDataset(buffer, fields=('s', 'a'))
+    dl = DataLoader(dataset, batch_size=4)
+
+    for data in dl:
+        assert torch.allclose(data.s, torch.tensor([0, 1, 2, 0]))
+        assert torch.allclose(data.a, torch.tensor([0, 0, 0, 0]))
+        assert hasattr(data, 's_p') == False
+        assert hasattr(data, 'r') == False
+        assert hasattr(data, 'd') == False
+        assert hasattr(data, 'g') == False
