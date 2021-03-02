@@ -7,23 +7,27 @@ import algos.dqn as dqn
 
 if __name__ == '__main__':
 
-    batchsize = 8
+    """ configuration """
+    batch_size = 8
     epsilon = 0.1
     discount = 0.9
-
-    env = gym.make('CartPole-v1')
-    env = bf.SubjectWrapper(env)
-    buffer = bf.ReplayBuffer()
-    env.attach_observer('replay_buffer', buffer)
-    env.attach_observer('plotter', bf.Plot(blocksize=batchsize))
-
-    assert isinstance(env.action_space, gym.spaces.Discrete)
-    assert isinstance(env.observation_space, gym.spaces.Box)
-    assert len(env.observation_space.shape) == 1
-    state_size = env.observation_space.shape[0]
     hidden_size = 12
 
+    """ Environment """
+    env = gym.make('CartPole-v1')
+
+    """ Replay buffer"""
+    env, replay_buffer = bf.wrap(env, plot=True, plot_blocksize=batch_size)
+
+    """ check environment has continuous input, discrete output"""
+    assert isinstance(env.observation_space, gym.spaces.Box)
+    assert isinstance(env.action_space, gym.spaces.Discrete)
+    assert len(env.observation_space.shape) == 1
+
     class QNet(nn.Module):
+        """
+        Simple MLP, takes in state and outputs a value for each action
+        """
         def __init__(self, state_size, hidden_size, action_size):
             super().__init__()
             self.q_net = nn.Sequential(nn.Linear(state_size, hidden_size), nn.SELU(inplace=True),
@@ -34,9 +38,9 @@ if __name__ == '__main__':
             return action
 
     q_net = QNet(state_size=env.observation_space.shape[0], hidden_size=12, action_size=env.action_space.n)
-    optim = torch.optim.SGD(q_net.parameters(), lr=5e-4)
+    optim = torch.optim.SGD(q_net.parameters(), lr=1e-3)
 
-
+    """ epsilon greedy policy to run on environment """
     def policy(state):
         if random.random() < epsilon:
             return random.randint(0, 1)
@@ -45,13 +49,11 @@ if __name__ == '__main__':
             action = torch.argmax(q_net(state), dim=1)
             return action.item()
 
-    bf.episode(env, policy)
-
-    batch_size = 8
-
-    for step_n, (s, s_i, a, s_p, r, d, i) in enumerate(bf.transitions(env, policy, render=True)):
+    """ execute 1 transition on environment """
+    for step_n, _ in enumerate(bf.step_environment(env, policy, render=True)):
         if step_n < batch_size:
             continue
-        if step_n > 20000:
+        if step_n > 30000:
             break
-        dqn.train(buffer, q_net, optim, batch_size, discount=discount)
+        """ sample a batch and update """
+        dqn.train(replay_buffer, q_net, optim, batch_size, discount=discount)

@@ -56,11 +56,15 @@ class Enricher:
     will be called after buffer operations are complete
     multiple enrichers will be called in order they were attached
     """
+
     def reset(self, buffer, state, **kwargs):
         pass
 
     def step(self, buffer, action, state, reward, done, info, **kwargs):
         pass
+
+    def enrich(self, fields, transition, i, i_p):
+        return fields, transition, i, i_p
 
 
 class Returns(Enricher):
@@ -69,12 +73,12 @@ class Returns(Enricher):
     Returns are added to the info field
     for transition (s, i, a, s_p, r, d, i_p), return = transition.i['g']
     """
+
     def step(self, buffer, action, state, reward, done, info, **kwargs):
         if done:
             # terminal state returns are always 0
             g = 0
-            info['g'] = 0.0
-            for s, i, a, s_p, r, d, i_p in TrajectoryTransitionsReverse(buffer, buffer.trajectories[-1]):
+            for s, a, s_p, r, d, i in TrajectoryTransitionsReverse(buffer, buffer.trajectories[-1]):
                 g += r
                 i['g'] = g
 
@@ -85,6 +89,7 @@ class DiscountedReturns(Enricher):
     Returns are added to the info field
     for transition (s, i, a, s_p, r, d, i_p), return = transition.i['g']
     """
+
     def __init__(self, discount=0.95):
         self.discount = discount
 
@@ -92,14 +97,12 @@ class DiscountedReturns(Enricher):
         if done:
             # terminal state returns are always 0
             g = 0.0
-            info['g'] = 0.0
             # get the last trajectory and reverse iterate over transitions
-            for s, i, a, s_p, r, d, i_p in TrajectoryTransitionsReverse(buffer, buffer.trajectories[-1]):
+            for s, a, s_p, r, d, i in TrajectoryTransitionsReverse(buffer, buffer.trajectories[-1]):
                 g = r + g * self.discount
                 i['g'] = g
 
 
-Transition = namedtuple('Transition', ['s', 'i', 'a', 's_p', 'r', 'd', 'i_p'])
 """
 Transition
 
@@ -162,7 +165,7 @@ class ReplayBuffer(EnvObserver):
             self.traj_start = len(self.buffer)
         else:
             """ if not terminal, then by definition, this will be a transition """
-            self.transitions.append(len(self.buffer)-1)
+            self.transitions.append(len(self.buffer) - 1)
 
         for enricher in self.enrich:
             enricher.step(self, action, state, reward, done, info, **kwargs)
@@ -170,8 +173,9 @@ class ReplayBuffer(EnvObserver):
     def __getitem__(self, item):
         item = self.transitions[item]
         _, s, _, _, i = self.buffer[item]
-        a, s_p, r, d, i_p = self.buffer[item+1]
-        return Transition(s, i, a, s_p, r, d, i_p)
+        a, s_p, r, d, i_p = self.buffer[item + 1]
+        Transition = namedtuple('Transition', ['s', 'a', 's_p', 'r', 'd'])
+        return Transition(s, a, s_p, r, d)
 
     def __len__(self):
         if len(self.buffer) == 0:
@@ -182,6 +186,38 @@ class ReplayBuffer(EnvObserver):
             """ so we can't use the transition at the end yet"""
             return len(self.transitions) - 1
         return len(self.transitions)
+
+
+# ['s', 'a'], ['advantage']
+
+class ReplayBufferDataset:
+    def __init__(self, buffer, fields=None, info_keys=None):
+        self.buffer = buffer
+        self.fields = fields if fields is not None else ['s', 'a', 's_p', 'r', 'd']
+        self.info_keys = info_keys
+
+    def __getitem__(self, item):
+        item = self.buffer.transitions[item]
+        _, s, _, _, _ = self.buffer.buffer[item]
+        a, s_p, r, d, i = self.buffer.buffer[item + 1]
+        map = {'s': s, 'a': a, 's_p': s_p, 'r': r, 'd': d}
+
+        fields = []
+        transition = []
+        for field in self.fields:
+            fields += [field]
+            transition += [map[field]]
+
+        for key in self.info_keys:
+            fields += [key]
+            transition += [i[key]]
+
+        Transition = namedtuple('Transition', fields)
+
+        return Transition(*transition)
+
+    def __len__(self):
+        return len(self.buffer)
 
 
 class TrajectoryTransitions:
@@ -195,6 +231,7 @@ class TrajectoryTransitions:
     ```
 
     """
+
     def __init__(self, replay_buffer, trajectory_start_end_tuple):
         self.buffer = replay_buffer
         self.start = trajectory_start_end_tuple[0]
@@ -203,10 +240,10 @@ class TrajectoryTransitions:
 
     def __next__(self):
         if self.cursor + 1 < self.end:
-            _, s, _, _, i = self.buffer.buffer[self.cursor]
-            a, s_p, r, d, i_p = self.buffer.buffer[self.cursor + 1]
+            _, s, _, _, _ = self.buffer.buffer[self.cursor]
+            a, s_p, r, d, i = self.buffer.buffer[self.cursor + 1]
             self.cursor += 1
-            return s, i, a, s_p, r, d, i_p
+            return s, a, s_p, r, d, i
         else:
             raise StopIteration
 
@@ -223,10 +260,10 @@ class TrajectoryTransitionsReverse:
 
     def __next__(self):
         if self.cursor > self.start:
-            _, s, _, _, i = self.buffer.buffer[self.cursor - 1]
-            a, s_p, r, d, i_p = self.buffer.buffer[self.cursor]
+            _, s, _, _, _ = self.buffer.buffer[self.cursor - 1]
+            a, s_p, r, d, i = self.buffer.buffer[self.cursor]
             self.cursor -= 1
-            return s, i, a, s_p, r, d, i_p
+            return s, a, s_p, r, d, i
         else:
             raise StopIteration
 
@@ -310,6 +347,7 @@ class StepFilter:
 
     if you want to pre-process environment observations before passing to policy, use a gym.Wrapper
     """
+
     def __call__(self, action, state, reward, done, info, **kwargs):
         return action, state, reward, done, info, kwargs
 
@@ -335,6 +373,7 @@ class SubjectWrapper(gym.Wrapper):
     filters to process the steps are supported, and data enrichment is possible
     by adding to the kwargs dict
     """
+
     def __init__(self, env, seed=None, **kwargs):
         gym.Wrapper.__init__(self, env)
         self.kwargs = kwargs
@@ -384,6 +423,7 @@ class Plot(EnvObserver):
     plotter = Plot()
     env.attach("plotter", plotter)
     """
+
     def __init__(self, refresh_cooldown=1.0, history_length=None, blocksize=1):
         """
 
@@ -420,7 +460,7 @@ class Plot(EnvObserver):
             """ calculate mean over prev block"""
             if len(self.epi_len) % self.blocksize == 0:
                 n = len(self.epi_len) // self.blocksize
-                start, end = (n-1) * self.blocksize, n * self.blocksize
+                start, end = (n - 1) * self.blocksize, n * self.blocksize
                 self.block_ave_reward += [mean(list(self.epi_reward)[start:end])]
                 self.block_ave_len += [mean(list(self.epi_len)[start:end])]
 
@@ -490,6 +530,7 @@ def render_env(env, render, delay):
 def episode(env, policy, render=False, delay=0.01, **kwargs):
     """
     Runs one episode using the provided policy on the environment
+    :param env: gym environment to generate an episode for
     :param policy: takes state as input, must output an action runnable on the environment
     :param render: if True will call environments render function
     :param delay: rendering delay
@@ -505,26 +546,28 @@ def episode(env, policy, render=False, delay=0.01, **kwargs):
             render_env(env, render, delay)
 
 
-def transitions(env, policy, render=False):
+def step_environment(env, policy, render=False, **kwargs):
     """
     Transition generator, advances a single transition each iteration
+    :param env: gym environment to step
+    :param policy: policy use
+    :param render: calls env render function if True
+    :param kwargs: will be passed to the policy, and environment
     """
     done = True
     state = None
-    state_info = None
 
     while True:
         if done:
-            state, state_info = env.reset(), {}
+            state, state_info = env.reset(**kwargs), {}
             if render:
                 env.render()
-        action = policy(state)
-        state_p, reward, done, state_p_info = env.step(action)
+        action = policy(state, **kwargs)
+        state_p, reward, done, info = env.step(action, **kwargs)
         if render:
             env.render()
 
-        yield state, state_info, action, state_p, reward, done, state_p_info
+        yield state, action, state_p, reward, done, info
 
         state = state_p
-        state_info = state_info
         done = done

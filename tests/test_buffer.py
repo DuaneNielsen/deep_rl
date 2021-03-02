@@ -6,20 +6,11 @@ from torch.utils.data import DataLoader
 
 
 def transition_equal(t1, t2):
-    s1, i1, a1, sp_1, r1, d1, ip_1 = t1
-    s2, i2, a2, sp_2, r2, d2, ip_2 = t2
-    assert (s1 == s2) and (sp_1 == sp_2)
-    assert (a1 == a2)
-    assert (r1 == r2)
-    assert (d1 == d2)
-    if 's' in i1 and 's' in i2:
-        assert (i1['s'] == i2['s'])
-    elif 's' in i1 or 's' in i2:
-        assert False
-    if 's' in ip_1 and 's' in ip_2:
-        assert (ip_1['s'] == ip_2['s'])
-    elif 's' in ip_1 or 's' in ip_2:
-        assert False
+    for i, field in enumerate(t1):
+        if isinstance(field, dict):
+            assert t1[i]['s'] == t2[i]['s']
+        else:
+            assert t1[i] == t2[i]
 
 
 def test_buffer():
@@ -45,15 +36,15 @@ def test_buffer():
     assert len(buffer.transitions) == 3
 
     transition = buffer[0]
-    expected = 0, {}, 0, 1, 0.0, False, {}
+    expected = 0, 0, 1, 0.0, False
     transition_equal(transition, expected)
 
     transition = buffer[1]
-    expected = 1, {}, 0, 2, 0.0, True, {}
+    expected = 1, 0, 2, 0.0, True
     transition_equal(transition, expected)
 
     transition = buffer[2]
-    expected = 0, {}, 0, 1, 0.0, True, {}
+    expected = 0, 0, 1, 0.0, True
     transition_equal(transition, expected)
 
 
@@ -74,7 +65,7 @@ def test_load_before_trajectory_terminates():
     runner.observe_step(*step)
     assert len(buffer) == 1
     assert len(buffer.trajectories) == 0
-    expected_transition = 0, {}, 0, 1, 0.0, False, {}
+    expected_transition = 0, 0, 1, 0.0, False
     transition_equal(buffer[0], expected_transition)
 
     """ third step, trajectory ends """
@@ -82,9 +73,9 @@ def test_load_before_trajectory_terminates():
     runner.observe_step(*step)
     assert len(buffer) == 2
     assert len(buffer.trajectories) == 1
-    expected_transition = 0, {}, 0, 1, 0.0, False, {}
+    expected_transition = 0, 0, 1, 0.0, False
     transition_equal(buffer[0], expected_transition)
-    expected_transition = 1, {}, 0, 2, 1.0, True, {}
+    expected_transition = 1, 0, 2, 1.0, True
     transition_equal(buffer[1], expected_transition)
 
     """ forth step, 2nd trajectory resets  """
@@ -92,9 +83,9 @@ def test_load_before_trajectory_terminates():
     runner.observe_step(*step)
     assert len(buffer) == 2
     assert len(buffer.trajectories) == 1
-    expected_transition = 0, {}, 0, 1, 0.0, False, {}
+    expected_transition = 0, 0, 1, 0.0, False
     transition_equal(buffer[0], expected_transition)
-    expected_transition = 1, {}, 0, 2, 1.0, True, {}
+    expected_transition = 1, 0, 2, 1.0, True
     transition_equal(buffer[1], expected_transition)
 
     """ fifth step, 2nd trajectory ends """
@@ -102,11 +93,11 @@ def test_load_before_trajectory_terminates():
     runner.observe_step(*step)
     assert len(buffer) == 3
     assert len(buffer.trajectories) == 2
-    expected_transition = 0, {}, 0, 1, 0.0, False, {}
+    expected_transition = 0, 0, 1, 0.0, False
     transition_equal(buffer[0], expected_transition)
-    expected_transition = 1, {}, 0, 2, 1.0, True, {}
+    expected_transition = 1, 0, 2, 1.0, True
     transition_equal(buffer[1], expected_transition)
-    expected_transition = 3, {}, 0, 4, 1.0, True, {}
+    expected_transition = 3, 0, 4, 1.0, True
     transition_equal(buffer[2], expected_transition)
 
 
@@ -128,9 +119,9 @@ def test_buffer_iterator():
 
     assert len(buffer) == 3
 
-    transition_equal(buffer[0], (0, {}, 0, 1, 0.0, False, {}))
-    transition_equal(buffer[1], (1, {}, 0, 2, 1.0, True, {}))
-    transition_equal(buffer[2], (0, {}, 0, 1, 0.0, True, {}))
+    transition_equal(buffer[0], (0, 0, 1, 0.0, False))
+    transition_equal(buffer[1], (1, 0, 2, 1.0, True))
+    transition_equal(buffer[2], (0, 0, 1, 0.0, True))
 
 
 def test_trajectory_iterator():
@@ -150,13 +141,13 @@ def test_trajectory_iterator():
     run.episode(env, policy)
 
     trajectory = run.TrajectoryTransitions(buffer, buffer.trajectories[0])
-    transition_equal(next(trajectory), (0, {}, 0, 1, 0.0, False, {'s': 1}))
-    transition_equal(next(trajectory), (1, {'s': 1}, 0, 2, 1.0, True, {'s': 2}))
+    transition_equal(next(trajectory), (0, 0, 1, 0.0, False, {'s': 1}))
+    transition_equal(next(trajectory), (1, 0, 2, 1.0, True, {'s': 2}))
     with pytest.raises(StopIteration):
         next(trajectory)
 
     trajectory = run.TrajectoryTransitions(buffer, buffer.trajectories[1])
-    transition_equal(next(trajectory), (0, {}, 0, 1, 0.0, True, {'s': 1}))
+    transition_equal(next(trajectory), (0, 0, 1, 0.0, True, {'s': 1}))
 
     with pytest.raises(StopIteration):
         next(trajectory)
@@ -179,13 +170,13 @@ def test_reverse_trajectory_iterator():
     run.episode(env, policy)
 
     trajectory = run.TrajectoryTransitionsReverse(buffer, buffer.trajectories[0])
-    transition_equal(next(trajectory), (1, {'s': 1}, 0, 2, 1.0, True, {'s': 2}))
-    transition_equal(next(trajectory), (0, {}, 0, 1, 0.0, False, {'s': 1}))
+    transition_equal(next(trajectory), (1, 0, 2, 1.0, True, {'s': 2}))
+    transition_equal(next(trajectory), (0, 0, 1, 0.0, False, {'s': 1}))
     with pytest.raises(StopIteration):
         next(trajectory)
 
     trajectory = run.TrajectoryTransitions(buffer, buffer.trajectories[1])
-    transition_equal(next(trajectory), (0, {}, 0, 1, 0.0, True, {'s': 1}))
+    transition_equal(next(trajectory), (0, 0, 1, 0.0, True, {'s': 1}))
 
     with pytest.raises(StopIteration):
         next(trajectory)
@@ -209,11 +200,13 @@ def test_enrichment_returns():
     run.episode(env, policy)
     run.episode(env, policy)
 
-    assert buffer[0].i['g'] == 2.0
-    assert buffer[1].i['g'] == 2.0
-    assert buffer[2].i['g'] == 1.0
+    dataset = run.ReplayBufferDataset(buffer, info_keys=['g'])
 
-    assert buffer[3].i['g'] == 0.0
+    assert dataset[0].g == 2.0
+    assert dataset[1].g == 2.0
+    assert dataset[2].g == 1.0
+
+    assert dataset[3].g == 0.0
 
 
 def test_enrichment_discounted_returns():
@@ -236,11 +229,13 @@ def test_enrichment_discounted_returns():
     run.episode(env, policy)
     run.episode(env, policy)
 
-    assert buffer[0].i['g'] == discount * 1.0 + discount ** 2 * 1.0
-    assert buffer[1].i['g'] == 1.0 + discount * 1.0
-    assert buffer[2].i['g'] == 1.0
+    dataset = run.ReplayBufferDataset(buffer, info_keys=['g'])
 
-    assert buffer[3].i['g'] == 0.0
+    assert dataset[0].g == discount * 1.0 + discount ** 2 * 1.0
+    assert dataset[1].g == 1.0 + discount * 1.0
+    assert dataset[2].g == 1.0
+
+    assert dataset[3].g == 0.0
 
 
 def test_dataload():
@@ -261,7 +256,8 @@ def test_dataload():
     run.episode(env, policy)
     run.episode(env, policy)
 
-    dl = DataLoader(buffer, batch_size=4)
+    dataset = run.ReplayBufferDataset(buffer, info_keys=['g'])
+    dl = DataLoader(dataset, batch_size=4)
 
     for data in dl:
         assert torch.allclose(data.s, torch.tensor([0, 1, 2, 0]))
@@ -269,5 +265,4 @@ def test_dataload():
         assert torch.allclose(data.r, torch.tensor([0.0, 1.0, 1.0, 0.0], dtype=torch.double))
         assert (~torch.bitwise_xor(data.d, torch.tensor([False, False, True, True]))).all()
         assert torch.allclose(data.s_p, torch.tensor([1, 2, 3, 1]))
-        g = data.i['g']
-        assert torch.allclose(g, torch.tensor([2.0, 2.0, 1.0, 0.0], dtype=torch.double))
+        assert torch.allclose(data.g, torch.tensor([2.0, 2.0, 1.0, 0.0], dtype=torch.double))

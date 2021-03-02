@@ -2,10 +2,13 @@ import torch
 from torch.utils.data import DataLoader, SubsetRandomSampler
 import random
 import algos.utils
+from buffer import ReplayBufferDataset
 
 
 def train(buffer, q_net, optim, batch_size, discount, device='cpu', dtype=torch.float):
     """
+    Deep Q Network
+
     buffer: replay buffer
     q_net: nn.Module with forward(state) = values,
                 s is (N, S) tensor
@@ -20,10 +23,12 @@ def train(buffer, q_net, optim, batch_size, discount, device='cpu', dtype=torch.
     """
 
     """ sample from batch_size transitions from the replay buffer """
-    sampler = SubsetRandomSampler(random.sample(range(len(buffer)), batch_size))
+    ds = ReplayBufferDataset(buffer)
+    sampler = SubsetRandomSampler(random.sample(range(len(ds)), batch_size))
     dl = DataLoader(buffer, batch_size=batch_size, sampler=sampler)
 
-    for s, i, a, s_p, r, d, i_p in dl:
+    """ loads 1 batch and runs a single training step """
+    for s, a, s_p, r, d in dl:
         s, s_p, r, d = algos.utils.to(s, s_p, r, d, device=device, dtype=dtype)
         a = a.to(device)
         N = s.shape[0]
@@ -38,5 +43,3 @@ def train(buffer, q_net, optim, batch_size, discount, device='cpu', dtype=torch.
 
         loss.backward()
         optim.step()
-
-
