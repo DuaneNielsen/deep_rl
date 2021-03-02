@@ -81,9 +81,9 @@ ds = bf.ReplayBufferDataset(buffer, fields=('s', 'a'))
 
 You can also enrich the information collected in the buffer by implementing an Enricher or using a provided enricher
 
-Enrich the dataset with discounted returns
+enrichment is added to the transition info dict
 
-returns will be added to 
+use the info_keys attribute on ReplayBufferDataset to add the key to the transition
 
 ```python
 import gym
