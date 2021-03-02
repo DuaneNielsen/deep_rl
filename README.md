@@ -1,8 +1,8 @@
-#Deep RL
+# Deep RL
 
 Minimal pytorch framework for developing Deep Reinforcement Learning algorithms.
 
-###Features
+### Features
 
 * Simple and flexible replay buffer
 * Wrappers to drive gym environment and store transitions
@@ -10,7 +10,7 @@ Minimal pytorch framework for developing Deep Reinforcement Learning algorithms.
 * Visualizes statistics during agent runs on environment
 * All core functions in a single file, just drag and drop into your project
 
-##Replay buffer
+## Replay buffer
 
 Replay buffer is implemented as a gym wrapper
 
@@ -58,7 +58,7 @@ ds = ReplayBufferDataset(buffer, fields=('s', 'a'), info_keys=['g'])
 dl = DataLoader(ds, batch_size=10000, num_workers=0)
 ```
 
-##Enrichment and ReplayBufferDataset
+## Enrichment and ReplayBufferDataset
 
 You can load only the parts of a transition you want
 
