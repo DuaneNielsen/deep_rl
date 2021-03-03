@@ -116,3 +116,83 @@ def test_bandit():
     assert np.allclose(state, np.array([0.0, 0.0, 1.0]))
     assert reward == 1.0
     assert done
+
+
+def test_delayed_bandit():
+    env = debug.DelayedBandit()
+
+    state = env.reset()
+    assert np.allclose(state, debug.one_hot(3, 7))
+
+    state, reward, done, _ = env.step(1)
+    assert np.allclose(state, debug.one_hot(4, 7))
+    assert reward == 0.0
+    assert not done
+
+    state, reward, done, _ = env.step(1)
+    assert np.allclose(state, debug.one_hot(5, 7))
+    assert reward == 0.0
+    assert not done
+
+    state, reward, done, _ = env.step(0)
+    assert np.allclose(state, debug.one_hot(4, 7))
+    assert reward == 0.0
+    assert not done
+
+    state, reward, done, _ = env.step(1)
+    assert np.allclose(state, debug.one_hot(5, 7))
+    assert reward == 0.0
+    assert not done
+
+    next_state, reward, done, _ = env.lookahead(state, 0)
+    assert np.allclose(next_state, debug.one_hot(4, 7))
+    assert reward == 0.0
+    assert not done
+
+    next_state, reward, done, _ = env.lookahead(state, 1)
+    assert np.allclose(next_state, debug.one_hot(6, 7))
+    assert reward == 1.0
+    assert done
+
+    state, reward, done, _ = env.step(1)
+    assert np.allclose(state, debug.one_hot(6, 7))
+    assert reward == 1.0
+    assert done
+
+    state = env.reset()
+    assert np.allclose(state, debug.one_hot(3, 7))
+
+    state, reward, done, _ = env.step(0)
+    assert np.allclose(state, debug.one_hot(2, 7))
+    assert reward == 0.0
+    assert not done
+
+    state, reward, done, _ = env.step(0)
+    assert np.allclose(state, debug.one_hot(1, 7))
+    assert reward == 0.0
+    assert not done
+
+    state, reward, done, _ = env.step(1)
+    assert np.allclose(state, debug.one_hot(2, 7))
+    assert reward == 0.0
+    assert not done
+
+    state, reward, done, _ = env.step(0)
+    assert np.allclose(state, debug.one_hot(1, 7))
+    assert reward == 0.0
+    assert not done
+
+    next_state, reward, done, _ = env.lookahead(state, 0)
+    assert np.allclose(next_state, debug.one_hot(0, 7))
+    assert reward == -1.0
+    assert done
+
+    next_state, reward, done, _ = env.lookahead(state, 1)
+    assert np.allclose(next_state, debug.one_hot(2, 7))
+    assert reward == 0.0
+    assert not done
+
+    state, reward, done, _ = env.step(0)
+    assert np.allclose(state, debug.one_hot(0, 7))
+    assert reward == -1.0
+    assert done

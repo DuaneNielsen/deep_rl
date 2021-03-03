@@ -81,7 +81,7 @@ class LinearEnv(gym.Env):
         pass
 
 
-def discrete_state(state, size):
+def one_hot(state, size):
     s = np.zeros(size)
     s[state] = 1.0
     return s
@@ -98,7 +98,7 @@ class LineGrid(gym.Env):
         self.reward_map = reward_map
         self.terminal_map = {0: True, n_states-1: True}
 
-    def ds(self, s, a):
+    def d_s(self, s, a):
         return self.action_map[a]
 
     def reward(self, s):
@@ -109,18 +109,19 @@ class LineGrid(gym.Env):
 
     def reset(self):
         self.state = self.initial_state
-        return discrete_state(self.state, self.observation_space.n)
+        return one_hot(self.state, self.observation_space.n)
 
     def step(self, action: int):
-        self.state += self.ds(self.state, action)
-        return discrete_state(self.state, self.observation_space.n), self.reward(self.state), self.done(self.state), {}
+        self.state += self.d_s(self.state, action)
+        return one_hot(self.state, self.observation_space.n), self.reward(self.state), self.done(self.state), {}
 
     def lookahead(self, state, action):
-        state += self.ds(state, action)
-        return discrete_state(state, self.observation_space.n), self.reward(state), self.done(state), {}
+        next_state = np.argmax(state)
+        next_state += self.d_s(state, action)
+        return one_hot(next_state, self.observation_space.n), self.reward(next_state), self.done(next_state), {}
 
     def render(self, mode=None):
-        print(self.state)
+        print(one_hot(self.state, self.observation_space.n))
 
 
 class Bandit(LineGrid):

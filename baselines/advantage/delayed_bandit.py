@@ -7,29 +7,31 @@ import random
 import numpy as np
 import algos.advantage as adv
 import time
-import sys
+from gym import wrappers
+
 
 if __name__ == '__main__':
 
-    """ environment
+    """ environment 
         S : Start state
         T : Terminal state
         () : Reward
-        [T(-1.0), S, T(1.0)]
+        [T(-1.0), E, E, S, E, E, T(1.0)]
     """
-    unwrapped = debug.Bandit()
-    env, buffer = bf.wrap(unwrapped, plot=True, plot_blocksize=16)
+    unwrapped = debug.DelayedBandit()
+    env = wrappers.TimeLimit(unwrapped, max_episode_steps=100)
+    env, buffer = bf.wrap(env, plot=True, plot_blocksize=16)
 
     """ configuration """
     epsilon = 0.05  # exploration parameter, prob of taking random action
     batch_size = 8
     discount = 1.0
 
-    """ this Value network """
+    """ Value network """
     class VNet(nn.Module):
         def __init__(self):
             super(VNet, self).__init__()
-            self.vtable = nn.Parameter(torch.randn(3, 1))
+            self.vtable = nn.Parameter(torch.randn(7, 1))
 
         def forward(self, state):
             s = torch.argmax(state, dim=1)
@@ -64,7 +66,7 @@ if __name__ == '__main__':
     for step_n, (s, a, s_p, r, d, i) in enumerate(bf.step_environment(env, policy, render=False)):
         if step_n < batch_size:
             continue
-        if step_n > 2000:
+        if step_n > 2000000:
             break
 
         """ train the q network using dqn """
