@@ -4,9 +4,8 @@ import torch.nn as nn
 from env import debug
 import buffer as bf
 import random
-import algos.dqn as dqn
+import algos.advantage as adv
 import time
-import sys
 
 if __name__ == '__main__':
 
@@ -16,42 +15,35 @@ if __name__ == '__main__':
         () : Reward
         [T(-1.0), S, T(1.0)]
     """
-    unwrapped = debug.Bandit()
-    env, buffer = bf.wrap(unwrapped, plot=True, plot_blocksize=16)
+    env = debug.Bandit()
+    env, buffer = bf.wrap(env, plot=True, plot_blocksize=16)
 
     """ configuration """
     epsilon = 0.05  # exploration parameter, prob of taking random action
     batch_size = 8
     discount = 1.0
 
-    """ this Q network is a simple lookup table S x A """
-    class QNet(nn.Module):
+    """ this Value network """
+    class VNet(nn.Module):
         def __init__(self):
-            super(QNet, self).__init__()
-            self.qtable = nn.Parameter(torch.randn(3, 2))
+            super(VNet, self).__init__()
+            self.vtable = nn.Parameter(torch.randn(3, 1))
 
         def forward(self, state):
             s = torch.argmax(state, dim=1)
-            return self.qtable[s]
+            return self.vtable[s]
 
-    v_net = QNet()
-    optim = torch.optim.SGD(v_net.parameters(), lr=1e-2)
+    q_net = VNet()
+    optim = torch.optim.SGD(q_net.parameters(), lr=1e-2)
 
     """ policy to run on environment """
     def policy(state):
         if random.random() < epsilon:
             return random.randint(0, 1)
         else:
-            action = -1
-            value = sys.float_info.min
-            for action_candidate in range(env.action_space.n):
-                next_state = unwrapped.lookahead(action_candidate)
-                torch.from_numpy(next_state).float().unsqueeze(0)
-                value_candidate = v_net(next_state).item()
-                if value_candidate > value:
-                    action = action_candidate
-                    value = value_candidate
-            return action
+            state = torch.from_numpy(state).float().unsqueeze(0)
+            action = torch.argmax(q_net(state), dim=1)
+            return action.item()
 
     """
     training loop  

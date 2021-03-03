@@ -96,18 +96,28 @@ class LineGrid(gym.Env):
         self.action_space = gym.spaces.Discrete(2)
         self.action_map = [-1, 1]
         self.reward_map = reward_map
+        self.terminal_map = {0: True, n_states-1: True}
+
+    def ds(self, s, a):
+        return self.action_map[a]
+
+    def reward(self, s):
+        return self.reward_map.get(s, 0.0)
+
+    def done(self, s):
+        return self.terminal_map.get(s, False)
 
     def reset(self):
         self.state = self.initial_state
         return discrete_state(self.state, self.observation_space.n)
 
     def step(self, action: int):
-        self.state += self.action_map[action]
-        reward = 0.0
-        if self.state in self.reward_map:
-            reward = self.reward_map[self.state]
-        done = self.state == 0 or self.state == self.observation_space.n - 1
-        return discrete_state(self.state, self.observation_space.n), reward, done, {}
+        self.state += self.ds(self.state, action)
+        return discrete_state(self.state, self.observation_space.n), self.reward(self.state), self.done(self.state), {}
+
+    def lookahead(self, state, action):
+        state += self.ds(state, action)
+        return discrete_state(state, self.observation_space.n), self.reward(state), self.done(state), {}
 
     def render(self, mode=None):
         print(self.state)
@@ -121,7 +131,7 @@ class Bandit(LineGrid):
         () : Reward
         [T(-1.0), S, T(1.0)]
         """
-        super().__init__(1, 3, dict([(0, -1.0), (2, 1.0)]))
+        super().__init__(initial_state=1, n_states=3, reward_map=dict([(0, -1.0), (2, 1.0)]))
 
 
 class DelayedBandit(LineGrid):
@@ -132,4 +142,4 @@ class DelayedBandit(LineGrid):
         () : Reward
         [T(-1.0), E, E, S, E, E, T(1.0)]
         """
-        super().__init__(3, 7, dict([(0, -1.0), (6, 1.0)]))
+        super().__init__(initial_state=3, n_states=7, reward_map=dict([(0, -1.0), (6, 1.0)]))
