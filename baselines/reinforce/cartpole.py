@@ -7,7 +7,7 @@ import gym
 import buffer as bf
 from algos import reinforce
 from distributions import ScaledTanhTransformedGaussian
-from env.continuous_cartpole import ContinuousCartPoleEnv
+import env
 
 
 class RescaleReward(gym.RewardWrapper):
@@ -21,11 +21,11 @@ class RescaleReward(gym.RewardWrapper):
 if __name__ == '__main__':
 
     """ configuration """
-    batch_size = 128  # number of trajectories per training iteration
+    batch_size = 32  # number of trajectories per training iteration
     discount = 0.95
 
     """ environment """
-    env = ContinuousCartPoleEnv()
+    env = gym.make('CartPoleContinuous-v1')
     env = RescaleReward(env)  # rescale reward to reduce gradient size
 
     """ replay buffer """
@@ -62,7 +62,7 @@ if __name__ == '__main__':
         return a
 
     """ sample """
-    for epoch in range(2048):
+    for epoch in range(8000):
         for ep in range(batch_size):
             bf.episode(env, policy)
 

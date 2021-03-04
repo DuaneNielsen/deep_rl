@@ -4,6 +4,7 @@ from torch import nn
 import numpy as np
 
 from algos import reinforce
+import gym
 from env import debug
 
 
@@ -100,7 +101,7 @@ def test_REINFORCE():
 
 
 def test_bandit():
-    env = debug.Bandit()
+    env = gym.make('Bandit-v1')
 
     state = env.reset()
     assert np.allclose(state, np.array([0.0, 1.0, 0.0]))
@@ -119,7 +120,7 @@ def test_bandit():
 
 
 def test_delayed_bandit():
-    env = debug.DelayedBandit()
+    env = gym.make('DelayedBandit-v1')
 
     state = env.reset()
     assert np.allclose(state, debug.one_hot(3, 7))

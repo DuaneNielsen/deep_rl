@@ -407,18 +407,18 @@ class SubjectWrapper(gym.Wrapper):
         for name, observer in self.observers.items():
             observer.step(action, state, reward, done, info, **kwargs)
 
-    def reset(self, **kwargs):
+    def reset(self):
         state = self.env.reset()
         self.observer_reset(state)
         return state
 
-    def step(self, action, **kwargs):
-        state, reward, done, info = self.env.step(action, **kwargs)
-        self.observe_step(action, state, reward, done, info, **kwargs)
+    def step(self, action):
+        state, reward, done, info = self.env.step(action)
+        self.observe_step(action, state, reward, done, info)
         return state, reward, done, info
 
 
-class Plot(EnvObserver):
+class Plot(gym.Wrapper):
     """
     An Observer that will plot episode returns and lengths
     to use, use the buffer.Subject gym wrapper and attach, ie
@@ -428,37 +428,52 @@ class Plot(EnvObserver):
     env.attach("plotter", plotter)
     """
 
-    def __init__(self, refresh_cooldown=1.0, history_length=None, blocksize=1):
+    def __init__(self, env, refresh_cooldown=1.0, history_length=None, blocksize=1):
         """
 
         :param refresh_cooldown: maximum refresh frequency
         :param history_length: amount of trajectory returns to buffer
         :param blocksize: combines episodes into blocks and plots the average result
         """
+
+        super().__init__(env)
+
         self.cols = 4
         self.rows = 2
         plt.ion()
         self.fig = plt.figure(figsize=(8, 16))
+        if env.unwrapped.spec is not None:
+            self.fig.suptitle(env.unwrapped.spec.id)
+        else:
+            self.fig.suptitle('set env.spec.id to show title')
         spec = plt.GridSpec(ncols=self.cols, nrows=self.rows, figure=self.fig)
 
         self.update_cooldown = Cooldown(secs=refresh_cooldown)
         self.blocksize = blocksize
 
+        self.total_steps = 0
+        self.total_step_tracker = []
+
         self.epi_reward_ax = self.fig.add_subplot(spec[0, 0:4])
+        self.epi_reward_ax.set_title('average reward per episode')
         self.epi_reward = deque(maxlen=history_length)
         self.block_ave_reward = []
 
         self.epi_len_ax = self.fig.add_subplot(spec[1, 0:4])
+        self.epi_len_ax.set_title('average episode length')
         self.epi_len = deque(maxlen=history_length)
         self.block_ave_len = []
 
-    def reset(self, state, **kwargs):
+    def reset(self):
         self.epi_reward.append(0)
         self.epi_len.append(0)
+        return self.env.reset()
 
-    def step(self, action, state, reward, done, info, **kwargs):
+    def step(self, action):
+        state, reward, done, info = self.env.step(action)
         self.epi_reward[-1] += reward
         self.epi_len[-1] += 1
+        self.total_steps += 1
 
         if done:
             """ calculate mean over prev block"""
@@ -467,13 +482,17 @@ class Plot(EnvObserver):
                 start, end = (n - 1) * self.blocksize, n * self.blocksize
                 self.block_ave_reward += [mean(list(self.epi_reward)[start:end])]
                 self.block_ave_len += [mean(list(self.epi_len)[start:end])]
+                self.total_step_tracker += [self.total_steps]
 
         if self.update_cooldown():
             self.epi_reward_ax.clear()
-            self.epi_reward_ax.plot(self.block_ave_reward)
+            self.epi_reward_ax.set_xlabel('steps')
+            self.epi_reward_ax.plot(self.total_step_tracker, self.block_ave_reward)
             self.epi_len_ax.clear()
-            self.epi_len_ax.plot(self.block_ave_len)
+            self.epi_len_ax.set_xlabel('steps')
+            self.epi_len_ax.plot(self.total_step_tracker, self.block_ave_len)
             plt.pause(0.001)
+        return state, reward, done, info
 
     def save(self):
         io_buf = io.BytesIO()
@@ -519,9 +538,9 @@ def wrap(env, plot=False, plot_blocksize=1):
     """
     buffer = ReplayBuffer()
     env = SubjectWrapper(env)
-    env.attach_observer('replay_buffer', buffer)
     if plot:
-        env.attach_observer('plot', Plot(blocksize=plot_blocksize))
+        env = Plot(env, blocksize=plot_blocksize)
+    env.attach_observer('replay_buffer', buffer)
     return env, buffer
 
 
@@ -541,12 +560,12 @@ def episode(env, policy, render=False, delay=0.01, **kwargs):
     :param kwargs: kwargs will be passed to policy, environment step, and observers
     """
     with torch.no_grad():
-        state, reward, done, info = env.reset(**kwargs), 0.0, False, {}
+        state, reward, done, info = env.reset(), 0.0, False, {}
         action = policy(state, **kwargs)
         render_env(env, render, delay)
         while not done:
-            state, reward, done, info = env.step(action, **kwargs)
-            action = policy(state, **kwargs)
+            state, reward, done, info = env.step(action)
+            action = policy(state)
             render_env(env, render, delay)
 
 
@@ -563,11 +582,11 @@ def step_environment(env, policy, render=False, **kwargs):
 
     while True:
         if done:
-            state, state_info = env.reset(**kwargs), {}
+            state, state_info = env.reset(), {}
             if render:
                 env.render()
         action = policy(state, **kwargs)
-        state_p, reward, done, info = env.step(action, **kwargs)
+        state_p, reward, done, info = env.step(action)
         if render:
             env.render()
 

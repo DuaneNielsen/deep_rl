@@ -22,7 +22,7 @@ def train(buffer, v_net, optim, batch_size, discount, device='cpu', dtype=torch.
         with torch.no_grad():
             v_sp = v_net(s_p) * (~d).float()
             v_sp = r + v_sp * discount
-        loss = torch.mean((v_sp - v_s) ** 2)
+        loss = torch.mean(v_sp - v_s) ** 2
 
         loss.backward()
         optim.step()

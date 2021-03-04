@@ -5,7 +5,7 @@ from env import debug
 import buffer as bf
 import random
 import numpy as np
-import algos.advantage as adv
+import algos.td_value as adv
 import time
 import sys
 
