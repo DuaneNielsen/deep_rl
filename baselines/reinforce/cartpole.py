@@ -44,6 +44,10 @@ if __name__ == '__main__':
     env = Plot(env, episodes_per_point=config.episodes_per_batch)
     env = wandb_utils.LogRewards(env)
 
+    RANDOM_SEED = 0
+    torch.manual_seed(RANDOM_SEED)
+    env.seed(RANDOM_SEED)
+    env.action_space.seed(RANDOM_SEED)
 
     class PolicyNet(nn.Module):
         """
