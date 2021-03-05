@@ -11,20 +11,17 @@ from matplotlib import pyplot as plt
 
 class Plot(gym.Wrapper):
     """
-    An Observer that will plot episode returns and lengths
-    to use, use the buffer.Subject gym wrapper and attach, ie
+    A wrapper that will make plots of rewards and lengths per episode
     env = gym.make('Cartpole-v1')
-    env = buffer.SubjectWrapper(env)
-    plotter = Plot()
-    env.attach("plotter", plotter)
+    env = Plot(env)
     """
 
-    def __init__(self, env, refresh_cooldown=1.0, history_length=None, blocksize=1):
+    def __init__(self, env, refresh_cooldown=1.0, history_length=None, episodes_per_point=1):
         """
 
         :param refresh_cooldown: maximum refresh frequency
         :param history_length: amount of trajectory returns to buffer
-        :param blocksize: combines episodes into blocks and plots the average result
+        :param episodes_per_point: combines episodes and plots the average result
         """
 
         super().__init__(env)
@@ -40,7 +37,7 @@ class Plot(gym.Wrapper):
         spec = plt.GridSpec(ncols=self.cols, nrows=self.rows, figure=self.fig)
 
         self.update_cooldown = Cooldown(secs=refresh_cooldown)
-        self.blocksize = blocksize
+        self.blocksize = episodes_per_point
 
         self.total_steps = 0
         self.total_step_tracker = []

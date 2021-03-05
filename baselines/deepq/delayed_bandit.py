@@ -21,7 +21,7 @@ if __name__ == '__main__':
     env = gym.make('DelayedBandit-v1')
     env = wrappers.TimeLimit(env, max_episode_steps=10)
     env, buffer = bf.wrap(env)
-    env = Plot(env, blocksize=16)
+    env = Plot(env, episodes_per_point=16)
 
     """ configuration """
     epsilon = 0.05

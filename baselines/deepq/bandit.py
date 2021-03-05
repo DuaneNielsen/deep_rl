@@ -20,7 +20,7 @@ if __name__ == '__main__':
     """
     unwrapped = gym.make('Bandit-v1')
     env, buffer = bf.wrap(unwrapped)
-    env = Plot(env, blocksize=16)
+    env = Plot(env, episodes_per_point=16)
 
     """ configuration """
     epsilon = 0.05  # exploration parameter, prob of taking random action

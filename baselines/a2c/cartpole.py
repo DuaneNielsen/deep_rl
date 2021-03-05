@@ -32,7 +32,7 @@ if __name__ == '__main__':
 
     """ replay buffer """
     env, buffer = bf.wrap(env)
-    env = Plot(env, blocksize=batch_size)
+    env = Plot(env, episodes_per_point=batch_size)
 
     class VNet(nn.Module):
         """
