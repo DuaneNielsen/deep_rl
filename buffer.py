@@ -1,52 +1,5 @@
-import io
-import time
-from datetime import datetime
-from math import floor
-from statistics import mean
-from collections import OrderedDict, deque, namedtuple
-from pathlib import Path
-
-import imageio
-import numpy as np
-import torch
-from torchvision.io import write_video, write_jpeg, write_png
-from matplotlib import pyplot as plt
+from collections import namedtuple
 import gym
-
-
-class EnvObserver:
-    def reset(self, state):
-        """ called when environment reset"""
-        pass
-
-    def step(self, action, state, reward, done, info, **kwargs):
-        """ called each environment step """
-        pass
-
-
-class StateCapture(EnvObserver):
-    def __init__(self):
-        self.trajectories = []
-        self.traj = []
-        self.index = []
-        self.cursor = 0
-
-    def reset(self, state):
-        self.traj.append(state)
-        self.index.append(self.cursor)
-        self.cursor += 1
-
-    def step(self, action, state, reward, done, info, **kwargs):
-        self.traj.append(state)
-        self.index.append(self.cursor)
-        self.cursor += 1
-
-        if done:
-            self.done()
-
-    def done(self):
-        self.trajectories += [self.traj]
-        self.traj = []
 
 
 class Enricher:
@@ -106,21 +59,8 @@ class DiscountedReturns(Enricher):
                 i[self.key] = g
 
 
-"""
-Transition
-
-Attributes:
-    s: state
-    a: action
-    s_p: state prime, the resultant state
-    r: reward
-    d: done
-    i: info dict for transition
-"""
-
-
-class ReplayBuffer(EnvObserver):
-    def __init__(self):
+class ReplayBuffer(gym.Wrapper):
+    def __init__(self, env):
         """
         Replay buffer
 
@@ -135,6 +75,7 @@ class ReplayBuffer(EnvObserver):
                         _, state, _, _, _ = buffer[transition_index]
                         action, state_prime, reward, done, info = buffer[transtion_index + 1]
         """
+        super().__init__(env)
         self.buffer = []
         self.trajectories = []
         self.transitions = []
@@ -151,14 +92,17 @@ class ReplayBuffer(EnvObserver):
         self.transitions = []
         self.traj_start = 0
 
-    def reset(self, state, **kwargs):
+    def reset(self):
+        state = self.env.reset()
         self.buffer.append((None, state, 0.0, False, {}))
         self.transitions.append(len(self.buffer) - 1)
 
         for enricher in self.enrich:
-            enricher.reset(self, state, **kwargs)
+            enricher.reset(self, state)
+        return state
 
-    def step(self, action, state, reward, done, info, **kwargs):
+    def step(self, action):
+        state, reward, done, info = self.env.step(action)
         self.buffer.append((action, state, reward, done, info))
 
         if done:
@@ -170,7 +114,9 @@ class ReplayBuffer(EnvObserver):
             self.transitions.append(len(self.buffer) - 1)
 
         for enricher in self.enrich:
-            enricher.step(self, action, state, reward, done, info, **kwargs)
+            enricher.step(self, action, state, reward, done, info)
+
+        return state, reward, done, info
 
     def __getitem__(self, item):
         item = self.transitions[item]
@@ -193,6 +139,22 @@ class ReplayBuffer(EnvObserver):
 # ['s', 'a'], ['advantage']
 
 class ReplayBufferDataset:
+    """
+    ReplayBufferDataset
+
+    wraps the buffer to provide a convenient and efficient way to read transitions for batch collation
+
+    buffer: a replay buffer
+    fields: a list of keys to retrieve from the buffer,
+        Key:
+            s: state
+            a: action
+            s_p: state prime, the resultant state
+            r: reward
+            d: done
+    info_keys: a single key, or list of keys to load from the transitions info dict
+
+    """
     def __init__(self, buffer, fields=None, info_keys=None):
         self.buffer = buffer
         self.fields = fields if fields is not None else ['s', 'a', 's_p', 'r', 'd']
@@ -256,6 +218,11 @@ class TrajectoryTransitions:
 
 
 class TrajectoryTransitionsReverse:
+    """
+    Iterates in reverse over the provided trajectory
+    replay_buffer: the replay buffer
+    trajectory_start_end_tuple: a tuple with the start and end of the replay buffer
+    """
     def __init__(self, replay_buffer, trajectory_start_end_tuple):
         self.buffer = replay_buffer
         self.start = trajectory_start_end_tuple[0]
@@ -275,322 +242,9 @@ class TrajectoryTransitionsReverse:
         return self
 
 
-class VideoCapture(EnvObserver):
-    def __init__(self, directory):
-        self.t = []
-        self.directory = directory
-        self.cap_id = 0
-
-    def reset(self, state):
-        self.t.append(state)
-
-    def step(self, action, state, reward, done, info, **kwargs):
-        self.t.append(state)
-
-        if done:
-            self.done()
-
-    def done(self):
-        Path(self.directory).mkdir(parents=True, exist_ok=True)
-        stream = torch.from_numpy(np.stack(self.t))
-        write_video(f'{self.directory}/capture_{self.cap_id}.mp4', stream, 24.0)
-        self.cap_id += 1
-
-
-class JpegCapture(EnvObserver):
-    def __init__(self, directory):
-        self.t = []
-        self.directory = directory
-        self.cap_id = 0
-        self.image_id = 0
-
-    def reset(self, state):
-        self.t.append(state)
-
-    def step(self, action, state, reward, done, info, **kwargs):
-        self.t.append(state)
-
-        if done:
-            self.done()
-
-    def done(self):
-        Path(self.directory).mkdir(parents=True, exist_ok=True)
-        stream = torch.from_numpy(np.stack(self.t))
-        for image in stream:
-            write_jpeg(image.permute(2, 0, 1), f'{self.directory}/{self.image_id}.jpg')
-            self.image_id += 1
-
-
-class PngCapture(EnvObserver):
-    def __init__(self, directory):
-        self.t = []
-        self.directory = directory
-        self.cap_id = 0
-        self.image_id = 0
-
-    def reset(self, state):
-        self.t.append(state)
-
-    def step(self, action, state, reward, done, info, **kwargs):
-        self.t.append(state)
-
-        if done:
-            self.done()
-
-    def done(self):
-        Path(self.directory).mkdir(parents=True, exist_ok=True)
-        stream = torch.from_numpy(np.stack(self.t))
-        for image in stream:
-            write_png(image.permute(2, 0, 1), f'{self.directory}/{self.image_id}.png')
-            self.image_id += 1
-
-
-class StepFilter:
+def wrap(env):
     """
-    Step filters are used to preprocess steps before handing them to observers
-
-    if you want to pre-process environment observations before passing to policy, use a gym.Wrapper
+    convenience method for wrapping a gym environment
     """
-
-    def __call__(self, action, state, reward, done, info, **kwargs):
-        return action, state, reward, done, info, kwargs
-
-
-class RewardFilter(StepFilter):
-    def __init__(self, state_prepro, R, device):
-        self.state_prepro = state_prepro
-        self.R = R
-        self.device = device
-
-    def __call__(self, action, state, reward, done, info, **kwargs):
-        r = self.R(self.state_prepro(state, self.device))
-        kwargs['model_reward'] = r.item()
-        return action, state, reward, done, info, kwargs
-
-
-class SubjectWrapper(gym.Wrapper):
-    """
-    gym wrapper with pluggable observers
-
-    to attach an observer implement EnvObserver interface and use attach()
-
-    filters to process the steps are supported, and data enrichment is possible
-    by adding to the kwargs dict
-    """
-
-    def __init__(self, env, seed=None, **kwargs):
-        gym.Wrapper.__init__(self, env)
-        self.kwargs = kwargs
-        self.env = env
-        if seed is not None:
-            env.seed(seed)
-        self.observers = OrderedDict()
-        self.step_filters = OrderedDict()
-
-    def attach_observer(self, name, observer):
-        self.observers[name] = observer
-
-    def detach_observer(self, name):
-        del self.observers[name]
-
-    def observer_reset(self, state):
-        for name, observer in self.observers.items():
-            observer.reset(state)
-
-    def append_step_filter(self, name, filter):
-        self.step_filters[name] = filter
-
-    def observe_step(self, action, state, reward, done, info, **kwargs):
-        for name, filter in self.step_filters.items():
-            action, state, reward, done, info, kwargs = filter(action, state, reward, done, info, **kwargs)
-
-        for name, observer in self.observers.items():
-            observer.step(action, state, reward, done, info, **kwargs)
-
-    def reset(self):
-        state = self.env.reset()
-        self.observer_reset(state)
-        return state
-
-    def step(self, action):
-        state, reward, done, info = self.env.step(action)
-        self.observe_step(action, state, reward, done, info)
-        return state, reward, done, info
-
-
-class Plot(gym.Wrapper):
-    """
-    An Observer that will plot episode returns and lengths
-    to use, use the buffer.Subject gym wrapper and attach, ie
-    env = gym.make('Cartpole-v1')
-    env = buffer.SubjectWrapper(env)
-    plotter = Plot()
-    env.attach("plotter", plotter)
-    """
-
-    def __init__(self, env, refresh_cooldown=1.0, history_length=None, blocksize=1):
-        """
-
-        :param refresh_cooldown: maximum refresh frequency
-        :param history_length: amount of trajectory returns to buffer
-        :param blocksize: combines episodes into blocks and plots the average result
-        """
-
-        super().__init__(env)
-
-        self.cols = 4
-        self.rows = 2
-        plt.ion()
-        self.fig = plt.figure(figsize=(8, 16))
-        if env.unwrapped.spec is not None:
-            self.fig.suptitle(env.unwrapped.spec.id)
-        else:
-            self.fig.suptitle('set env.spec.id to show title')
-        spec = plt.GridSpec(ncols=self.cols, nrows=self.rows, figure=self.fig)
-
-        self.update_cooldown = Cooldown(secs=refresh_cooldown)
-        self.blocksize = blocksize
-
-        self.total_steps = 0
-        self.total_step_tracker = []
-
-        self.epi_reward_ax = self.fig.add_subplot(spec[0, 0:4])
-        self.epi_reward_ax.set_title('average reward per episode')
-        self.epi_reward = deque(maxlen=history_length)
-        self.block_ave_reward = []
-
-        self.epi_len_ax = self.fig.add_subplot(spec[1, 0:4])
-        self.epi_len_ax.set_title('average episode length')
-        self.epi_len = deque(maxlen=history_length)
-        self.block_ave_len = []
-
-    def reset(self):
-        self.epi_reward.append(0)
-        self.epi_len.append(0)
-        return self.env.reset()
-
-    def step(self, action):
-        state, reward, done, info = self.env.step(action)
-        self.epi_reward[-1] += reward
-        self.epi_len[-1] += 1
-        self.total_steps += 1
-
-        if done:
-            """ calculate mean over prev block"""
-            if len(self.epi_len) % self.blocksize == 0:
-                n = len(self.epi_len) // self.blocksize
-                start, end = (n - 1) * self.blocksize, n * self.blocksize
-                self.block_ave_reward += [mean(list(self.epi_reward)[start:end])]
-                self.block_ave_len += [mean(list(self.epi_len)[start:end])]
-                self.total_step_tracker += [self.total_steps]
-
-        if self.update_cooldown():
-            self.epi_reward_ax.clear()
-            self.epi_reward_ax.set_xlabel('steps')
-            self.epi_reward_ax.plot(self.total_step_tracker, self.block_ave_reward)
-            self.epi_len_ax.clear()
-            self.epi_len_ax.set_xlabel('steps')
-            self.epi_len_ax.plot(self.total_step_tracker, self.block_ave_len)
-            plt.pause(0.001)
-        return state, reward, done, info
-
-    def save(self):
-        io_buf = io.BytesIO()
-        self.fig.savefig(io_buf, format='png')
-        self.vidstream.append(io_buf)
-
-    def write_video(self):
-        with imageio.get_writer('data/movie.mp4', mode='I', fps=0.8) as writer:
-            for buffer in self.vidstream:
-                buffer.seek(0)
-                image = imageio.imread(buffer, 'png')
-                writer.append_data(image)
-                buffer.close()
-        del self.vidstream
-        self.vidstream = deque(maxlen=30000)
-
-
-class Cooldown:
-    def __init__(self, secs=None):
-        """
-        Cooldown timer. to use, just construct and call it with the number of seconds you want to wait
-        default is 1 minute, first time it returns true
-        """
-        self.last_cooldown = 0
-        self.default_cooldown = 60 if secs is None else secs
-
-    def __call__(self, secs=None):
-        secs = self.default_cooldown if secs is None else secs
-        now = floor(datetime.now().timestamp())
-        run_time = now - self.last_cooldown
-        expired = run_time > secs
-        if expired:
-            self.last_cooldown = now
-        return expired
-
-
-def wrap(env, plot=False, plot_blocksize=1):
-    """
-    convenience wrapper to wrap environment with replay_buffer
-    plot: add a plot
-    plot_blocksize: number of episodes per plot datapoint
-    returns: env, buffer
-    """
-    buffer = ReplayBuffer()
-    env = SubjectWrapper(env)
-    if plot:
-        env = Plot(env, blocksize=plot_blocksize)
-    env.attach_observer('replay_buffer', buffer)
-    return env, buffer
-
-
-def render_env(env, render, delay):
-    if render:
-        env.render(render)
-        time.sleep(delay)
-
-
-def episode(env, policy, render=False, delay=0.01, **kwargs):
-    """
-    Runs one episode using the provided policy on the environment
-    :param env: gym environment to generate an episode for
-    :param policy: takes state as input, must output an action runnable on the environment
-    :param render: if True will call environments render function
-    :param delay: rendering delay
-    :param kwargs: kwargs will be passed to policy, environment step, and observers
-    """
-    with torch.no_grad():
-        state, reward, done, info = env.reset(), 0.0, False, {}
-        action = policy(state, **kwargs)
-        render_env(env, render, delay)
-        while not done:
-            state, reward, done, info = env.step(action)
-            action = policy(state)
-            render_env(env, render, delay)
-
-
-def step_environment(env, policy, render=False, **kwargs):
-    """
-    Transition generator, advances a single transition each iteration
-    :param env: gym environment to step
-    :param policy: policy use
-    :param render: calls env render function if True
-    :param kwargs: will be passed to the policy, and environment
-    """
-    done = True
-    state = None
-
-    while True:
-        if done:
-            state, state_info = env.reset(), {}
-            if render:
-                env.render()
-        action = policy(state, **kwargs)
-        state_p, reward, done, info = env.step(action)
-        if render:
-            env.render()
-
-        yield state, action, state_p, reward, done, info
-
-        state = state_p
-        done = done
+    buffer = ReplayBuffer(env)
+    return buffer, buffer

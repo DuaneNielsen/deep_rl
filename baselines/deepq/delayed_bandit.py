@@ -1,8 +1,10 @@
 import torch
 import torch.nn as nn
 
-from env import debug
+import driver
+import gym
 from env import wrappers
+from gymviz import Plot
 import buffer as bf
 import random
 import algos.dqn as dqn
@@ -16,9 +18,10 @@ if __name__ == '__main__':
         () : Reward
         [T(-1.0), E, E, S, E, E, T(1.0)]
     """
-    env = debug.DelayedBandit()
+    env = gym.make('DelayedBandit-v1')
     env = wrappers.TimeLimit(env, max_episode_steps=10)
-    env, buffer = bf.wrap(env, plot=True, plot_blocksize=16)
+    env, buffer = bf.wrap(env)
+    env = Plot(env, blocksize=16)
 
     """ configuration """
     epsilon = 0.05
@@ -57,12 +60,12 @@ if __name__ == '__main__':
     steps the environment 1 step using policy
     samples batch and applies 1 dqn update   
     """
-    for step_n, _ in enumerate(bf.step_environment(env, policy, render=False)):
+    for step_n, _ in enumerate(driver.step_environment(env, policy, render=False)):
         if step_n < batch_size:
             continue
         if step_n > 20000:
             break
-        dqn.train(buffer, q_net, optim, batch_size, discount=1.0)
+        dqn.train(buffer, q_net, optim, batch_size=batch_size, discount=1.0)
         if step_n % 100 == 0:
             print(q_net.qtable.T)
         time.sleep(0.01)

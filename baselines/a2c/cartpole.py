@@ -2,14 +2,14 @@ import torch
 import torch.nn as nn
 
 import gym
+import env
 
+import driver
+from gymviz import Plot
 
 import buffer as bf
-import driver
-from algos import reinforce
+from algos import a2c
 from distributions import ScaledTanhTransformedGaussian
-import env
-from gymviz import Plot
 
 
 class RescaleReward(gym.RewardWrapper):
@@ -32,8 +32,21 @@ if __name__ == '__main__':
 
     """ replay buffer """
     env, buffer = bf.wrap(env)
-    buffer.attach_enrichment(bf.DiscountedReturns(discount=discount))
     env = Plot(env, blocksize=batch_size)
+
+    class VNet(nn.Module):
+        """
+        policy(state) returns distribution over actions
+        uses ScaledTanhTransformedGaussian as per Hafner
+        """
+        def __init__(self):
+            super().__init__()
+            self.mu = nn.Sequential(nn.Linear(4, 12), nn.SELU(inplace=True),
+                                    nn.Linear(12, 12), nn.ELU(inplace=True),
+                                    nn.Linear(12, 1))
+
+        def forward(self, state):
+            return self.mu(state)
 
     class PolicyNet(nn.Module):
         """
@@ -51,11 +64,13 @@ if __name__ == '__main__':
 
         def forward(self, state):
             mu = self.mu(state)
-            scale = torch.sigmoid(self.scale(state)) + 0.05
+            scale = torch.sigmoid(self.scale(state)) + 0.1
             return ScaledTanhTransformedGaussian(mu, scale, min=self.min, max=self.max)
 
+    v_net = VNet()
+    v_optim = torch.optim.Adam(v_net.parameters(), lr=1e-4)
     policy_net = PolicyNet()
-    optim = torch.optim.Adam(policy_net.parameters(), lr=1e-4)
+    policy_optim = torch.optim.Adam(policy_net.parameters(), lr=1e-4)
 
     """ policy to run on environment """
     def policy(state):
@@ -69,4 +84,4 @@ if __name__ == '__main__':
         for ep in range(batch_size):
             driver.episode(env, policy)
 
-        reinforce.train(buffer, policy_net, optim)
+        a2c.train(buffer, v_net, v_optim, policy_net, policy_optim)

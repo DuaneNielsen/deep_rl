@@ -3,6 +3,8 @@ import torch
 from torch import nn
 import numpy as np
 
+import driver
+import observer
 from algos import reinforce
 import gym
 from env import debug
@@ -41,7 +43,7 @@ def test_linear_env():
     assert done is False
     assert reward == 0.0
 
-    runner = run.SubjectWrapper(env)
+    runner = observer.SubjectWrapper(env)
 
     def policy(state):
         dist = torch.distributions.normal.Normal(0, 0.5)
@@ -50,7 +52,7 @@ def test_linear_env():
     replay_buffer = run.ReplayBuffer()
     runner.attach_observer("replay_buffer", replay_buffer)
     for i in range(5):
-        run.episode(runner, policy)
+        driver.episode(runner, policy)
 
     for start, end in replay_buffer.trajectories:
         for transition in replay_buffer.buffer[start:end]:
@@ -61,7 +63,7 @@ def test_REINFORCE():
     env = debug.LinearEnv(inital_state=0.1)
     buffer = run.ReplayBuffer()
     buffer.attach_enrichment(run.DiscountedReturns())
-    env = run.SubjectWrapper(env)
+    env = observer.SubjectWrapper(env)
     env.attach_observer("replay_buffer", buffer)
 
     class PolicyNet(nn.Module):
@@ -85,7 +87,7 @@ def test_REINFORCE():
     last_reward = 0
     for epoch in range(16):
         for ep in range(16):
-            run.episode(env, policy)
+            driver.episode(env, policy)
 
         reward = 0
         for s, i, a, s_prime, r, d, i_p in buffer:

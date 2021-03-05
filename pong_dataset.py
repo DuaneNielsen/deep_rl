@@ -1,4 +1,5 @@
-from buffer import SubjectWrapper, PngCapture, episode
+from driver import episode
+from capture import PngCapture
 from env.wrappers import ClipState2D
 import gym
 from random import randint
@@ -20,8 +21,7 @@ if __name__ == '__main__':
     if not Path(pongdir).exists():
         env = gym.make('Pong-v0')
         env = ClipState2D(env, 0, 24, 210-24, 160)
-        env = SubjectWrapper(env)
-        env.attach_observer('image_cap', PngCapture(pongdir + '/screens'))
+        env = PngCapture(env, pongdir + '/screens')
         episode(env, policy)
         episode(env, policy)
         episode(env, policy)

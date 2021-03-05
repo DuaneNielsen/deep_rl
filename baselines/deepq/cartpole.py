@@ -4,6 +4,8 @@ import buffer as bf
 import gym
 import random
 import algos.dqn as dqn
+import driver
+from gymviz import Plot
 
 if __name__ == '__main__':
 
@@ -16,8 +18,9 @@ if __name__ == '__main__':
     """ Environment """
     env = gym.make('CartPole-v1')
 
-    """ Replay buffer"""
-    env, replay_buffer = bf.wrap(env, plot=True, plot_blocksize=batch_size)
+    """ replay buffer """
+    env, replay_buffer = bf.wrap(env)
+    env = Plot(env, blocksize=1)
 
     """ check environment has continuous input, discrete output"""
     assert isinstance(env.observation_space, gym.spaces.Box)
@@ -50,7 +53,7 @@ if __name__ == '__main__':
             return action.item()
 
     """ execute 1 transition on environment """
-    for step_n, _ in enumerate(bf.step_environment(env, policy, render=True)):
+    for step_n, _ in enumerate(driver.step_environment(env, policy, render=True)):
         if step_n < batch_size:
             continue
         if step_n > 30000:

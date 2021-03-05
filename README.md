@@ -26,14 +26,18 @@ env, replay_buffer = bf.wrap(env, plot=True, plot_blocksize=8)
 Step the environment one step at a time using a generator
 
 ```python
-for transition in bf.step_environment(env, policy):
+import driver
+
+for transition in driver.step_environment(env, policy):
     continue
 ```
 
 or collect an episode
 
 ```python
-bf.episode(env, policy)
+import driver
+
+driver.episode(env, policy)
 ```
 
 sample an off-policy batch from the replay buffer

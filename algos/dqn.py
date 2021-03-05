@@ -36,7 +36,7 @@ def train(buffer, q_net, optim, batch_size, discount, device='cpu', dtype=torch.
         optim.zero_grad()
         v_s = q_net(s)[torch.arange(N), a].unsqueeze(1)
         with torch.no_grad():
-            v_sp, action = torch.max(q_net(s_p), dim=1, keepdim=True)
+            v_sp, _ = torch.max(q_net(s_p), dim=1, keepdim=True)
             v_sp[d] = 0.0
             v_sp = r + v_sp * discount
         loss = torch.mean((v_sp - v_s) ** 2)

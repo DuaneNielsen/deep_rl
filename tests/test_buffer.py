@@ -1,5 +1,8 @@
 import buffer as run
 import pytest
+
+import driver
+import observer
 from env.debug import DummyEnv
 import torch
 from torch.utils.data import DataLoader
@@ -19,15 +22,15 @@ def test_buffer():
     traj = [t1, t2]
 
     env = DummyEnv(traj)
-    runner = run.SubjectWrapper(env)
+    runner = observer.SubjectWrapper(env)
     buffer = run.ReplayBuffer()
     runner.attach_observer("replay_buffer", buffer)
 
     def policy(state):
         return 0
 
-    run.episode(runner, policy)
-    run.episode(runner, policy)
+    driver.episode(runner, policy)
+    driver.episode(runner, policy)
 
     start, end = buffer.trajectories[0]
     assert len(buffer.buffer[start:end]) == 3
@@ -50,7 +53,7 @@ def test_buffer():
 
 def test_load_before_trajectory_terminates():
     env = DummyEnv([])
-    runner = run.SubjectWrapper(env)
+    runner = observer.SubjectWrapper(env)
     buffer = run.ReplayBuffer()
     runner.attach_observer("replay_buffer", buffer)
 
@@ -107,15 +110,15 @@ def test_buffer_iterator():
     traj = [t1, t2]
 
     env = DummyEnv(traj)
-    env = run.SubjectWrapper(env)
+    env = observer.SubjectWrapper(env)
     buffer = run.ReplayBuffer()
     env.attach_observer("replay_buffer", buffer)
 
     def policy(state):
         return 0
 
-    run.episode(env, policy)
-    run.episode(env, policy)
+    driver.episode(env, policy)
+    driver.episode(env, policy)
 
     assert len(buffer) == 3
 
@@ -130,15 +133,15 @@ def test_trajectory_iterator():
     traj = [t1, t2]
 
     env = DummyEnv(traj)
-    env = run.SubjectWrapper(env)
+    env = observer.SubjectWrapper(env)
     buffer = run.ReplayBuffer()
     env.attach_observer("replay_buffer", buffer)
 
     def policy(state):
         return 0
 
-    run.episode(env, policy)
-    run.episode(env, policy)
+    driver.episode(env, policy)
+    driver.episode(env, policy)
 
     trajectory = run.TrajectoryTransitions(buffer, buffer.trajectories[0])
     transition_equal(next(trajectory), (0, 0, 1, 0.0, False, {'s': 1}))
@@ -159,15 +162,15 @@ def test_reverse_trajectory_iterator():
     traj = [t1, t2]
 
     env = DummyEnv(traj)
-    env = run.SubjectWrapper(env)
+    env = observer.SubjectWrapper(env)
     buffer = run.ReplayBuffer()
     env.attach_observer("replay_buffer", buffer)
 
     def policy(state):
         return 0
 
-    run.episode(env, policy)
-    run.episode(env, policy)
+    driver.episode(env, policy)
+    driver.episode(env, policy)
 
     trajectory = run.TrajectoryTransitionsReverse(buffer, buffer.trajectories[0])
     transition_equal(next(trajectory), (1, 0, 2, 1.0, True, {'s': 2}))
@@ -188,7 +191,7 @@ def test_enrichment_returns():
     traj = [t1, t2]
 
     env = DummyEnv(traj)
-    env = run.SubjectWrapper(env)
+    env = observer.SubjectWrapper(env)
     buffer = run.ReplayBuffer()
     env.attach_observer("replay_buffer", buffer)
 
@@ -197,8 +200,8 @@ def test_enrichment_returns():
     def policy(state):
         return 0
 
-    run.episode(env, policy)
-    run.episode(env, policy)
+    driver.episode(env, policy)
+    driver.episode(env, policy)
 
     dataset = run.ReplayBufferDataset(buffer, info_keys=['g'])
 
@@ -215,7 +218,7 @@ def test_enrichment_discounted_returns():
     traj = [t1, t2]
 
     env = DummyEnv(traj)
-    env = run.SubjectWrapper(env)
+    env = observer.SubjectWrapper(env)
     buffer = run.ReplayBuffer()
     env.attach_observer("replay_buffer", buffer)
 
@@ -226,8 +229,8 @@ def test_enrichment_discounted_returns():
     def policy(state):
         return 0
 
-    run.episode(env, policy)
-    run.episode(env, policy)
+    driver.episode(env, policy)
+    driver.episode(env, policy)
 
     dataset = run.ReplayBufferDataset(buffer, info_keys=['g'])
 
@@ -244,7 +247,7 @@ def test_dataload():
     traj = [t1, t2]
 
     env = DummyEnv(traj)
-    env = run.SubjectWrapper(env)
+    env = observer.SubjectWrapper(env)
     buffer = run.ReplayBuffer()
     env.attach_observer("replay_buffer", buffer)
 
@@ -253,8 +256,8 @@ def test_dataload():
     def policy(state):
         return 0
 
-    run.episode(env, policy)
-    run.episode(env, policy)
+    driver.episode(env, policy)
+    driver.episode(env, policy)
 
     dataset = run.ReplayBufferDataset(buffer, info_keys='g')
     dl = DataLoader(dataset, batch_size=4)

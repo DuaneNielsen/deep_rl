@@ -1,8 +1,10 @@
 import torch
 import torch.nn as nn
-
-from env import debug
+import driver
+import gym
+import env
 import buffer as bf
+from gymviz import Plot
 import random
 import numpy as np
 import algos.td_value as adv
@@ -17,8 +19,9 @@ if __name__ == '__main__':
         () : Reward
         [T(-1.0), S, T(1.0)]
     """
-    unwrapped = debug.Bandit()
-    env, buffer = bf.wrap(unwrapped, plot=True, plot_blocksize=16)
+    unwrapped = gym.make('Bandit-v1')
+    env, buffer = bf.wrap(unwrapped)
+    env = Plot(env, blocksize=16)
 
     """ configuration """
     epsilon = 0.05  # exploration parameter, prob of taking random action
@@ -61,7 +64,7 @@ if __name__ == '__main__':
     training loop  
     each iteration generates 1 transition on the environment and adds to to replay buffer 
     """
-    for step_n, (s, a, s_p, r, d, i) in enumerate(bf.step_environment(env, policy, render=False)):
+    for step_n, (s, a, s_p, r, d, i) in enumerate(driver.step_environment(env, policy, render=False)):
         if step_n < batch_size:
             continue
         if step_n > 2000:
