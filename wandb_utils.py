@@ -10,6 +10,7 @@ class LogRewards(gym.Wrapper):
         super().__init__(env)
         self.reward = 0
         self.len = 0
+        self.run_steps = 0
 
     def reset(self):
         self.reward = 0
@@ -20,7 +21,8 @@ class LogRewards(gym.Wrapper):
         state, reward, done, info = self.env.step(action)
         self.reward += reward
         self.len += 1
+        self.run_steps += 1
         if done:
-            wandb.log({'epi_reward': self.reward, 'epi_len': self.len})
+            wandb.log({'epi_reward': self.reward, 'epi_len': self.len}, step=self.run_steps)
         return state, reward, done, info
 

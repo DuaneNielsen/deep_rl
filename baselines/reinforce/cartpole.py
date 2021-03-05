@@ -68,10 +68,9 @@ if __name__ == '__main__':
 
     policy_net = PolicyNet()
     optim = torch.optim.Adam(policy_net.parameters(), lr=1e-4)
+    wandb.watch(policy_net)
 
     """ policy to run on environment """
-
-
     def policy(state):
         state = torch.from_numpy(state).float()
         action = policy_net(state)
@@ -85,3 +84,7 @@ if __name__ == '__main__':
             driver.episode(env, policy)
 
         reinforce.train(buffer, policy_net, optim)
+
+        """ test loop goes here """
+        if epoch % 100:
+            pass
