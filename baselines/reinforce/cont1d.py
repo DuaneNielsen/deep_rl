@@ -69,7 +69,7 @@ if __name__ == '__main__':
 
     """ replay buffer """
     env, buffer = bf.wrap(env)
-    buffer.attach_enrichment(bf.DiscountedReturns(discount=config.discount))
+    buffer.enrich(bf.DiscountedReturns(discount=config.discount))
     env = Plot(env, episodes_per_point=config.episodes_per_batch if not hasattr(config, 'demo') else 1)
     env = wandb_utils.LogRewards(env)
 

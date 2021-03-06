@@ -62,7 +62,7 @@ def test_linear_env():
 def test_REINFORCE():
     env = debug.LinearEnv(inital_state=0.1)
     buffer = run.ReplayBuffer()
-    buffer.attach_enrichment(run.DiscountedReturns())
+    buffer.enrich(run.DiscountedReturns())
     env = observer.SubjectWrapper(env)
     env.attach_observer("replay_buffer", buffer)
 

@@ -1,4 +1,4 @@
-import buffer as run
+import buffer as bf
 import pytest
 
 import driver
@@ -22,15 +22,13 @@ def test_buffer():
     traj = [t1, t2]
 
     env = DummyEnv(traj)
-    runner = observer.SubjectWrapper(env)
-    buffer = run.ReplayBuffer()
-    runner.attach_observer("replay_buffer", buffer)
+    env, buffer = bf.wrap(env)
 
     def policy(state):
         return 0
 
-    driver.episode(runner, policy)
-    driver.episode(runner, policy)
+    driver.episode(buffer, policy)
+    driver.episode(buffer, policy)
 
     start, end = buffer.trajectories[0]
     assert len(buffer.buffer[start:end]) == 3
@@ -52,28 +50,26 @@ def test_buffer():
 
 
 def test_load_before_trajectory_terminates():
-    env = DummyEnv([])
-    runner = observer.SubjectWrapper(env)
-    buffer = run.ReplayBuffer()
-    runner.attach_observer("replay_buffer", buffer)
+    t1 = [(0, 0.0, False, {}), (1, 0.0, False, {}), (2, 1.0, True, {})]
+    t2 = [(3, 0.0, False, {}), (4, 1.0, True, {})]
+    traj = [t1, t2]
+    env = DummyEnv(traj)
+    env, buffer = bf.wrap(env)
 
     """ first step, from env reset """
-    step = 0, 0, 0.0, False, {}
-    runner.observe_step(*step)
+    env.reset()
     assert len(buffer) == 0
     assert len(buffer.trajectories) == 0
 
     """ second step, intermediate step"""
-    step = 0, 1, 0.0, False, {}
-    runner.observe_step(*step)
+    env.step(0)
     assert len(buffer) == 1
     assert len(buffer.trajectories) == 0
     expected_transition = 0, 0, 1, 0.0, False
     transition_equal(buffer[0], expected_transition)
 
     """ third step, trajectory ends """
-    step = 0, 2, 1.0, True, {}
-    runner.observe_step(*step)
+    env.step(0)
     assert len(buffer) == 2
     assert len(buffer.trajectories) == 1
     expected_transition = 0, 0, 1, 0.0, False
@@ -82,8 +78,7 @@ def test_load_before_trajectory_terminates():
     transition_equal(buffer[1], expected_transition)
 
     """ forth step, 2nd trajectory resets  """
-    step = 0, 3, 0.0, False, {}
-    runner.observe_step(*step)
+    env.reset()
     assert len(buffer) == 2
     assert len(buffer.trajectories) == 1
     expected_transition = 0, 0, 1, 0.0, False
@@ -92,8 +87,7 @@ def test_load_before_trajectory_terminates():
     transition_equal(buffer[1], expected_transition)
 
     """ fifth step, 2nd trajectory ends """
-    step = 0, 4, 1.0, True, {}
-    runner.observe_step(*step)
+    env.step(0)
     assert len(buffer) == 3
     assert len(buffer.trajectories) == 2
     expected_transition = 0, 0, 1, 0.0, False
@@ -110,9 +104,7 @@ def test_buffer_iterator():
     traj = [t1, t2]
 
     env = DummyEnv(traj)
-    env = observer.SubjectWrapper(env)
-    buffer = run.ReplayBuffer()
-    env.attach_observer("replay_buffer", buffer)
+    env, buffer = bf.wrap(env)
 
     def policy(state):
         return 0
@@ -133,9 +125,7 @@ def test_trajectory_iterator():
     traj = [t1, t2]
 
     env = DummyEnv(traj)
-    env = observer.SubjectWrapper(env)
-    buffer = run.ReplayBuffer()
-    env.attach_observer("replay_buffer", buffer)
+    env, buffer = bf.wrap(env)
 
     def policy(state):
         return 0
@@ -143,13 +133,13 @@ def test_trajectory_iterator():
     driver.episode(env, policy)
     driver.episode(env, policy)
 
-    trajectory = run.TrajectoryTransitions(buffer, buffer.trajectories[0])
+    trajectory = bf.TrajectoryTransitions(buffer, buffer.trajectories[0])
     transition_equal(next(trajectory), (0, 0, 1, 0.0, False, {'s': 1}))
     transition_equal(next(trajectory), (1, 0, 2, 1.0, True, {'s': 2}))
     with pytest.raises(StopIteration):
         next(trajectory)
 
-    trajectory = run.TrajectoryTransitions(buffer, buffer.trajectories[1])
+    trajectory = bf.TrajectoryTransitions(buffer, buffer.trajectories[1])
     transition_equal(next(trajectory), (0, 0, 1, 0.0, True, {'s': 1}))
 
     with pytest.raises(StopIteration):
@@ -162,9 +152,7 @@ def test_reverse_trajectory_iterator():
     traj = [t1, t2]
 
     env = DummyEnv(traj)
-    env = observer.SubjectWrapper(env)
-    buffer = run.ReplayBuffer()
-    env.attach_observer("replay_buffer", buffer)
+    env, buffer = bf.wrap(env)
 
     def policy(state):
         return 0
@@ -172,13 +160,13 @@ def test_reverse_trajectory_iterator():
     driver.episode(env, policy)
     driver.episode(env, policy)
 
-    trajectory = run.TrajectoryTransitionsReverse(buffer, buffer.trajectories[0])
+    trajectory = bf.TrajectoryTransitionsReverse(buffer, buffer.trajectories[0])
     transition_equal(next(trajectory), (1, 0, 2, 1.0, True, {'s': 2}))
     transition_equal(next(trajectory), (0, 0, 1, 0.0, False, {'s': 1}))
     with pytest.raises(StopIteration):
         next(trajectory)
 
-    trajectory = run.TrajectoryTransitions(buffer, buffer.trajectories[1])
+    trajectory = bf.TrajectoryTransitions(buffer, buffer.trajectories[1])
     transition_equal(next(trajectory), (0, 0, 1, 0.0, True, {'s': 1}))
 
     with pytest.raises(StopIteration):
@@ -191,11 +179,9 @@ def test_enrichment_returns():
     traj = [t1, t2]
 
     env = DummyEnv(traj)
-    env = observer.SubjectWrapper(env)
-    buffer = run.ReplayBuffer()
-    env.attach_observer("replay_buffer", buffer)
+    env, buffer = bf.wrap(env)
 
-    buffer.attach_enrichment(run.Returns())
+    buffer.enrich(bf.Returns())
 
     def policy(state):
         return 0
@@ -203,7 +189,7 @@ def test_enrichment_returns():
     driver.episode(env, policy)
     driver.episode(env, policy)
 
-    dataset = run.ReplayBufferDataset(buffer, info_keys=['g'])
+    dataset = bf.ReplayBufferDataset(buffer, info_keys=['g'])
 
     assert dataset[0].g == 2.0
     assert dataset[1].g == 2.0
@@ -218,13 +204,11 @@ def test_enrichment_discounted_returns():
     traj = [t1, t2]
 
     env = DummyEnv(traj)
-    env = observer.SubjectWrapper(env)
-    buffer = run.ReplayBuffer()
-    env.attach_observer("replay_buffer", buffer)
+    env, buffer = bf.wrap(env)
 
     discount = 0.9
 
-    buffer.attach_enrichment(run.DiscountedReturns(discount=discount))
+    buffer.enrich(bf.DiscountedReturns(discount=discount))
 
     def policy(state):
         return 0
@@ -232,7 +216,7 @@ def test_enrichment_discounted_returns():
     driver.episode(env, policy)
     driver.episode(env, policy)
 
-    dataset = run.ReplayBufferDataset(buffer, info_keys=['g'])
+    dataset = bf.ReplayBufferDataset(buffer, info_keys=['g'])
 
     assert dataset[0].g == discount * 1.0 + discount ** 2 * 1.0
     assert dataset[1].g == 1.0 + discount * 1.0
@@ -247,11 +231,9 @@ def test_dataload():
     traj = [t1, t2]
 
     env = DummyEnv(traj)
-    env = observer.SubjectWrapper(env)
-    buffer = run.ReplayBuffer()
-    env.attach_observer("replay_buffer", buffer)
+    env, buffer = bf.wrap(env)
 
-    buffer.attach_enrichment(run.Returns())
+    buffer.enrich(bf.Returns())
 
     def policy(state):
         return 0
@@ -259,7 +241,7 @@ def test_dataload():
     driver.episode(env, policy)
     driver.episode(env, policy)
 
-    dataset = run.ReplayBufferDataset(buffer, info_keys='g')
+    dataset = bf.ReplayBufferDataset(buffer, info_keys='g')
     dl = DataLoader(dataset, batch_size=4)
 
     for data in dl:
@@ -270,7 +252,7 @@ def test_dataload():
         assert torch.allclose(data.s_p, torch.tensor([1, 2, 3, 1]))
         assert torch.allclose(data.g, torch.tensor([2.0, 2.0, 1.0, 0.0], dtype=torch.double))
 
-    dataset = run.ReplayBufferDataset(buffer, fields=('s', 'a'))
+    dataset = bf.ReplayBufferDataset(buffer, fields=('s', 'a'))
     dl = DataLoader(dataset, batch_size=4)
 
     for data in dl:
@@ -280,3 +262,24 @@ def test_dataload():
         assert hasattr(data, 'r') == False
         assert hasattr(data, 'd') == False
         assert hasattr(data, 'g') == False
+
+
+def test_trajectory_info():
+    t1 = [(0, 0.0, False, {}), (1, 0.0, False, {}), (2, 1.0, False, {}), (2, 1.0, True, {})]
+    t2 = [(0, 0.0, False, {}), (1, 0.0, True, {})]
+    traj = [t1, t2]
+
+    env = DummyEnv(traj)
+    env, buffer = bf.wrap(env)
+
+    def policy(state):
+        return 0
+
+    driver.episode(env, policy)
+    driver.episode(env, policy)
+
+    assert buffer.trajectory_info[0]['R'] == 2.0
+    assert buffer.trajectory_info[0]['len'] == 3
+
+    assert buffer.trajectory_info[1]['R'] == 0.0
+    assert buffer.trajectory_info[1]['len'] == 1

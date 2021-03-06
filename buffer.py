@@ -78,12 +78,15 @@ class ReplayBuffer(gym.Wrapper):
         super().__init__(env)
         self.buffer = []
         self.trajectories = []
+        self.trajectory_info = []
         self.transitions = []
         self.traj_start = 0
-        self.enrich = []
+        self._enrich = []
+        self.eps_reward = 0
+        self.eps_len = 0
 
-    def attach_enrichment(self, enricher):
-        self.enrich.append(enricher)
+    def enrich(self, enricher):
+        self._enrich.append(enricher)
 
     def clear(self):
         """ clears the buffer """
@@ -96,8 +99,10 @@ class ReplayBuffer(gym.Wrapper):
         state = self.env.reset()
         self.buffer.append((None, state, 0.0, False, {}))
         self.transitions.append(len(self.buffer) - 1)
+        self.eps_reward = 0
+        self.eps_len = 0
 
-        for enricher in self.enrich:
+        for enricher in self._enrich:
             enricher.reset(self, state)
         return state
 
@@ -105,16 +110,19 @@ class ReplayBuffer(gym.Wrapper):
         state, reward, done, info = self.env.step(action)
 
         self.buffer.append((action, state, reward, done, info))
+        self.eps_reward += reward
+        self.eps_len += 1
 
         if done:
             """ terminal state, trajectory is complete """
             self.trajectories.append((self.traj_start, len(self.buffer)))
             self.traj_start = len(self.buffer)
+            self.trajectory_info.append({'R': self.eps_reward, 'len': self.eps_len})
         else:
             """ if not terminal, then by definition, this will be a transition """
             self.transitions.append(len(self.buffer) - 1)
 
-        for enricher in self.enrich:
+        for enricher in self._enrich:
             enricher.step(self, action, state, reward, done, info)
 
         return state, reward, done, info
@@ -249,6 +257,10 @@ class TrajectoryTransitionsReverse:
 def wrap(env):
     """
     convenience method for wrapping a gym environment
+
+    ```
+    env, buffer = buffer.wrap(env)
+    ```
     """
     buffer = ReplayBuffer(env)
     return buffer, buffer

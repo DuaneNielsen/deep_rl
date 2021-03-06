@@ -101,16 +101,16 @@ import buffer as bf
 
 env = gym.make('CartPole-v1')
 env, replay_buffer = bf.wrap(env, plot=True, plot_blocksize=8)
-replay_buffer.attach_enrichment(bf.DiscountedReturns(key='g', ))
+replay_buffer.enrich(bf.DiscountedReturns(key='g', ))
 
 ds = bf.ReplayBufferDataset(replay_buffer, info_keys=['g'])
 
 >>> ds[0]
-Transition(s=array([ 0.01236617,  0.04175304, ...]), 
-           a=0, 
-           s_p=array([ 0.01320123, -0.15324907, ...]), 
-           r=1.0, 
-           d=False, 
+Transition(s=array([0.01236617, 0.04175304, ...]),
+           a=0,
+           s_p=array([0.01320123, -0.15324907, ...]),
+           r=1.0,
+           d=False,
            g=8.02526121523242)
 
 ```
