@@ -1,0 +1,5 @@
+comment:  Cartpole Reinforce
+seed: 0
+env:
+  name: CartPoleContinuous-v1
+episodes_per_batch: 16

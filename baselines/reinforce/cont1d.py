@@ -11,8 +11,7 @@ import env
 from gymviz import Plot
 import wandb
 import wandb_utils
-from config import load_config
-import argparse
+from config import ArgumentParser
 
 
 class RescaleReward(gym.RewardWrapper):
@@ -26,7 +25,7 @@ class RescaleReward(gym.RewardWrapper):
 if __name__ == '__main__':
 
     """ configuration """
-    parser = argparse.ArgumentParser(description='configuration switches')
+    parser = ArgumentParser(description='configuration switches')
 
     parser.add_argument('-c', '--config', type=str, default=None)
     parser.add_argument('-d', '--device', type=str)
@@ -49,13 +48,13 @@ if __name__ == '__main__':
     """ hyper-parameters """
     parser.add_argument('--optim-class', type=str)
     parser.add_argument('--optim-lr', type=float)
-    parser.add_argument('--scheduler_class', type=str)
+    parser.add_argument('--scheduler-class', type=str)
     parser.add_argument('--episodes_per_batch', type=int, default=16)
     parser.add_argument('--discount', type=int, default=0.95)
     parser.add_argument('--min_variance', type=float, default=0.05)
     parser.add_argument('--hidden_dim', type=int, default=16)
 
-    config = load_config(parser)
+    config = parser.parse_args()
 
     wandb.init(project="reinforce-cartpole", config=config)
 

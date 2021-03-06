@@ -5,7 +5,6 @@ import torch
 import collections.abc
 import re
 
-
 """
 Config module provides fleximble managment of configuration
 
@@ -14,6 +13,7 @@ Config module provides fleximble managment of configuration
 
 class NullScheduler:
     """ Empty scheduler for use as a placeholder to keep code compatible"""
+
     def __init__(self):
         pass
 
@@ -102,47 +102,59 @@ def get_optim(args, parameters):
     return optim, scheduler
 
 
-def load_config(parser, args=None):
-    """
-    Reads the command switches and creates a config
-    Command line switches override config files
-    :return: a Namespace of args
-    """
-    args = parser.parse_args(args)
+class ArgumentParser:
+    def __init__(self, description=None):
+        self.parser = argparse.ArgumentParser(description=description)
 
-    """ 
-    required due to https://github.com/yaml/pyyaml/issues/173
-    pyyaml does not correctly parse scientific notation 
-    """
-    loader = yaml.SafeLoader
-    loader.add_implicit_resolver(
-        u'tag:yaml.org,2002:float',
-        re.compile(u'''^(?:
-         [-+]?(?:[0-9][0-9_]*)\\.[0-9_]*(?:[eE][-+]?[0-9]+)?
-        |[-+]?(?:[0-9][0-9_]*)(?:[eE][-+]?[0-9]+)
-        |\\.[0-9_]+(?:[eE][-+][0-9]+)?
-        |[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+\\.[0-9_]*
-        |[-+]?\\.(?:inf|Inf|INF)
-        |\\.(?:nan|NaN|NAN))$''', re.X),
-        list(u'-+0123456789.'))
+    def add_argument(self, *args, **kwargs):
+        self.parser.add_argument(*args, **kwargs)
 
-    """ read the config file """
-    if args.config is not None:
-        with Path(args.config).open() as f:
-            conf = yaml.load(f, Loader=loader)
-            conf = flatten(conf)
-            args = set_if_not_set(args, conf)
+    def parse_args(self, args=None):
+        """
+        Loads the configuration
 
-    """ args not set will be set to a default value """
-    global_defaults = {
-        'optim_class': 'Adam',
-        'optim_lr': 1e-4
-    }
+        parser: an argparse parser with configured command line switches
+        args: an optional list of arguments to parse, otherwise will read the command line
 
-    args = set_if_not_set(args, global_defaults)
+        returns an argparse Namespace with configured arguments
 
-    ''' if run_id not explicitly set, then guess it'''
-    if args.run_id == -1:
-        args.run_id = counter()
+        Args can be taken from 3 places, in precendence
+            1.  The value passed by command line switch
+            2.  The config file
+            3.  The default argument set by add_argument
 
-    return args
+            else the value will be set to None
+        """
+
+        first_config = self.parser.parse_args(args)
+
+        """ 
+        required due to https://github.com/yaml/pyyaml/issues/173
+        pyyaml does not correctly parse scientific notation 
+        """
+        loader = yaml.SafeLoader
+        loader.add_implicit_resolver(
+            u'tag:yaml.org,2002:float',
+            re.compile(u'''^(?:
+             [-+]?(?:[0-9][0-9_]*)\\.[0-9_]*(?:[eE][-+]?[0-9]+)?
+            |[-+]?(?:[0-9][0-9_]*)(?:[eE][-+]?[0-9]+)
+            |\\.[0-9_]+(?:[eE][-+][0-9]+)?
+            |[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+\\.[0-9_]*
+            |[-+]?\\.(?:inf|Inf|INF)
+            |\\.(?:nan|NaN|NAN))$''', re.X),
+            list(u'-+0123456789.'))
+
+        """ read the config file """
+        if hasattr(first_config, 'config'):
+            with Path(first_config.config).open() as f:
+                conf = yaml.load(f, Loader=loader)
+                conf = flatten(conf)
+                self.parser.set_defaults(**conf)
+
+        final_config = self.parser.parse_args(args)
+
+        ''' if run_id not explicitly set, then guess it'''
+        if final_config.run_id == -1:
+            final_config.run_id = counter()
+
+        return final_config
