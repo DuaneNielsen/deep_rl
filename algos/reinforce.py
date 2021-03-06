@@ -29,5 +29,7 @@ def train(buffer, policy_net, optim, device='cpu', dtype=torch.float):
         loss.backward()
         optim.step()
 
+        # break
+
     """ since this is an on-policy algorithm, throw away the data """
     buffer.clear()
