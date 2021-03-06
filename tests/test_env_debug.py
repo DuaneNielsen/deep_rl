@@ -1,4 +1,4 @@
-import buffer as run
+import buffer as bf
 import torch
 from torch import nn
 import numpy as np
@@ -8,6 +8,7 @@ import observer
 from algos import reinforce
 import gym
 from env import debug
+import pytest
 
 
 def test_linear_env():
@@ -43,28 +44,24 @@ def test_linear_env():
     assert done is False
     assert reward == 0.0
 
-    runner = observer.SubjectWrapper(env)
-
     def policy(state):
         dist = torch.distributions.normal.Normal(0, 0.5)
         return dist.rsample()
 
-    replay_buffer = run.ReplayBuffer()
-    runner.attach_observer("replay_buffer", replay_buffer)
+    env, buffer = bf.wrap(env)
     for i in range(5):
-        driver.episode(runner, policy)
+        driver.episode(env, policy)
 
-    for start, end in replay_buffer.trajectories:
-        for transition in replay_buffer.buffer[start:end]:
+    for start, end in buffer.trajectories:
+        for transition in buffer.buffer[start:end]:
             state, action, reward, done, info = transition
 
 
+@pytest.mark.skip(reason="requires tuning")
 def test_REINFORCE():
     env = debug.LinearEnv(inital_state=0.1)
-    buffer = run.ReplayBuffer()
-    buffer.enrich(run.DiscountedReturns())
-    env = observer.SubjectWrapper(env)
-    env.attach_observer("replay_buffer", buffer)
+    env, buffer = bf.wrap(env)
+    buffer.enrich(bf.DiscountedReturns())
 
     class PolicyNet(nn.Module):
         def __init__(self):
@@ -74,10 +71,10 @@ def test_REINFORCE():
 
         def forward(self, state):
             loc = state * self.w + self.b
-            return torch.distributions.Normal(loc=loc, scale=0.25)
+            return torch.distributions.Normal(loc=loc, scale=0.1)
 
     policy_net = PolicyNet().double()
-    optim = torch.optim.SGD(policy_net.parameters(), lr=0.1)
+    optim = torch.optim.SGD(policy_net.parameters(), lr=1e-3)
 
     def policy(state):
         state = torch.from_numpy(state)
@@ -85,12 +82,12 @@ def test_REINFORCE():
         return action.rsample().item()
 
     last_reward = 0
-    for epoch in range(16):
-        for ep in range(16):
+    for epoch in range(2000):
+        for ep in range(32):
             driver.episode(env, policy)
 
         reward = 0
-        for s, i, a, s_prime, r, d, i_p in buffer:
+        for s, a, s_prime, r, d in buffer:
             reward += r
         last_reward = reward
         print(reward)
