@@ -122,8 +122,25 @@ class ArgumentParser:
             1.  The value passed by command line switch
             2.  The config file
             3.  The default argument set by add_argument
-
             else the value will be set to None
+
+        the config file is a yaml file, with nested names being separated by hyphens
+
+        eg:
+
+        comment: hello world
+        seed: 0
+        env:
+          name: CartPoleContinuous-v1
+        episodes_per_batch 8
+
+        will become
+
+        config.comment = 'hello world'
+        config.seed = 0
+        config.env-name = 'CartPoleContinuous-v1'
+        config.episodes_per_batch = 8
+
         """
 
         first_config = self.parser.parse_args(args)
