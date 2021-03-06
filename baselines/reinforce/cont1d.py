@@ -12,6 +12,8 @@ from gymviz import Plot
 import wandb
 import wandb_utils
 from config import ArgumentParser
+from statistics import mean
+from pathlib import Path
 
 
 class RescaleReward(gym.RewardWrapper):
@@ -32,11 +34,12 @@ if __name__ == '__main__':
     parser.add_argument('-r', '--run_id', type=int, default=-1)
     parser.add_argument('--comment', type=str)
     parser.add_argument('--epochs', type=int, default=2000)
-    parser.add_argument('--epochs_per_test', type=int, default=500)
+    parser.add_argument('--test_epochs', type=int, default=500)
+    parser.add_argument('--test_episodes', type=int, default=10)
     parser.add_argument('--seed', type=int, default=None)
 
     """ resume settings """
-    parser.add_argument('--demo', )
+    parser.add_argument('--demo')
     parser.add_argument('-l', '--load', type=str, default=None)
 
     """ environment """
@@ -67,7 +70,7 @@ if __name__ == '__main__':
     """ replay buffer """
     env, buffer = bf.wrap(env)
     buffer.attach_enrichment(bf.DiscountedReturns(discount=config.discount))
-    env = Plot(env, episodes_per_point=config.episodes_per_batch)
+    env = Plot(env, episodes_per_point=config.episodes_per_batch if not hasattr(config, 'demo') else 1)
     env = wandb_utils.LogRewards(env)
 
     """ random seed """
@@ -99,6 +102,11 @@ if __name__ == '__main__':
 
 
     policy_net = PolicyNet(env.observation_space.shape[0], config.hidden_dim, env.action_space.shape[0])
+
+    """ load weights from file """
+    if hasattr(config, 'load'):
+        policy_net.load_state_dict(torch.load(config.load))
+
     optim = torch.optim.Adam(policy_net.parameters(), lr=1e-4)
     wandb.watch(policy_net)
 
@@ -109,13 +117,32 @@ if __name__ == '__main__':
         a = action.rsample().numpy()
         return a
 
+    best_ave_reward = 0
+
+    if hasattr(config, 'demo'):
+        while True:
+            driver.episode(env, policy, render=True)
+
     """ sample """
     for epoch in range(8000):
         for ep in range(config.episodes_per_batch):
-            driver.episode(env, policy, render=config.render)
+            driver.episode(env, policy, render=config.demo)
 
         reinforce.train(buffer, policy_net, optim)
 
         """ test loop goes here """
-        if epoch % 1:
-            pass
+        if hasattr(config, 'test_epochs'):
+            if epoch % config.test_epochs == 0:
+                start = len(buffer.trajectories)
+                for _ in range(config.test_episodes):
+                    driver.episode(env, policy, render=config.render)
+                rewards = []
+                for trajectory in buffer.trajectories[start:]:
+                    rewards.append(0)
+                    for s, a, s_p, r, d, i in bf.TrajectoryTransitions(buffer, trajectory):
+                        rewards[-1] += r
+                ave_reward = mean(rewards)
+                if ave_reward > best_ave_reward:
+                    Path(config.run_dir).mkdir(parents=True, exist_ok=True)
+                    torch.save(policy_net.state_dict(), config.run_dir + '/best_policy.wgt')
+                buffer.clear()

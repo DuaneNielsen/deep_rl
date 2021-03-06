@@ -174,4 +174,6 @@ class ArgumentParser:
         if final_config.run_id == -1:
             final_config.run_id = counter()
 
+        vars(final_config)['run_dir'] = f'runs/run_{final_config.run_id}'
+
         return final_config

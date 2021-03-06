@@ -103,6 +103,7 @@ class ReplayBuffer(gym.Wrapper):
 
     def step(self, action):
         state, reward, done, info = self.env.step(action)
+
         self.buffer.append((action, state, reward, done, info))
 
         if done:
@@ -186,6 +187,9 @@ class ReplayBufferDataset:
         return len(self.buffer)
 
 
+FullTransition = namedtuple('FullTransition', ['s', 'a', 's_p', 'r', 'd', 'i'])
+
+
 class TrajectoryTransitions:
     """
     Iterates over a trajectory in the buffer, from start to end, given a start:end tuple
@@ -209,7 +213,7 @@ class TrajectoryTransitions:
             _, s, _, _, _ = self.buffer.buffer[self.cursor]
             a, s_p, r, d, i = self.buffer.buffer[self.cursor + 1]
             self.cursor += 1
-            return s, a, s_p, r, d, i
+            return FullTransition(s, a, s_p, r, d, i)
         else:
             raise StopIteration
 
@@ -234,7 +238,7 @@ class TrajectoryTransitionsReverse:
             _, s, _, _, _ = self.buffer.buffer[self.cursor - 1]
             a, s_p, r, d, i = self.buffer.buffer[self.cursor]
             self.cursor -= 1
-            return s, a, s_p, r, d, i
+            return FullTransition(s, a, s_p, r, d, i)
         else:
             raise StopIteration
 
