@@ -54,7 +54,7 @@ if __name__ == '__main__':
 
     """ hyper-parameters """
     parser.add_argument('--optim_class', type=str)
-    parser.add_argument('--optim_lr', type=float)
+    parser.add_argument('--optim_lr', type=float, default=1e-4)
     parser.add_argument('--scheduler-class', type=str)
     parser.add_argument('--episodes_per_batch', type=int, default=16)
     parser.add_argument('--discount', type=float, default=0.95)
@@ -115,7 +115,7 @@ if __name__ == '__main__':
 
 
     policy_net = PolicyNet(env.observation_space.shape[0], config.hidden_dim, env.action_space.shape[0])
-    optim = torch.optim.Adam(policy_net.parameters(), lr=1e-4)
+    optim = torch.optim.Adam(policy_net.parameters(), lr=config.optim_lr)
 
     """ load weights from file if required"""
     if exists_and_not_none(config, 'load'):

@@ -12,7 +12,7 @@ class DummyModule(nn.Module):
 
 def test_save():
     dum_net = DummyModule()
-    checkpoint.save(dir='delete', dum_net=dum_net)
+    checkpoint.save(directory='delete', dum_net=dum_net)
     assert Path('delete/dum_net.sd').exists()
     Path('delete/dum_net.sd').unlink()
     Path('delete').rmdir()
@@ -20,7 +20,7 @@ def test_save():
 
 def test_save_prefix():
     dum_net = DummyModule()
-    checkpoint.save(dir='delete', prefix='best', dum_net=dum_net)
+    checkpoint.save(directory='delete', prefix='best', dum_net=dum_net)
     assert Path('delete/best_dum_net.sd').exists()
     Path('delete/best_dum_net.sd').unlink()
     Path('delete').rmdir()
@@ -29,7 +29,7 @@ def test_save_prefix():
 def test_save_multi():
     dum_net = DummyModule()
     dum_net2 = DummyModule()
-    checkpoint.save(dir='delete', prefix='best', dum_net=dum_net, dum_net2=dum_net2)
+    checkpoint.save(directory='delete', prefix='best', dum_net=dum_net, dum_net2=dum_net2)
     assert Path('delete/best_dum_net.sd').exists()
     assert Path('delete/best_dum_net2.sd').exists()
     Path('delete/best_dum_net.sd').unlink()
@@ -40,12 +40,12 @@ def test_save_multi():
 def test_save_load():
     dum_net = DummyModule()
     dum_net.param[0] = 1.0
-    checkpoint.save(dir='delete', dum_net=dum_net)
+    checkpoint.save(directory='delete', dum_net=dum_net)
     assert Path('delete/dum_net.sd').exists()
 
     dum_net = DummyModule()
     assert dum_net.param[0] == 0.0
-    checkpoint.load(dir='delete', dum_net=dum_net)
+    checkpoint.load(directory='delete', dum_net=dum_net)
     assert dum_net.param[0] == 1.0
 
     Path('delete/dum_net.sd').unlink()
@@ -55,12 +55,12 @@ def test_save_load():
 def test_save_load_prefix():
     dum_net = DummyModule()
     dum_net.param[0] = 1.0
-    checkpoint.save(dir='delete', prefix='best', dum_net=dum_net)
+    checkpoint.save(directory='delete', prefix='best', dum_net=dum_net)
     assert Path('delete/best_dum_net.sd').exists()
 
     dum_net = DummyModule()
     assert dum_net.param[0] == 0.0
-    checkpoint.load(dir='delete', prefix='best', dum_net=dum_net)
+    checkpoint.load(directory='delete', prefix='best', dum_net=dum_net)
     assert dum_net.param[0] == 1.0
 
     Path('delete/best_dum_net.sd').unlink()
@@ -72,7 +72,7 @@ def test_save_load_prefix_multi():
     dum_net2 = DummyModule()
     dum_net.param[0] = 1.0
     dum_net2.param[0] = 2.0
-    checkpoint.save(dir='delete', prefix='best', dum_net=dum_net, dum_net2=dum_net2)
+    checkpoint.save(directory='delete', prefix='best', dum_net=dum_net, dum_net2=dum_net2)
     assert Path('delete/best_dum_net.sd').exists()
     assert Path('delete/best_dum_net2.sd').exists()
 
@@ -80,7 +80,7 @@ def test_save_load_prefix_multi():
     dum_net2 = DummyModule()
     assert dum_net.param[0] == 0.0
     assert dum_net2.param[0] == 0.0
-    checkpoint.load(dir='delete', prefix='best', dum_net=dum_net, dum_net2=dum_net2)
+    checkpoint.load(directory='delete', prefix='best', dum_net=dum_net, dum_net2=dum_net2)
     assert dum_net.param[0] == 1.0
     assert dum_net2.param[0] == 2.0
 
