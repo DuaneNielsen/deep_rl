@@ -6,7 +6,7 @@ import collections.abc
 import re
 
 """
-Config module provides fleximble managment of configuration
+Config module provides flexible management of configuration
 
 """
 
@@ -37,7 +37,7 @@ def get_kwargs(args, key):
     return clazz, kwargs
 
 
-def flatten(d, parent_key='', sep='-'):
+def flatten(d, parent_key='', sep='_'):
     items = []
     for k, v in d.items():
         new_key = parent_key + sep + k if parent_key else k
@@ -102,6 +102,13 @@ def get_optim(args, parameters):
     return optim, scheduler
 
 
+def exists_and_not_none(config, attr):
+    if hasattr(config, attr):
+        if vars(config)[attr] is not None:
+            return True
+    return False
+
+
 class ArgumentParser:
     def __init__(self, description=None):
         self.parser = argparse.ArgumentParser(description=description)
@@ -132,7 +139,7 @@ class ArgumentParser:
         seed: 0
         env:
           name: CartPoleContinuous-v1
-        episodes_per_batch 8
+        episodes_per_batch: 8
 
         will become
 
@@ -162,7 +169,7 @@ class ArgumentParser:
             list(u'-+0123456789.'))
 
         """ read the config file """
-        if hasattr(first_config, 'config'):
+        if exists_and_not_none(first_config, 'config'):
             with Path(first_config.config).open() as f:
                 conf = yaml.load(f, Loader=loader)
                 conf = flatten(conf)
@@ -171,9 +178,10 @@ class ArgumentParser:
         final_config = self.parser.parse_args(args)
 
         ''' if run_id not explicitly set, then guess it'''
-        if final_config.run_id == -1:
-            final_config.run_id = counter()
+        if exists_and_not_none(final_config, 'run_id'):
+            if final_config.run_id == -1:
+                final_config.run_id = counter()
 
-        vars(final_config)['run_dir'] = f'runs/run_{final_config.run_id}'
+            vars(final_config)['run_dir'] = f'runs/run_{final_config.run_id}'
 
         return final_config

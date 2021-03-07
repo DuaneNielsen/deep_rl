@@ -2,4 +2,9 @@ comment:  Cartpole Reinforce
 seed: 0
 env:
   name: CartPoleContinuous-v1
+  reward_multiple:
+epochs: 2000
+test:
+  epochs: 50
+  episodes: 10
 episodes_per_batch: 8

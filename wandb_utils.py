@@ -4,13 +4,15 @@ import wandb
 
 class LogRewards(gym.Wrapper):
     """
-    Wrapper to log episode rewards for wandb
+    Wrapper to log episode rewards and lengths for wandb
+    :param prefix: prefix to prepend to the metric names
     """
-    def __init__(self, env):
+    def __init__(self, env, prefix=None):
         super().__init__(env)
         self.reward = 0
         self.len = 0
         self.run_steps = 0
+        self.prefix = prefix + '_' if prefix is not None else ''
 
     def reset(self):
         self.reward = 0
@@ -23,6 +25,8 @@ class LogRewards(gym.Wrapper):
         self.len += 1
         self.run_steps += 1
         if done:
-            wandb.log({'epi_reward': self.reward, 'epi_len': self.len}, step=self.run_steps)
+            wandb.log({
+                f'{self.prefix}epi_reward': self.reward,
+                f'{self.prefix}epi_len': self.len}, step=self.run_steps)
         return state, reward, done, info
 

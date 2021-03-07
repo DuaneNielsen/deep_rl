@@ -74,6 +74,9 @@ class ReplayBuffer(gym.Wrapper):
                         transition_index = transitions[n]
                         _, state, _, _, _ = buffer[transition_index]
                         action, state_prime, reward, done, info = buffer[transtion_index + 1]
+        trajectory_info a dictionary for each trajectory that contains at a minimum
+                            return:  The return (total reward) for the trajectory
+                            len:  The length of the trajectory
         """
         super().__init__(env)
         self.buffer = []
@@ -94,6 +97,13 @@ class ReplayBuffer(gym.Wrapper):
         self.trajectories = []
         self.transitions = []
         self.traj_start = 0
+
+    def tail_trajectory_complete(self):
+        """
+        returns True if the most recent trajectory in the buffer is complete, or if buffer is empty
+        returns False if a trajectory is in the process of being added
+        """
+        return self.traj_start == len(self.buffer)
 
     def reset(self):
         state = self.env.reset()
@@ -117,7 +127,7 @@ class ReplayBuffer(gym.Wrapper):
             """ terminal state, trajectory is complete """
             self.trajectories.append((self.traj_start, len(self.buffer)))
             self.traj_start = len(self.buffer)
-            self.trajectory_info.append({'R': self.eps_reward, 'len': self.eps_len})
+            self.trajectory_info.append({'return': self.eps_reward, 'len': self.eps_len})
         else:
             """ if not terminal, then by definition, this will be a transition """
             self.transitions.append(len(self.buffer) - 1)

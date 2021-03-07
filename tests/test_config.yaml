@@ -1,0 +1,5 @@
+env:
+  name: CartPoleContinuous-v2
+demo: True
+epochs: 1000
+min_variance: 0.5
