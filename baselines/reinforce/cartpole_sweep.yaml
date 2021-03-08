@@ -2,8 +2,6 @@ command:
 - ${env}
 - ${interpreter}
 - ${program}
-- --seed
-- 0
 - --silent
 - ${args}
 method: bayes
@@ -11,18 +9,26 @@ metric:
   goal: maximize
   name: best_mean_return
 parameters:
+  env_name:
+    value: CartPoleContinuous-v1
+  max_steps:
+    value: 500000
+  seed:
+    value: 0
   discount:
     distribution: uniform
     max: 1
     min: 0.7
   episodes_per_batch:
-    distribution: int_uniform
-    max: 64
-    min: 4
+    values:
+    - 64
+    - 32
+    - 16
+    - 8
   hidden_dim:
-    distribution: int_uniform
-    max: 32
-    min: 16
+    values:
+    - 32
+    - 16
   min_variance:
     distribution: uniform
     max: 0.5

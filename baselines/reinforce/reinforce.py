@@ -39,6 +39,7 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=None)
 
     """ main loop control """
+    parser.add_argument('--max_steps', type=int, default=2000000)
     parser.add_argument('--epochs', type=int, default=2000)
     parser.add_argument('--test_epochs', type=int, default=50)
     parser.add_argument('--test_episodes', type=int, default=10)
@@ -141,11 +142,13 @@ if __name__ == '__main__':
             buffer.clear()
 
     best_mean_return = 0
+    total_steps = 0
 
     """ main loop """
     for epoch in range(config.epochs):
         for ep in range(config.episodes_per_batch):
             driver.episode(train_env, policy, render=config.env_render)
+        total_steps += len(buffer)
 
         """ train """
         reinforce.train(buffer, policy_net, optim)
@@ -160,4 +163,8 @@ if __name__ == '__main__':
             if mean_return > best_mean_return:
                 best_mean_return = mean_return
                 wandb.run.summary["best_mean_return"] = best_mean_return
+                wandb.run.summary["best_stdev_return"] = stdev_return
                 checkpoint.save(config.run_dir, 'best', policy_net=policy_net, optim=optim)
+
+        if total_steps > config.max_steps:
+            break

@@ -3,11 +3,12 @@ seed: 0
 env:
   name: CartPoleContinuous-v1
 epochs: 2000
+max_steps: 500000
 test:
-  epochs: 50
+  epochs: 30
   episodes: 10
 discount: 0.9116
-episodes_per_batch: 104
-hidden_dim: 17
+episodes_per_batch: 16
+hidden_dim: 16
 min_variance: 0.09
-optim_lr: 0.0016139
+optim_lr: 0.00046139
