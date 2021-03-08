@@ -1,0 +1,34 @@
+command:
+- ${env}
+- ${interpreter}
+- ${program}
+- --seed
+- 0
+- --silent
+- ${args}
+method: bayes
+metric:
+  goal: maximize
+  name: best_mean_return
+parameters:
+  discount:
+    distribution: uniform
+    max: 1
+    min: 0.7
+  episodes_per_batch:
+    distribution: int_uniform
+    max: 64
+    min: 4
+  hidden_dim:
+    distribution: int_uniform
+    max: 32
+    min: 16
+  min_variance:
+    distribution: uniform
+    max: 0.5
+    min: 0.01
+  optim_lr:
+    distribution: log_uniform
+    max: -5
+    min: -10
+program: reinforce.py

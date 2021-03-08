@@ -33,6 +33,7 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--device', type=str)
     parser.add_argument('-r', '--run_id', type=int, default=-1)
     parser.add_argument('--comment', type=str)
+    parser.add_argument('--silent', action='store_true', default=False)
 
     """ reproducibility """
     parser.add_argument('--seed', type=int, default=None)
@@ -63,7 +64,7 @@ if __name__ == '__main__':
 
     config = parser.parse_args()
 
-    wandb.init(project="reinforce-cartpole", config=config)
+    wandb.init(project=f"reinforce-{config.env_name}", config=config)
 
     """ environment """
     def make_env():
@@ -79,10 +80,13 @@ if __name__ == '__main__':
     """ replay buffer """
     train_env, buffer = bf.wrap(env)
     buffer.enrich(bf.DiscountedReturns(discount=config.discount))
-    train_env = Plot(train_env, episodes_per_point=config.episodes_per_batch)
+    if not config.silent:
+        train_env = Plot(train_env, episodes_per_point=config.episodes_per_batch)
     train_env = wandb_utils.LogRewards(train_env)
 
-    test_env = Plot(make_env())
+    test_env = make_env()
+    if not config.silent:
+        test_env = Plot(make_env())
 
     """ random seed """
     if exists_and_not_none(config, 'seed'):
@@ -136,7 +140,7 @@ if __name__ == '__main__':
             driver.episode(test_env, policy, render=True)
             buffer.clear()
 
-    best_mean_reward = 0
+    best_mean_return = 0
 
     """ main loop """
     for epoch in range(config.epochs):
@@ -153,7 +157,7 @@ if __name__ == '__main__':
                                                                          render=config.env_render)
 
             # checkpoint policy if mean return is better
-            if mean_return > best_mean_reward:
-                best_mean_reward = mean_return
-                wandb.run.summary["best_mean_reward"] = best_mean_reward
+            if mean_return > best_mean_return:
+                best_mean_return = mean_return
+                wandb.run.summary["best_mean_return"] = best_mean_return
                 checkpoint.save(config.run_dir, 'best', policy_net=policy_net, optim=optim)
