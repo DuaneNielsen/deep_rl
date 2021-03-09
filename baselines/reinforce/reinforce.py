@@ -141,9 +141,6 @@ if __name__ == '__main__':
         state = torch.from_numpy(state).float()
         action = policy_net(state)
         a = action.rsample()
-        if torch.isnan(a):
-            wandb.run.summary["FAIL"] = str(action.mu) + " " + str(action.scale)
-        assert torch.isnan(a) == False
         return a.numpy()
 
     """ demo  """
@@ -152,11 +149,12 @@ if __name__ == '__main__':
             driver.episode(test_env, policy, render=True)
             buffer.clear()
 
-    best_mean_return = -999999
-    total_steps = 0
-    tests_run = 0
 
     """ main loop """
+    total_steps = 0
+    best_mean_return = -999999
+    tests_run = 0
+
     while total_steps < config.max_steps:
         for ep in range(config.episodes_per_batch):
             driver.episode(train_env, policy)
