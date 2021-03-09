@@ -38,11 +38,13 @@ if __name__ == '__main__':
     parser.add_argument('--env_name', type=str, default='CartPole-v1')
     parser.add_argument('--env_render', action='store_true', default=False)
 
+    """ vizualization """
+    parser.add_argument('--plot_episodes_per_point', type=int, default=32)
+
     """ hyper-parameters """
     parser.add_argument('--optim_class', type=str)
     parser.add_argument('--optim_lr', type=float, default=1e-4)
     parser.add_argument('--scheduler-class', type=str)
-    parser.add_argument('--episodes_per_batch', type=int, default=16)
     parser.add_argument('--discount', type=float, default=0.95)
     parser.add_argument('--epsilon', type=float, default=0.1)
     parser.add_argument('--hidden_size', type=int, default=16)
@@ -66,7 +68,7 @@ if __name__ == '__main__':
     """ replay buffer """
     train_env, buffer = bf.wrap(env)
     if not config.silent:
-        train_env = Plot(train_env, episodes_per_point=config.episodes_per_batch)
+        train_env = Plot(train_env, episodes_per_point=config.plot_episodes_per_point)
     train_env = wandb_utils.LogRewards(train_env)
 
     test_env = make_env()
