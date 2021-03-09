@@ -2,10 +2,9 @@ comment:  Cartpole Reinforce
 seed: 0
 env:
   name: CartPoleContinuous-v1
-epochs: 2000
 max_steps: 500000
 test:
-  epochs: 30
+  steps: 100000
   episodes: 10
 discount: 0.97
 episodes_per_batch: 8

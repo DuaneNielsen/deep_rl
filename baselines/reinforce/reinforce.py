@@ -40,7 +40,6 @@ if __name__ == '__main__':
 
     """ main loop control """
     parser.add_argument('--max_steps', type=int, default=2000000)
-    parser.add_argument('--epochs', type=int, default=2000)
     parser.add_argument('--test_steps', type=int, default=100000)
     parser.add_argument('--test_episodes', type=int, default=10)
 
@@ -158,7 +157,7 @@ if __name__ == '__main__':
     tests_run = 0
 
     """ main loop """
-    for epoch in range(config.epochs):
+    while total_steps < config.max_steps:
         for ep in range(config.episodes_per_batch):
             driver.episode(train_env, policy)
         total_steps += len(buffer)
@@ -182,6 +181,3 @@ if __name__ == '__main__':
                 wandb.run.summary["best_mean_return"] = best_mean_return
                 wandb.run.summary["best_stdev_return"] = stdev_return
                 checkpoint.save(config.run_dir, 'best', policy_net=policy_net, optim=optim)
-
-        if total_steps > config.max_steps:
-            break

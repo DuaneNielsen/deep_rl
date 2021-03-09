@@ -1,9 +1,6 @@
 import torch
 from buffer import ReplayBufferDataset
 from torch.utils.data import DataLoader
-import wandb
-
-
 
 
 def train(buffer, policy_net, optim, clip_min=-2.0, clip_max=-0.1, device='cpu', dtype=torch.float):
@@ -30,7 +27,8 @@ def train(buffer, policy_net, optim, clip_min=-2.0, clip_max=-0.1, device='cpu',
         optim.zero_grad()
         a_dist = policy_net(state)
         G = (G - torch.mean(G)) / (G.max() - G.min()).detach()
-        loss = - torch.mean(a_dist.log_prob(action).clamp(min=-2.0, max=-0.1) * G)
+        logprob = a_dist.log_prob(action)
+        loss = - torch.mean(logprob.clamp(min=clip_min, max=clip_max) * G)
         loss.backward()
         optim.step()
 

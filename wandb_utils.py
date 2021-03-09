@@ -1,5 +1,6 @@
 import gym
 import wandb
+import torch
 
 
 class LogRewards(gym.Wrapper):
@@ -29,4 +30,10 @@ class LogRewards(gym.Wrapper):
                 f'{self.prefix}epi_reward': self.reward,
                 f'{self.prefix}epi_len': self.len}, step=self.run_steps)
         return state, reward, done, info
+
+
+def nancheck(tensor, error):
+    if torch.isnan(tensor).any():
+        wandb.summary['FAIL'] = error
+        assert False, error
 
