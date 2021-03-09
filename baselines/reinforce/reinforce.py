@@ -41,7 +41,7 @@ if __name__ == '__main__':
     """ main loop control """
     parser.add_argument('--max_steps', type=int, default=2000000)
     parser.add_argument('--epochs', type=int, default=2000)
-    parser.add_argument('--test_epochs', type=int, default=50)
+    parser.add_argument('--test_steps', type=int, default=100000)
     parser.add_argument('--test_episodes', type=int, default=10)
 
     """ resume settings """
@@ -53,6 +53,8 @@ if __name__ == '__main__':
     parser.add_argument('--env_render', action='store_true', default=False)
     parser.add_argument('--env_reward_multiple', type=float, default=1.0)
     parser.add_argument('--env_reward_bias', type=float, default=0.0)
+    parser.add_argument('--env_action_max', type=float, default=1.0)
+    parser.add_argument('--env_action_min', type=float, default=-1.0)
 
     """ hyper-parameters """
     parser.add_argument('--optim_class', type=str)
@@ -62,6 +64,8 @@ if __name__ == '__main__':
     parser.add_argument('--discount', type=float, default=0.95)
     parser.add_argument('--min_variance', type=float, default=0.05)
     parser.add_argument('--hidden_dim', type=int, default=16)
+    parser.add_argument('--clip_max', type=float, default=-0.1)
+    parser.add_argument('--clip_min', type=float, default=-2.0)
 
     config = parser.parse_args()
 
@@ -107,7 +111,7 @@ if __name__ == '__main__':
         def __init__(self, input_dim, hidden_dim, output_dim=1, min=-1.0, max=1.0):
             super().__init__()
             self.mu = nn.Sequential(nn.Linear(input_dim, hidden_dim), nn.SELU(inplace=True),
-                                    nn.Linear(hidden_dim, hidden_dim), nn.ELU(inplace=True),
+                                    nn.Linear(hidden_dim, hidden_dim), nn.SELU(inplace=True),
                                     nn.Linear(hidden_dim, output_dim))
             self.scale = nn.Linear(input_dim, output_dim, bias=False)
             self.min = min
@@ -119,7 +123,12 @@ if __name__ == '__main__':
             return ScaledTanhTransformedGaussian(mu, scale, min=self.min, max=self.max)
 
 
-    policy_net = PolicyNet(env.observation_space.shape[0], config.hidden_dim, env.action_space.shape[0])
+    policy_net = PolicyNet(env.observation_space.shape[0],
+                           config.hidden_dim,
+                           env.action_space.shape[0],
+                           max=config.env_action_max,
+                           min=config.env_action_min)
+
     optim = torch.optim.Adam(policy_net.parameters(), lr=config.optim_lr)
 
     """ load weights from file if required"""
@@ -132,8 +141,11 @@ if __name__ == '__main__':
     def policy(state):
         state = torch.from_numpy(state).float()
         action = policy_net(state)
-        a = action.rsample().numpy()
-        return a
+        a = action.rsample()
+        if torch.isnan(a):
+            wandb.run.summary["FAIL"] = str(action.mu) + " " + str(action.scale)
+        assert torch.isnan(a) == False
+        return a.numpy()
 
     """ demo  """
     if config.demo:
@@ -141,23 +153,28 @@ if __name__ == '__main__':
             driver.episode(test_env, policy, render=True)
             buffer.clear()
 
-    best_mean_return = 0
+    best_mean_return = -999999
     total_steps = 0
+    tests_run = 0
 
     """ main loop """
     for epoch in range(config.epochs):
         for ep in range(config.episodes_per_batch):
-            driver.episode(train_env, policy, render=config.env_render)
+            driver.episode(train_env, policy)
         total_steps += len(buffer)
 
         """ train """
-        reinforce.train(buffer, policy_net, optim)
+        reinforce.train(buffer, policy_net, optim, clip_min=config.clip_min, clip_max=config.clip_max)
 
         """ test  """
-        if epoch % config.test_epochs == 0:
+        if total_steps > config.test_steps * tests_run:
+            tests_run += 1
 
             mean_return, stdev_return = checkpoint.sample_policy_returns(test_env, policy, config.test_episodes,
                                                                          render=config.env_render)
+
+            wandb.run.summary["last_mean_return"] = mean_return
+            wandb.run.summary["last_stdev_return"] = stdev_return
 
             # checkpoint policy if mean return is better
             if mean_return > best_mean_return:

@@ -1,15 +1,20 @@
 import torch
 from buffer import ReplayBufferDataset
 from torch.utils.data import DataLoader
+import wandb
 
 
-def train(buffer, policy_net, optim, device='cpu', dtype=torch.float):
+
+
+def train(buffer, policy_net, optim, clip_min=-2.0, clip_max=-0.1, device='cpu', dtype=torch.float):
     """
     REINFORCE
 
     param: buffer - ReplayBuffer, BUFFER WILL BE CLEARED AFTER TRAINING
     param: policy_net - function policy(state) returns probability distribution over actions
     param: optim - optimizer
+    param: clip_min = probs will be clipped to exp(clip_min)
+    param: clip_max = probs will be clipped to exp(clip_max)
     device: device to train on
     dtype: dtype to convert to
     """

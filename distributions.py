@@ -1,4 +1,5 @@
 import math
+import torch
 from torch.nn.functional import softplus
 from torch.distributions import constraints, TransformedDistribution, Normal
 from torch.distributions.transforms import Transform, AffineTransform
@@ -78,9 +79,20 @@ class ScaledTanhTransformedGaussian(TransformedDistribution):
         :param max: upper bound of distribution
         """
         self.mu, self.scale = mu, scale
+        self.min, self.max = min, max
         base_dist = Normal(mu, scale)
-        transforms = [TanhTransform(cache_size=1), AffineTransform(loc=0, scale=(max - min)/2)]
+        transforms = [TanhTransform(cache_size=1), AffineTransform(loc=0, scale=(max - min)/2.0)]
         super().__init__(base_dist, transforms)
+
+    def rsample(self, *args, **kwargs):
+        sample = super().rsample(*args, **kwargs)
+        eps = torch.finfo(sample.dtype).eps
+        return sample.clamp(min=self.min+eps, max=self.max-eps)
+
+    def sample(self, *args, **kwargs):
+        sample = super().sample(*args, **kwargs)
+        eps = torch.finfo(sample.dtype).eps
+        return sample.clamp(min=self.min+eps, max=self.max-eps)
 
     @property
     def mean(self):

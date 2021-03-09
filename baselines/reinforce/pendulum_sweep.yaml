@@ -1,0 +1,49 @@
+command:
+- ${env}
+- ${interpreter}
+- ${program}
+- --silent
+- ${args}
+method: bayes
+metric:
+  goal: maximize
+  name: last_mean_return
+parameters:
+  clip_max:
+    distribution: uniform
+    max: 0
+    min: -0.5
+  discount:
+    value: 0.97
+  env_action_max:
+    value: 2
+  env_action_min:
+    value: -2
+  env_name:
+    value: Pendulum-v0
+  test_steps:
+    value: 100000
+  episodes_per_batch:
+    values:
+    - 8
+    - 16
+    - 32
+  hidden_dim:
+    values:
+    - 16
+    - 32
+    - 128
+    - 256
+  max_steps:
+    value: 500000
+  min_variance:
+    distribution: uniform
+    max: 0.2
+    min: 0.01
+  optim_lr:
+    distribution: log_uniform
+    max: -5
+    min: -10
+  seed:
+    value: 0
+program: reinforce.py
