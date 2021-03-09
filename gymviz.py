@@ -16,7 +16,7 @@ class Plot(gym.Wrapper):
     env = Plot(env)
     """
 
-    def __init__(self, env, refresh_cooldown=1.0, history_length=None, episodes_per_point=1):
+    def __init__(self, env, refresh_cooldown=1.0, history_length=None, episodes_per_point=1, title=None):
         """
 
         :param refresh_cooldown: maximum refresh frequency
@@ -30,7 +30,9 @@ class Plot(gym.Wrapper):
         self.rows = 2
         plt.ion()
         self.fig = plt.figure(figsize=(8, 16))
-        if env.unwrapped.spec is not None:
+        if title is not None:
+            self.fig.suptitle(title)
+        elif env.unwrapped.spec is not None:
             self.fig.suptitle(env.unwrapped.spec.id)
         else:
             self.fig.suptitle('set env.spec.id to show title')

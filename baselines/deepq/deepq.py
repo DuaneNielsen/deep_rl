@@ -68,12 +68,12 @@ if __name__ == '__main__':
     """ replay buffer """
     train_env, buffer = bf.wrap(env)
     if not config.silent:
-        train_env = Plot(train_env, episodes_per_point=config.plot_episodes_per_point)
+        train_env = Plot(train_env, title=f'Train {config.env_name}', episodes_per_point=config.plot_episodes_per_point)
     train_env = wandb_utils.LogRewards(train_env)
 
     test_env = make_env()
     if not config.silent:
-        test_env = Plot(make_env())
+        test_env = Plot(make_env(), title=f'Test {config.env_name}')
 
     """ random seed """
     if exists_and_not_none(config, 'seed'):
@@ -115,10 +115,16 @@ if __name__ == '__main__':
             action = torch.argmax(q_net(state), dim=1)
             return action.item()
 
+    def exploit_policy(state):
+        state = torch.from_numpy(state).float().unsqueeze(0)
+        action = torch.argmax(q_net(state), dim=1)
+        return action.item()
+
+
     """ demo  """
     if config.demo:
         while True:
-            driver.episode(test_env, policy, render=True)
+            driver.episode(test_env, exploit_policy, render=True)
             buffer.clear()
 
     """ main loop """
@@ -139,7 +145,7 @@ if __name__ == '__main__':
         if step_n > config.test_steps * tests_run:
             tests_run += 1
 
-            mean_return, stdev_return = checkpoint.sample_policy_returns(test_env, policy, config.test_episodes,
+            mean_return, stdev_return = checkpoint.sample_policy_returns(test_env, exploit_policy, config.test_episodes,
                                                                          render=config.env_render)
             wandb.run.summary["last_mean_return"] = mean_return
             wandb.run.summary["last_stdev_return"] = stdev_return
