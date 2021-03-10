@@ -1,0 +1,7 @@
+gymviz module
+=============
+
+.. automodule:: gymviz
+   :members:
+   :undoc-members:
+   :show-inheritance:
