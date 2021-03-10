@@ -11,6 +11,8 @@ Minimal pytorch framework for developing Deep Reinforcement Learning algorithms.
 * Extensible replay buffer, supports data enrichment using gym type interface
 * All core functions in a single file, just drag and drop into your project
 
+[Docs]([https://duanenielsen.github.io/deep_rl/])
+
 ## Replay buffer
 
 Replay buffer is implemented as a gym wrapper
