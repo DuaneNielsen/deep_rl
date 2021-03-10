@@ -12,6 +12,6 @@ build the docs
 cd docsrc
 sphinx-apidoc -o . ..
 make html
-cp -a _build/html/. ../docs
+cp -a _build/html/. ../doc
 ```
 

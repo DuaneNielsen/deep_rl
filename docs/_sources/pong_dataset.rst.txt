@@ -1,7 +1,0 @@
-pong\_dataset module
-====================
-
-.. automodule:: pong_dataset
-   :members:
-   :undoc-members:
-   :show-inheritance:
