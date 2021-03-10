@@ -163,17 +163,18 @@ class ReplayBufferDataset:
 
     wraps the buffer to provide a convenient and efficient way to read transitions for batch collation
 
-    buffer: a replay buffer
-    fields: a list of keys to retrieve from the buffer,
-        Key:
-            s: state
-            a: action
-            s_p: state prime, the resultant state
-            r: reward
-            d: done
+        buffer: a replay buffer
+        fields: a list of keys to retrieve from the buffer,
+            Key:
+                s: state
+                a: action
+                s_p: state prime, the resultant state
+                r: reward
+                d: done
     info_keys: a single key, or list of keys to load from the transitions info dict
 
     """
+
     def __init__(self, buffer, fields=None, info_keys=None):
         self.buffer = buffer
         self.fields = fields if fields is not None else ['s', 'a', 's_p', 'r', 'd']
@@ -245,6 +246,7 @@ class TrajectoryTransitionsReverse:
     replay_buffer: the replay buffer
     trajectory_start_end_tuple: a tuple with the start and end of the replay buffer
     """
+
     def __init__(self, replay_buffer, trajectory_start_end_tuple):
         self.buffer = replay_buffer
         self.start = trajectory_start_end_tuple[0]
