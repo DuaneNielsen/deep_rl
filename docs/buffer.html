@@ -37,7 +37,9 @@
 
     
     <link rel="index" title="Index" href="genindex.html" />
-    <link rel="search" title="Search" href="search.html" /> 
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="capture module" href="capture.html" />
+    <link rel="prev" title="deep_rl" href="modules.html" /> 
 </head>
 
 <body class="wy-body-for-nav">
@@ -82,11 +84,24 @@
               
             
             
-              <!-- Local TOC -->
-              <div class="local-toc"><ul>
-<li><a class="reference internal" href="#">buffer module</a></li>
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">deep_rl</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">buffer module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="capture.html">capture module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="checkpoint.html">checkpoint module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="config.html">config module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="distributions.html">distributions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="driver.html">driver module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="env.html">env package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gymviz.html">gymviz module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="observer.html">observer module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pong_dataset.html">pong_dataset module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="wandb_utils.html">wandb_utils module</a></li>
 </ul>
-</div>
+</li>
+</ul>
+
             
           
         </div>
@@ -133,6 +148,8 @@
     
       <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
         
+          <li><a href="modules.html">deep_rl</a> &raquo;</li>
+        
       <li>buffer module</li>
     
     
@@ -163,8 +180,18 @@ Returns are added to the info field
 for transition (s, i, a, s_p, r, d, i_p), return = transition.i[‘g’]</p>
 <dl class="py method">
 <dt id="buffer.DiscountedReturns.step">
-<code class="sig-name descname"><span class="pre">step</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">buffer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">action</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reward</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">done</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">info</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#buffer.DiscountedReturns.step" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<code class="sig-name descname"><span class="pre">step</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">buffer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">action</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reward</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">done</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">info</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#buffer.DiscountedReturns.step" title="Permalink to this definition">¶</a></dt>
+<dd><p>step will be called when the environment step function is run
+:param buffer: the replay buffer
+:param action: action taken
+:param state: resultant state after taking action
+:param reward: resultant reward
+:param done: true if this is last step in trajectory
+:param info: info dict returned by environment
+store output in info if enriching the step
+output recording trajectory information can be stored in buffer.trajectory_info
+:return:</p>
+</dd></dl>
 
 </dd></dl>
 
@@ -182,13 +209,26 @@ multiple enrichers will be called in order they were attached</p>
 
 <dl class="py method">
 <dt id="buffer.Enricher.reset">
-<code class="sig-name descname"><span class="pre">reset</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">buffer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#buffer.Enricher.reset" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<code class="sig-name descname"><span class="pre">reset</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">buffer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#buffer.Enricher.reset" title="Permalink to this definition">¶</a></dt>
+<dd><p>reset will be called when environment is reset
+:param buffer: replay buffer
+:param state: the state returned by the environment</p>
+</dd></dl>
 
 <dl class="py method">
 <dt id="buffer.Enricher.step">
-<code class="sig-name descname"><span class="pre">step</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">buffer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">action</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reward</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">done</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">info</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#buffer.Enricher.step" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<code class="sig-name descname"><span class="pre">step</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">buffer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">action</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reward</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">done</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">info</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#buffer.Enricher.step" title="Permalink to this definition">¶</a></dt>
+<dd><p>step will be called when the environment step function is run
+:param buffer: the replay buffer
+:param action: action taken
+:param state: resultant state after taking action
+:param reward: resultant reward
+:param done: true if this is last step in trajectory
+:param info: info dict returned by environment
+store output in info if enriching the step
+output recording trajectory information can be stored in buffer.trajectory_info
+:return:</p>
+</dd></dl>
 
 </dd></dl>
 
@@ -296,22 +336,20 @@ returns False if a trajectory is in the process of being added</p>
 <dt id="buffer.ReplayBufferDataset">
 <em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">buffer.</span></code><code class="sig-name descname"><span class="pre">ReplayBufferDataset</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">buffer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">info_keys</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#buffer.ReplayBufferDataset" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>wraps the buffer to provide a convenient and efficient way to read transitions for batch collation</p>
-<blockquote>
-<div><p>buffer: a replay buffer
-fields: a list of keys to retrieve from the buffer,</p>
-<blockquote>
-<div><dl class="simple">
-<dt>Key:</dt><dd><p>s: state
-a: action
-s_p: state prime, the resultant state
-r: reward
-d: done</p>
+<dl class="simple">
+<dt>Wraps the buffer to provide a convenient and efficient way to read transitions for batch collation</dt><dd><dl class="field-list simple">
+<dt class="field-odd">param buffer</dt>
+<dd class="field-odd"><p>a replay buffer</p>
+</dd>
+<dt class="field-even">param fields</dt>
+<dd class="field-even"><p>a list of keys to retrieve from the buffer s: state a: action s_p: state prime, the resultant         state r: reward d: done</p>
+</dd>
+<dt class="field-odd">param info_keys</dt>
+<dd class="field-odd"><p>a single key, or list of keys to load from the transitions info dict</p>
 </dd>
 </dl>
-</div></blockquote>
-</div></blockquote>
-<p>info_keys: a single key, or list of keys to load from the transitions info dict</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py class">
@@ -323,8 +361,18 @@ Returns are added to the info field
 for transition (s, i, a, s_p, r, d, i_p), return = transition.i[‘g’]</p>
 <dl class="py method">
 <dt id="buffer.Returns.step">
-<code class="sig-name descname"><span class="pre">step</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">buffer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">action</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reward</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">done</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">info</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#buffer.Returns.step" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<code class="sig-name descname"><span class="pre">step</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">buffer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">action</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reward</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">done</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">info</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#buffer.Returns.step" title="Permalink to this definition">¶</a></dt>
+<dd><p>step will be called when the environment step function is run
+:param buffer: the replay buffer
+:param action: action taken
+:param state: resultant state after taking action
+:param reward: resultant reward
+:param done: true if this is last step in trajectory
+:param info: info dict returned by environment
+store output in info if enriching the step
+output recording trajectory information can be stored in buffer.trajectory_info
+:return:</p>
+</dd></dl>
 
 </dd></dl>
 
@@ -333,10 +381,12 @@ for transition (s, i, a, s_p, r, d, i_p), return = transition.i[‘g’]</p>
 <em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">buffer.</span></code><code class="sig-name descname"><span class="pre">TrajectoryTransitions</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">replay_buffer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">trajectory_start_end_tuple</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#buffer.TrajectoryTransitions" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Iterates over a trajectory in the buffer, from start to end, given a start:end tuple</p>
-<p>eg: to iterate over the most recent trajectory</p>
-<p><code class="docutils literal notranslate"><span class="pre">`</span>
-<span class="pre">trajectory</span> <span class="pre">=</span> <span class="pre">Transition(buffer,</span> <span class="pre">buffer.trajectories[-1])</span>
-<span class="pre">`</span></code></p>
+<p>eg: to iterate over the most recent trajectory
+::param buffer: replay buffer
+::param trajectory_start_end_tuple: a tuple from buffer.trajectories</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">trajectory</span> <span class="o">=</span> <span class="n">Transition</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="n">buffer</span><span class="o">.</span><span class="n">trajectories</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py class">
@@ -352,9 +402,9 @@ trajectory_start_end_tuple: a tuple with the start and end of the replay buffer<
 <dt id="buffer.wrap">
 <code class="sig-prename descclassname"><span class="pre">buffer.</span></code><code class="sig-name descname"><span class="pre">wrap</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">env</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#buffer.wrap" title="Permalink to this definition">¶</a></dt>
 <dd><p>convenience method for wrapping a gym environment</p>
-<p><code class="docutils literal notranslate"><span class="pre">`</span>
-<span class="pre">env,</span> <span class="pre">buffer</span> <span class="pre">=</span> <span class="pre">buffer.wrap(env)</span>
-<span class="pre">`</span></code></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">env</span><span class="p">,</span> <span class="n">buffer</span> <span class="o">=</span> <span class="n">buffer</span><span class="o">.</span><span class="n">wrap</span><span class="p">(</span><span class="n">env</span><span class="p">)</span>
+</pre></div>
+</div>
 </dd></dl>
 
 </div>
@@ -364,6 +414,10 @@ trajectory_start_end_tuple: a tuple with the start and end of the replay buffer<
            
           </div>
           <footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+        <a href="capture.html" class="btn btn-neutral float-right" title="capture module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="modules.html" class="btn btn-neutral float-left" title="deep_rl" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
 
   <hr/>
 

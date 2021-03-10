@@ -9,10 +9,27 @@ class Enricher:
     multiple enrichers will be called in order they were attached
     """
 
-    def reset(self, buffer, state, **kwargs):
+    def reset(self, buffer, state):
+        """
+        reset will be called when environment is reset
+        :param buffer: replay buffer
+        :param state: the state returned by the environment
+        """
         pass
 
-    def step(self, buffer, action, state, reward, done, info, **kwargs):
+    def step(self, buffer, action, state, reward, done, info):
+        """
+        step will be called when the environment step function is run
+        :param buffer: the replay buffer
+        :param action: action taken
+        :param state: resultant state after taking action
+        :param reward: resultant reward
+        :param done: true if this is last step in trajectory
+        :param info: info dict returned by environment
+        store output in info if enriching the step
+        output recording trajectory information can be stored in buffer.trajectory_info
+        :return:
+        """
         pass
 
     def enrich(self, fields, transition, i, i_p):
@@ -29,7 +46,7 @@ class Returns(Enricher):
     def __init__(self, key='g'):
         self.key = key
 
-    def step(self, buffer, action, state, reward, done, info, **kwargs):
+    def step(self, buffer, action, state, reward, done, info):
         if done:
             # terminal state returns are always 0
             g = 0
@@ -49,7 +66,7 @@ class DiscountedReturns(Enricher):
         self.key = key
         self.discount = discount
 
-    def step(self, buffer, action, state, reward, done, info, **kwargs):
+    def step(self, buffer, action, state, reward, done, info):
         if done:
             # terminal state returns are always 0
             g = 0.0
@@ -155,24 +172,13 @@ class ReplayBuffer(gym.Wrapper):
         return len(self.transitions)
 
 
-# ['s', 'a'], ['advantage']
-
 class ReplayBufferDataset:
     """
-    ReplayBufferDataset
-
-    wraps the buffer to provide a convenient and efficient way to read transitions for batch collation
-
-        buffer: a replay buffer
-        fields: a list of keys to retrieve from the buffer,
-            Key:
-                s: state
-                a: action
-                s_p: state prime, the resultant state
-                r: reward
-                d: done
-    info_keys: a single key, or list of keys to load from the transitions info dict
-
+    Wraps the buffer to provide a convenient and efficient way to read transitions for batch collation
+        :param buffer: a replay buffer
+        :param fields: a list of keys to retrieve from the buffer s: state a: action s_p: state prime, the resultant \
+        state r: reward d: done
+        :param info_keys: a single key, or list of keys to load from the transitions info dict
     """
 
     def __init__(self, buffer, fields=None, info_keys=None):
@@ -214,10 +220,12 @@ class TrajectoryTransitions:
     Iterates over a trajectory in the buffer, from start to end, given a start:end tuple
 
     eg: to iterate over the most recent trajectory
+    ::param buffer: replay buffer
+    ::param trajectory_start_end_tuple: a tuple from buffer.trajectories
 
-    ```
-    trajectory = Transition(buffer, buffer.trajectories[-1])
-    ```
+    .. code-block:: python
+
+        trajectory = Transition(buffer, buffer.trajectories[-1])
 
     """
 
@@ -270,9 +278,9 @@ def wrap(env):
     """
     convenience method for wrapping a gym environment
 
-    ```
-    env, buffer = buffer.wrap(env)
-    ```
+    .. code-block:: python
+
+        env, buffer = buffer.wrap(env)
     """
     buffer = ReplayBuffer(env)
     return buffer, buffer
