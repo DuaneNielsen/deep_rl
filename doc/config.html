@@ -1,0 +1,313 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <title>config module &mdash; deep_rl  documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+
+  
+  
+
+  
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="distributions module" href="distributions.html" />
+    <link rel="prev" title="checkpoint module" href="checkpoint.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home"> deep_rl
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="algos.html">algos package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="env.html">env package</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">deep_rl</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="buffer.html">buffer module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="capture.html">capture module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="checkpoint.html">checkpoint module</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">config module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="distributions.html">distributions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="driver.html">driver module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="env.html">env package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gymviz.html">gymviz module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="observer.html">observer module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pong_dataset.html">pong_dataset module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="wandb_utils.html">wandb_utils module</a></li>
+</ul>
+</li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">deep_rl</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="modules.html">deep_rl</a> &raquo;</li>
+        
+      <li>config module</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="_sources/config.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-config">
+<span id="config-module"></span><h1>config module<a class="headerlink" href="#module-config" title="Permalink to this headline">¶</a></h1>
+<dl class="py class">
+<dt id="config.ArgumentParser">
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">config.</span></code><code class="sig-name descname"><span class="pre">ArgumentParser</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">description</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#config.ArgumentParser" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>a wrapper around argparse.ArgumentParser enhanced to worth with yaml files</p>
+<dl class="py method">
+<dt id="config.ArgumentParser.add_argument">
+<code class="sig-name descname"><span class="pre">add_argument</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#config.ArgumentParser.add_argument" title="Permalink to this definition">¶</a></dt>
+<dd><p>just use like argparse.ArgumentParser.add_argument</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="config.ArgumentParser.parse_args">
+<code class="sig-name descname"><span class="pre">parse_args</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">args</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#config.ArgumentParser.parse_args" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads the configuration</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>parser</strong> – an argparse parser with configured command line switches</p></li>
+<li><p><strong>args</strong> – an optional list of arguments to parse, otherwise will read the command line</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>an argparse Namespace with configured arguments</p>
+</dd>
+</dl>
+<p>Args can be taken from 3 places, in precendence</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>The value passed by command line switch</p></li>
+<li><p>The config file</p></li>
+<li><p>The default argument set by add_argument</p></li>
+<li><p>else the value will be set to None</p></li>
+</ol>
+</div></blockquote>
+<p>the config file is a yaml file, with nested names being separated by hyphens</p>
+<p>eg:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">comment</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">hello world</span>
+<span class="nt">seed</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">0</span>
+<span class="nt">env</span><span class="p">:</span>
+  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">CartPoleContinuous-v1</span>
+<span class="nt">episodes_per_batch</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">8</span>
+</pre></div>
+</div>
+<p>will become</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">config</span><span class="o">.</span><span class="n">comment</span> <span class="o">=</span> <span class="s1">&#39;hello world&#39;</span>
+<span class="n">config</span><span class="o">.</span><span class="n">seed</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">config</span><span class="o">.</span><span class="n">env</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s1">&#39;CartPoleContinuous-v1&#39;</span>
+<span class="n">config</span><span class="o">.</span><span class="n">episodes_per_batch</span> <span class="o">=</span> <span class="mi">8</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="config.NullScheduler">
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">config.</span></code><code class="sig-name descname"><span class="pre">NullScheduler</span></code><a class="headerlink" href="#config.NullScheduler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Empty scheduler for use as a placeholder to keep code compatible</p>
+<dl class="py method">
+<dt id="config.NullScheduler.step">
+<code class="sig-name descname"><span class="pre">step</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#config.NullScheduler.step" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt id="config.exists_and_not_none">
+<code class="sig-prename descclassname"><span class="pre">config.</span></code><code class="sig-name descname"><span class="pre">exists_and_not_none</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attr</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#config.exists_and_not_none" title="Permalink to this definition">¶</a></dt>
+<dd><p>returns true if the config item exists and is set</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="config.get_optim">
+<code class="sig-prename descclassname"><span class="pre">config.</span></code><code class="sig-name descname"><span class="pre">get_optim</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parameters</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#config.get_optim" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reads the configuration and constructs a scheduler and optimizer
+:param args: the configuration Namespace
+:param parameters: model.parameters()</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>optimizer, scheduler</p>
+</dd>
+</dl>
+<p>if scheduler not specified a placeholder scheduler will be returned</p>
+</dd></dl>
+
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+        <a href="distributions.html" class="btn btn-neutral float-right" title="distributions module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="checkpoint.html" class="btn btn-neutral float-left" title="checkpoint module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &#169; Copyright 2021, Duane Nielsen.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

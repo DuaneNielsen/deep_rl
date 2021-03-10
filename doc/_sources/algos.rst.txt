@@ -1,0 +1,61 @@
+algos package
+=============
+
+Submodules
+----------
+
+algos.a2c module
+----------------
+
+.. automodule:: algos.a2c
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+algos.dqn module
+----------------
+
+.. automodule:: algos.dqn
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+algos.ppo module
+----------------
+
+.. automodule:: algos.ppo
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+algos.reinforce module
+----------------------
+
+.. automodule:: algos.reinforce
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+algos.td\_value module
+----------------------
+
+.. automodule:: algos.td_value
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+algos.utils module
+------------------
+
+.. automodule:: algos.utils
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: algos
+   :members:
+   :undoc-members:
+   :show-inheritance:

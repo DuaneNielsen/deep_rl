@@ -1,0 +1,344 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <title>algos package &mdash; deep_rl  documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+
+  
+  
+
+  
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="env package" href="env.html" />
+    <link rel="prev" title="Welcome to deep_rl’s documentation!" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home"> deep_rl
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">algos package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-algos.a2c">algos.a2c module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-algos.dqn">algos.dqn module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-algos.ppo">algos.ppo module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-algos.reinforce">algos.reinforce module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-algos.td_value">algos.td_value module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-algos.utils">algos.utils module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-algos">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="env.html">env package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">deep_rl</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">deep_rl</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+        
+      <li>algos package</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="_sources/algos.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="algos-package">
+<h1>algos package<a class="headerlink" href="#algos-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-algos.a2c">
+<span id="algos-a2c-module"></span><h2>algos.a2c module<a class="headerlink" href="#module-algos.a2c" title="Permalink to this headline">¶</a></h2>
+<dl class="py function">
+<dt id="algos.a2c.train">
+<code class="sig-prename descclassname"><span class="pre">algos.a2c.</span></code><code class="sig-name descname"><span class="pre">train</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">buffer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v_net</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v_optim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">policy_net</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">policy_optim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discount</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.95</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cpu'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">torch.float32</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#algos.a2c.train" title="Permalink to this definition">¶</a></dt>
+<dd><p>Advantage Actor Critic</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>buffer</strong> – replay buffer</p></li>
+<li><p><strong>v_net</strong> – v_net(state) -&gt; values</p></li>
+<li><p><strong>v_optim</strong> – optimizer for v_net</p></li>
+<li><p><strong>policy_net</strong> – policy_net(state) -&gt; action</p></li>
+<li><p><strong>policy_optim</strong> – optimizer for policy</p></li>
+<li><p><strong>discount</strong> – discount factor, default 0.95</p></li>
+<li><p><strong>batch_size</strong> – batch size</p></li>
+<li><p><strong>device</strong> – device to train on</p></li>
+<li><p><strong>dtype</strong> – all floats will be cast to dtype</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="section" id="module-algos.dqn">
+<span id="algos-dqn-module"></span><h2>algos.dqn module<a class="headerlink" href="#module-algos.dqn" title="Permalink to this headline">¶</a></h2>
+<dl class="py function">
+<dt id="algos.dqn.train">
+<code class="sig-prename descclassname"><span class="pre">algos.dqn.</span></code><code class="sig-name descname"><span class="pre">train</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">buffer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q_net</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discount</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cpu'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">torch.float32</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#algos.dqn.train" title="Permalink to this definition">¶</a></dt>
+<dd><p>Deep Q Network</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>buffer</strong> – replay buffer</p></li>
+<li><p><strong>q_net</strong> – <p>forward(state) = values</p>
+<p>s is (N, S) tensor v is (N, A)</p>
+<p>tensor S is the dimensions of the state space</p>
+<p>A is the number of discrete actions</p>
+<p>in english; the q q_net function takes in the state, and returns the value of each action</p>
+</p></li>
+<li><p><strong>optim</strong> – optimizer for q_net</p></li>
+<li><p><strong>batch</strong> – size, the number of transitions to sample each batch step</p></li>
+<li><p><strong>discount</strong> – the discount for the value function</p></li>
+<li><p><strong>device</strong> – the device to train on</p></li>
+<li><p><strong>dtype</strong> – the dtype to convert to</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="section" id="module-algos.ppo">
+<span id="algos-ppo-module"></span><h2>algos.ppo module<a class="headerlink" href="#module-algos.ppo" title="Permalink to this headline">¶</a></h2>
+<dl class="py function">
+<dt id="algos.ppo.ppo_loss">
+<code class="sig-prename descclassname"><span class="pre">algos.ppo.</span></code><code class="sig-name descname"><span class="pre">ppo_loss</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">newlogprob</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">oldlogprob</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">advantage</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clip</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.2</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#algos.ppo.ppo_loss" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt id="algos.ppo.train">
+<code class="sig-prename descclassname"><span class="pre">algos.ppo.</span></code><code class="sig-name descname"><span class="pre">train</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">buffer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">policy_net</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clip</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.2</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#algos.ppo.train" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</div>
+<div class="section" id="module-algos.reinforce">
+<span id="algos-reinforce-module"></span><h2>algos.reinforce module<a class="headerlink" href="#module-algos.reinforce" title="Permalink to this headline">¶</a></h2>
+<dl class="py function">
+<dt id="algos.reinforce.train">
+<code class="sig-prename descclassname"><span class="pre">algos.reinforce.</span></code><code class="sig-name descname"><span class="pre">train</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">buffer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">policy_net</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clip_min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-</span> <span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clip_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-</span> <span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cpu'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">torch.float32</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#algos.reinforce.train" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reinforce</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>buffer</strong> – ReplayBuffer, BUFFER WILL BE CLEARED AFTER TRAINING</p></li>
+<li><p><strong>policy_net</strong> – function policy(state) -&gt; probability distribution over actions</p></li>
+<li><p><strong>optim</strong> – optimizer</p></li>
+<li><p><strong>clip_min</strong> – probs will be clipped to exp(clip_min)</p></li>
+<li><p><strong>clip_max</strong> – probs will be clipped to exp(clip_max)</p></li>
+<li><p><strong>device</strong> – to train on</p></li>
+<li><p><strong>dtype</strong> – to convert to</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="section" id="module-algos.td_value">
+<span id="algos-td-value-module"></span><h2>algos.td_value module<a class="headerlink" href="#module-algos.td_value" title="Permalink to this headline">¶</a></h2>
+<dl class="py function">
+<dt id="algos.td_value.train">
+<code class="sig-prename descclassname"><span class="pre">algos.td_value.</span></code><code class="sig-name descname"><span class="pre">train</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">buffer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v_net</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discount</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cpu'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">torch.float32</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#algos.td_value.train" title="Permalink to this definition">¶</a></dt>
+<dd><p>Trains a value function using temporal difference</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>buffer</strong> – replay buffer</p></li>
+<li><p><strong>v_net</strong> – v_net(state) -&gt; value</p></li>
+<li><p><strong>optim</strong> – optimizer for v_net</p></li>
+<li><p><strong>batch_size</strong> – batch_size</p></li>
+<li><p><strong>discount</strong> – discount</p></li>
+<li><p><strong>device</strong> – device to load data to</p></li>
+<li><p><strong>dtype</strong> – cast floating point data to dtype</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="section" id="module-algos.utils">
+<span id="algos-utils-module"></span><h2>algos.utils module<a class="headerlink" href="#module-algos.utils" title="Permalink to this headline">¶</a></h2>
+<dl class="py function">
+<dt id="algos.utils.to">
+<code class="sig-prename descclassname"><span class="pre">algos.utils.</span></code><code class="sig-name descname"><span class="pre">to</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cpu'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">torch.float32</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#algos.utils.to" title="Permalink to this definition">¶</a></dt>
+<dd><p>loads tuple of tensors onto device and casts to dtype</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-algos">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-algos" title="Permalink to this headline">¶</a></h2>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+        <a href="env.html" class="btn btn-neutral float-right" title="env package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="index.html" class="btn btn-neutral float-left" title="Welcome to deep_rl’s documentation!" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &#169; Copyright 2021, Duane Nielsen.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
