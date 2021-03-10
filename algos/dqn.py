@@ -9,17 +9,24 @@ def train(buffer, q_net, optim, batch_size, discount, device='cpu', dtype=torch.
     """
     Deep Q Network
 
-    buffer: replay buffer
-    q_net: nn.Module with forward(state) = values,
-                s is (N, S) tensor
-                v is (N, A) tensor
-        S is the dimensions of the state space, and A is the number of discrete actions
-        in english: the q q_net function takes in the state, and returns the value of each action
-    optim: optimizer for q_net
-    batch: size, the number of transitions to sample each batch step
-    discount: the discount for the value function
-    device: the device to train on
-    dtype: the dtype to convert to
+    Args:
+        buffer: replay buffer
+        q_net: forward(state) = values
+
+            s is (N, S) tensor v is (N, A)
+
+            tensor S is the dimensions of the state space
+
+            A is the number of discrete actions
+
+            in english; the q q_net function takes in the state, and returns the value of each action
+
+        optim: optimizer for q_net
+        batch: size, the number of transitions to sample each batch step
+        discount: the discount for the value function
+        device: the device to train on
+        dtype: the dtype to convert to
+
     """
 
     """ sample from batch_size transitions from the replay buffer """

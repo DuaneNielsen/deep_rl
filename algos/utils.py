@@ -2,6 +2,7 @@ import torch
 
 
 def to(*args, device='cpu', dtype=torch.float):
+    """ loads tuple of tensors onto device and casts to dtype """
     vals = []
     for arg in args:
         if len(arg.shape) == 1:

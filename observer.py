@@ -1,6 +1,9 @@
 from collections import OrderedDict
-
 import gym
+
+"""
+Observer pattern for Gym, implemented as a Gym.Wrapper
+"""
 
 
 class EnvObserver:
@@ -14,6 +17,7 @@ class EnvObserver:
 
 
 class StateCapture(EnvObserver):
+    """ Example EnvObserver implementation to demonstrate how to capture state """
     def __init__(self):
         self.trajectories = []
         self.traj = []
@@ -71,29 +75,30 @@ class SubjectWrapper(gym.Wrapper):
     by adding to the kwargs dict
     """
 
-    def __init__(self, env, seed=None, **kwargs):
+    def __init__(self, env, **kwargs):
         gym.Wrapper.__init__(self, env)
         self.kwargs = kwargs
         self.env = env
-        if seed is not None:
-            env.seed(seed)
         self.observers = OrderedDict()
         self.step_filters = OrderedDict()
 
     def attach_observer(self, name, observer):
+        """ attaches an observer """
         self.observers[name] = observer
 
     def detach_observer(self, name):
+        """ detaches an observer """
         del self.observers[name]
 
-    def observer_reset(self, state):
+    def _observer_reset(self, state):
         for name, observer in self.observers.items():
             observer.reset(state)
 
     def append_step_filter(self, name, filter):
+        """ adds a new step filter """
         self.step_filters[name] = filter
 
-    def observe_step(self, action, state, reward, done, info, **kwargs):
+    def _observe_step(self, action, state, reward, done, info, **kwargs):
         for name, filter in self.step_filters.items():
             action, state, reward, done, info, kwargs = filter(action, state, reward, done, info, **kwargs)
 
@@ -101,11 +106,13 @@ class SubjectWrapper(gym.Wrapper):
             observer.step(action, state, reward, done, info, **kwargs)
 
     def reset(self):
+        """ wraps gym env reset method """
         state = self.env.reset()
-        self.observer_reset(state)
+        self._observer_reset(state)
         return state
 
     def step(self, action):
+        """ wraps gym env step method """
         state, reward, done, info = self.env.step(action)
-        self.observe_step(action, state, reward, done, info)
+        self._observe_step(action, state, reward, done, info)
         return state, reward, done, info

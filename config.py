@@ -21,7 +21,7 @@ class NullScheduler:
         pass
 
 
-def get_kwargs(args, key):
+def _get_kwargs(args, key):
     args_dict = vars(args).copy()
     if key + '_class' not in args_dict:
         return None, None
@@ -37,22 +37,23 @@ def get_kwargs(args, key):
     return clazz, kwargs
 
 
-def flatten(d, parent_key='', sep='_'):
+def _flatten(d, parent_key='', sep='_'):
     items = []
     for k, v in d.items():
         new_key = parent_key + sep + k if parent_key else k
         if isinstance(v, collections.abc.MutableMapping):
-            items.extend(flatten(v, new_key, sep=sep).items())
+            items.extend(_flatten(v, new_key, sep=sep).items())
         else:
             items.append((new_key, v))
     return dict(items)
 
 
-def set_if_not_set(args, dict):
+def _set_if_not_set(args, dict):
     """
     Sets an argument if it's not already set in the args
-    :param args: args namespace
-    :param dict: a dict containing arguments to check
+    Args:
+        args: args namespace
+        dict: a dict containing arguments to check
     :return:
     """
     for key, value in dict.items():
@@ -63,7 +64,7 @@ def set_if_not_set(args, dict):
     return args
 
 
-def counter():
+def _counter():
     """
     counter to keep track of run id
     creates a file .run_id in the current directory which stores the most recent id
@@ -86,15 +87,18 @@ def counter():
 def get_optim(args, parameters):
     """
     Reads the configuration and constructs a scheduler and optimizer
-    :param args: the configuration Namespace
-    :param parameters: model.parameters()
-    :return: optimizer, scheduler
+    Args:
+        args: the configuration Namespace
+        parameters: model.parameters()
+    Returns:
+         optimizer, scheduler
+
     if scheduler not specified a placeholder scheduler will be returned
     """
-    optim_class, optim_kwargs = get_kwargs(args, 'optim')
+    optim_class, optim_kwargs = _get_kwargs(args, 'optim')
     optim_class = getattr(torch.optim, optim_class)
     optim = optim_class(parameters, **optim_kwargs)
-    scheduler_class, scheduler_kwargs = get_kwargs(args, 'scheduler')
+    scheduler_class, scheduler_kwargs = _get_kwargs(args, 'scheduler')
     if scheduler_class is None:
         return optim, NullScheduler()
     scheduler_class = getattr(torch.optim.lr_scheduler, scheduler_class)
@@ -103,6 +107,7 @@ def get_optim(args, parameters):
 
 
 def exists_and_not_none(config, attr):
+    """ returns true if the config item exists and is set """
     if hasattr(config, attr):
         if vars(config)[attr] is not None:
             return True
@@ -110,43 +115,52 @@ def exists_and_not_none(config, attr):
 
 
 class ArgumentParser:
+    """ a wrapper around argparse.ArgumentParser enhanced to worth with yaml files"""
     def __init__(self, description=None):
         self.parser = argparse.ArgumentParser(description=description)
 
     def add_argument(self, *args, **kwargs):
+        """ just use like argparse.ArgumentParser.add_argument """
         self.parser.add_argument(*args, **kwargs)
 
     def parse_args(self, args=None):
         """
         Loads the configuration
 
-        parser: an argparse parser with configured command line switches
-        args: an optional list of arguments to parse, otherwise will read the command line
+        Args:
+            parser: an argparse parser with configured command line switches
+            args: an optional list of arguments to parse, otherwise will read the command line
 
-        returns an argparse Namespace with configured arguments
+        Returns:
+            an argparse Namespace with configured arguments
 
         Args can be taken from 3 places, in precendence
+
             1.  The value passed by command line switch
             2.  The config file
             3.  The default argument set by add_argument
-            else the value will be set to None
+            4.  else the value will be set to None
 
         the config file is a yaml file, with nested names being separated by hyphens
 
         eg:
 
-        comment: hello world
-        seed: 0
-        env:
-          name: CartPoleContinuous-v1
-        episodes_per_batch: 8
+        .. code-block:: yaml
+
+            comment: hello world
+            seed: 0
+            env:
+              name: CartPoleContinuous-v1
+            episodes_per_batch: 8
 
         will become
 
-        config.comment = 'hello world'
-        config.seed = 0
-        config.env-name = 'CartPoleContinuous-v1'
-        config.episodes_per_batch = 8
+        .. code-block:: python
+
+            config.comment = 'hello world'
+            config.seed = 0
+            config.env-name = 'CartPoleContinuous-v1'
+            config.episodes_per_batch = 8
 
         """
 
@@ -172,7 +186,7 @@ class ArgumentParser:
         if exists_and_not_none(first_config, 'config'):
             with Path(first_config.config).open() as f:
                 conf = yaml.load(f, Loader=loader)
-                conf = flatten(conf)
+                conf = _flatten(conf)
                 self.parser.set_defaults(**conf)
 
         final_config = self.parser.parse_args(args)
@@ -180,7 +194,7 @@ class ArgumentParser:
         ''' if run_id not explicitly set, then guess it'''
         if exists_and_not_none(final_config, 'run_id'):
             if final_config.run_id == -1:
-                final_config.run_id = counter()
+                final_config.run_id = _counter()
 
             vars(final_config)['run_dir'] = f'runs/run_{final_config.run_id}'
 

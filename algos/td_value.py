@@ -5,6 +5,19 @@ import random
 
 
 def train(buffer, v_net, optim, batch_size, discount, device='cpu', dtype=torch.float):
+    """
+    Trains a value function using temporal difference
+
+    Args:
+        buffer: replay buffer
+        v_net: v_net(state) -> value
+        optim: optimizer for v_net
+        batch_size: batch_size
+        discount: discount
+        device: device to load data to
+        dtype: cast floating point data to dtype
+
+    """
 
     """ sample from batch_size transitions from the replay buffer """
     ds = bf.ReplayBufferDataset(buffer)

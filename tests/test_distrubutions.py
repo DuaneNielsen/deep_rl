@@ -18,8 +18,8 @@ def test_rsample_log_probs():
 @pytest.mark.skip('test plot')
 def test_plot_distribution():
     x = torch.linspace(-2.0, 2.0, 100)
-    mu = torch.full((100, ), fill_value=1.0)
-    scale = torch.full((100, ), fill_value=0.01)
+    mu = torch.full((100, ), fill_value=0.5)
+    scale = torch.full((100, ), fill_value=0.5)
     d = ScaledTanhTransformedGaussian(mu, scale, min=-2.0, max=2.0)
     y = torch.exp(d.log_prob(x))
     plt.plot(x, y)

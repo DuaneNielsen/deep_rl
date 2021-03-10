@@ -11,19 +11,21 @@ from matplotlib import pyplot as plt
 
 class Plot(gym.Wrapper):
     """
-    A wrapper that will make plots of rewards and lengths per episode
-    env = gym.make('Cartpole-v1')
-    env = Plot(env)
+    A wrapper that will make plots of episode rewards and lengths per episode
+
+    Args:
+        refresh_cooldown: maximum refresh frequency
+        history_length: amount of trajectory returns to buffer
+        episodes_per_point: combines episodes and plots the average result
+        title: sets the title of the plot
+
+    .. code-block:: python
+
+        env = gym.make('Cartpole-v1')
+        env = Plot(env)
     """
 
     def __init__(self, env, refresh_cooldown=1.0, history_length=None, episodes_per_point=1, title=None):
-        """
-
-        :param refresh_cooldown: maximum refresh frequency
-        :param history_length: amount of trajectory returns to buffer
-        :param episodes_per_point: combines episodes and plots the average result
-        """
-
         super().__init__(env)
 
         self.cols = 4
@@ -53,11 +55,13 @@ class Plot(gym.Wrapper):
         self.block_ave_len = []
 
     def reset(self):
+        """ wraps the gym env reset method"""
         self.epi_reward.append(0)
         self.epi_len.append(0)
         return self.env.reset()
 
     def step(self, action):
+        """ wraps the gym env step method """
         state, reward, done, info = self.env.step(action)
         self.epi_reward[-1] += reward
         self.epi_len[-1] += 1
@@ -88,12 +92,14 @@ class Plot(gym.Wrapper):
         return state, reward, done, info
 
     def save(self):
+        """ buffer the current frame """
         io_buf = io.BytesIO()
         self.fig.savefig(io_buf, format='png')
         self.vidstream.append(io_buf)
 
-    def write_video(self):
-        with imageio.get_writer('data/movie.mp4', mode='I', fps=0.8) as writer:
+    def write_video(self, filepath):
+        """ write buffered frames to filepath """
+        with imageio.get_writer(filepath, mode='I', fps=0.8) as writer:
             for buffer in self.vidstream:
                 buffer.seek(0)
                 image = imageio.imread(buffer, 'png')
@@ -104,11 +110,14 @@ class Plot(gym.Wrapper):
 
 
 class Cooldown:
+    """
+    Cooldown timer. to use, just construct and call it with the number of seconds you want to wait
+    default is 1 minute, first time it returns true
+
+    Args:
+        secs: will return False until secs seconds has passed
+    """
     def __init__(self, secs=None):
-        """
-        Cooldown timer. to use, just construct and call it with the number of seconds you want to wait
-        default is 1 minute, first time it returns true
-        """
         self.last_cooldown = 0
         self.default_cooldown = 60 if secs is None else secs
 

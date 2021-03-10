@@ -10,6 +10,8 @@ Welcome to deep_rl's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   algos
+   env
    modules
 
 Indices and tables

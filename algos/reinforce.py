@@ -5,15 +5,16 @@ from torch.utils.data import DataLoader
 
 def train(buffer, policy_net, optim, clip_min=-2.0, clip_max=-0.1, device='cpu', dtype=torch.float):
     """
-    REINFORCE
+    Reinforce
 
-    param: buffer - ReplayBuffer, BUFFER WILL BE CLEARED AFTER TRAINING
-    param: policy_net - function policy(state) returns probability distribution over actions
-    param: optim - optimizer
-    param: clip_min = probs will be clipped to exp(clip_min)
-    param: clip_max = probs will be clipped to exp(clip_max)
-    device: device to train on
-    dtype: dtype to convert to
+    Args:
+        buffer: ReplayBuffer, BUFFER WILL BE CLEARED AFTER TRAINING
+        policy_net: function policy(state) -> probability distribution over actions
+        optim: optimizer
+        clip_min: probs will be clipped to exp(clip_min)
+        clip_max: probs will be clipped to exp(clip_max)
+        device: to train on
+        dtype: to convert to
     """
 
     ds = ReplayBufferDataset(buffer, fields=('s', 'a'), info_keys=['g'])

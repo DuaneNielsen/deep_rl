@@ -9,11 +9,12 @@ class TanhTransform(Transform):
     r"""
     Transform via the mapping :math:`y = \tanh(x)`.
     It is equivalent to
-    ```
-    ComposeTransform([AffineTransform(0., 2.), SigmoidTransform(), AffineTransform(-1., 2.)])
-    ```
-    However this might not be numerically stable, thus it is recommended to use `TanhTransform`
-    instead.
+
+    .. code-block:: python
+
+        ComposeTransform([AffineTransform(0., 2.), SigmoidTransform(), AffineTransform(-1., 2.)])
+
+    However this might not be numerically stable, thus it is recommended to use `TanhTransform' instead.
     Note that one should use `cache_size=1` when it comes to `NaN/Inf` values.
     """
     domain = constraints.real
@@ -43,6 +44,13 @@ class TanhTransform(Transform):
 
 
 class TanhTransformedGaussian(TransformedDistribution):
+    """
+    A gaussian projected through tanh
+
+    Args:
+        mu: mean
+        scale: std deviation
+    """
     def __init__(self, mu, scale):
         self.mu, self.scale = mu, scale
         base_dist = Normal(mu, scale)
@@ -55,12 +63,15 @@ class TanhTransformedGaussian(TransformedDistribution):
 
     @property
     def variance(self):
+        """ not implemented """
         return None
 
     def enumerate_support(self, expand=True):
+        """ not implemented """
         pass
 
     def entropy(self):
+        """ not implemented """
         pass
 
 
@@ -69,15 +80,14 @@ class ScaledTanhTransformedGaussian(TransformedDistribution):
     ScaledTanhTransformed Gaussian
     Ensures that the probability mass is saturated between min and max
     Dream to Control: Learning Behaviors by Latent Imagination https://arxiv.org/abs/1912.01603
+
+    Args:
+        mu: mean
+        scale: deviation
+        min: lower bound of distribution
+        max: upper bound of distribution
     """
     def __init__(self, mu, scale, min=-1.0, max=1.0):
-        """
-
-        :param mu: mean
-        :param scale: deviation
-        :param min: lower bound of distribution
-        :param max: upper bound of distribution
-        """
         self.mu, self.scale = mu, scale
         self.min, self.max = min, max
         base_dist = Normal(mu, scale)
@@ -100,10 +110,13 @@ class ScaledTanhTransformedGaussian(TransformedDistribution):
 
     @property
     def variance(self):
+        """ not accurate don't use"""
         return self.base_dist.variance()
 
     def enumerate_support(self, expand=True):
+        """ not accurate don't use"""
         return self.base_dist.support()
 
     def entropy(self):
+        """ not accurate don't use"""
         return self.base_dist.entropy()

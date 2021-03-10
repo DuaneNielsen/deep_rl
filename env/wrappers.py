@@ -385,14 +385,20 @@ class ApplyFunc(gym.ObservationWrapper):
 class Resize2D(gym.ObservationWrapper):
     """
     Apply the given function to the observation and return the output
-    :param env: environment
-    :param output_observation_space: gym.spaces.Box object
+
+    Args:
+        env: environment
+        output_observation_space: gym.spaces.Box object
+
+    .. code-block:: python
+
         new_space = gym.spaces.Box(
             low=0,
             high=255,
             shape=(self.h, self.w, num_colors),
             dtype=np.uint8,
         )
+
     """
 
     def __init__(self, env, h, w, interpolation=cv2.INTER_LINEAR):

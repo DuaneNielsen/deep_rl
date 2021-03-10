@@ -5,6 +5,23 @@ import buffer as bf
 
 
 def train(buffer, v_net, v_optim, policy_net, policy_optim, discount=0.95, batch_size=10000, device='cpu', dtype=torch.float):
+    """
+
+    Advantage Actor Critic
+
+    Args:
+        buffer: replay buffer
+        v_net: v_net(state) -> values
+        v_optim: optimizer for v_net
+        policy_net: policy_net(state) -> action
+        policy_optim: optimizer for policy
+        discount: discount factor, default 0.95
+        batch_size: batch size
+        device: device to train on
+        dtype: all floats will be cast to dtype
+
+    """
+
 
     """ sample from batch_size transitions from the replay buffer """
     ds = bf.ReplayBufferDataset(buffer)

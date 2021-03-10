@@ -7,6 +7,13 @@ from torchvision.io import write_video, write_jpeg, write_png
 
 
 class VideoCapture(gym.Wrapper):
+    """  Gym wrapper to create mp4 files from runs with visual output
+
+        Args:
+            env: environment to wrap
+            directory: directory to write the files to
+    """
+
     def __init__(self, env, directory):
         super().__init__(env)
         self.t = []
@@ -14,11 +21,13 @@ class VideoCapture(gym.Wrapper):
         self.cap_id = 0
 
     def reset(self):
+        """ wraps the gym reset call """
         state = self.env.reset()
         self.t.append(state)
         return state
 
     def step(self, action):
+        """ wraps the gym step call """
         state, reward, done, info = self.env.step(action)
         self.t.append(state)
 
@@ -35,6 +44,12 @@ class VideoCapture(gym.Wrapper):
 
 
 class JpegCapture(gym.Wrapper):
+    """  Gym wrapper to create jpeg files from runs with visual output
+
+        Args:
+            env: environment to wrap
+            directory: directory to write the files to
+    """
     def __init__(self, env, directory):
         super().__init__(env)
         self.t = []
@@ -43,11 +58,13 @@ class JpegCapture(gym.Wrapper):
         self.image_id = 0
 
     def reset(self):
+        """ wraps the gym reset call """
         state = self.env.reset()
         self.t.append(state)
         return state
 
     def step(self, action):
+        """ wraps the gym step call """
         state, reward, done, info = self.env.step(action)
         self.t.append(state)
 
@@ -65,6 +82,12 @@ class JpegCapture(gym.Wrapper):
 
 
 class PngCapture(gym.Wrapper):
+    """  Gym wrapper to create png files from runs with visual output
+
+        Args:
+            env: environment to wrap
+            directory: directory to write the files to
+    """
     def __init__(self, env, directory):
         super().__init__(env)
         self.t = []
@@ -73,11 +96,13 @@ class PngCapture(gym.Wrapper):
         self.image_id = 0
 
     def reset(self):
+        """ wraps the gym step call """
         state = self.env.reset()
         self.t.append(state)
         return state
 
     def step(self, action):
+        """ wraps the gym step call """
         state, reward, done, info = self.env.step(action)
         self.t.append(state)
 

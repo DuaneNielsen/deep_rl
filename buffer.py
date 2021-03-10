@@ -1,6 +1,36 @@
 from collections import namedtuple
 import gym
 
+"""
+buffer.py
+===================================
+Replay buffer based on gym wrappers.  
+
+
+Just wrap your environment to get a replay buffer.
+
+.. code-block:: python
+    
+    import gym
+    import buffer as bf
+    from torch.utils.data import DataLoader
+    
+    env = gym.make('CartPole-v1')
+    env, buffer = bf.wrap(env)
+    buffer.enrich(bf.DiscountedReturns(key='g', discount=0.9))
+    
+    # generate a few transitions
+    env.reset()
+    env.step(action)
+    
+    dataset = bf.ReplayBufferDataset(buffer, info_keys=['g'])
+    dl = DataLoader(ds, batch_size=1, num_workers=0)
+    
+    for state, action, state_p, reward, done, returns in dl:
+        learn()
+
+"""
+
 
 class Enricher:
     """
@@ -10,43 +40,52 @@ class Enricher:
     """
 
     def reset(self, buffer, state):
-        """
-        reset will be called when environment is reset
-        :param buffer: replay buffer
-        :param state: the state returned by the environment
+        """ Reset will be called when environment is reset
+
+        Args:
+            buffer: replay buffer
+            state: the state returned by the environment
         """
         pass
 
     def step(self, buffer, action, state, reward, done, info):
         """
         step will be called when the environment step function is run
-        :param buffer: the replay buffer
-        :param action: action taken
-        :param state: resultant state after taking action
-        :param reward: resultant reward
-        :param done: true if this is last step in trajectory
-        :param info: info dict returned by environment
-        store output in info if enriching the step
-        output recording trajectory information can be stored in buffer.trajectory_info
-        :return:
+
+        Args:
+            buffer: the replay buffer
+            action: action taken
+            state: resultant state after taking action
+            reward: resultant reward
+            done: true if this is last step in trajectory
+            info: info dict returned by environment store output in info if enriching the step output\
+            recording trajectory information can be stored in buffer.trajectory_info
         """
         pass
-
-    def enrich(self, fields, transition, i, i_p):
-        return fields, transition, i, i_p
 
 
 class Returns(Enricher):
     """
     An enricher that calculates total returns
-    Returns are added to the info field
-    for transition (s, i, a, s_p, r, d, i_p), return = transition.i['g']
-    """
 
+    Args:
+        key: key to use to add the returns, default is 'g'
+
+    use the key value to retrieve the returns from ReplayBufferDataset
+
+    .. code-block :: python
+
+        buffer.enrich(Returns(key='returns'))
+        ds = ReplayBufferDataset(buffer, info_keys='returns')
+
+        s, a, s_p, r, d, R = next(ds)
+
+    """
     def __init__(self, key='g'):
         self.key = key
 
     def step(self, buffer, action, state, reward, done, info):
+        """ computes return """
         if done:
             # terminal state returns are always 0
             g = 0
@@ -67,6 +106,7 @@ class DiscountedReturns(Enricher):
         self.discount = discount
 
     def step(self, buffer, action, state, reward, done, info):
+        """ computes discounted return """
         if done:
             # terminal state returns are always 0
             g = 0.0
@@ -106,6 +146,18 @@ class ReplayBuffer(gym.Wrapper):
         self.eps_len = 0
 
     def enrich(self, enricher):
+        """
+        Append an enricher to enrich the data collected by the buffer
+        Args:
+            enricher: object that implements buffer.Enricher
+
+        For example, to enrich the buffer with discounted returns...
+
+        .. code-block:: python
+
+            buffer.enrich(buffer.DiscountedReturns(discount=0.9))
+
+        """
         self._enrich.append(enricher)
 
     def clear(self):
@@ -117,12 +169,14 @@ class ReplayBuffer(gym.Wrapper):
 
     def tail_trajectory_complete(self):
         """
-        returns True if the most recent trajectory in the buffer is complete, or if buffer is empty
-        returns False if a trajectory is in the process of being added
+        Returns:
+            True if the most recent trajectory in the buffer is complete, or if buffer is empty
+            False if a trajectory is in the process of being added
         """
         return self.traj_start == len(self.buffer)
 
     def reset(self):
+        """  Wraps the gym reset method """
         state = self.env.reset()
         self.buffer.append((None, state, 0.0, False, {}))
         self.transitions.append(len(self.buffer) - 1)
@@ -134,6 +188,7 @@ class ReplayBuffer(gym.Wrapper):
         return state
 
     def step(self, action):
+        """  Wraps the gym step method """
         state, reward, done, info = self.env.step(action)
 
         self.buffer.append((action, state, reward, done, info))
@@ -175,10 +230,12 @@ class ReplayBuffer(gym.Wrapper):
 class ReplayBufferDataset:
     """
     Wraps the buffer to provide a convenient and efficient way to read transitions for batch collation
-        :param buffer: a replay buffer
-        :param fields: a list of keys to retrieve from the buffer s: state a: action s_p: state prime, the resultant \
+
+    Args:
+        buffer: a replay buffer
+        fields: a list of keys to retrieve from the buffer s: state a: action s_p: state prime, the resultant \
         state r: reward d: done
-        :param info_keys: a single key, or list of keys to load from the transitions info dict
+        info_keys: a single key, or list of keys to load from the transitions info dict
     """
 
     def __init__(self, buffer, fields=None, info_keys=None):
@@ -219,9 +276,11 @@ class TrajectoryTransitions:
     """
     Iterates over a trajectory in the buffer, from start to end, given a start:end tuple
 
+    Args
+        buffer: replay buffer
+        trajectory_start_end_tuple: a tuple from buffer.trajectories
+
     eg: to iterate over the most recent trajectory
-    ::param buffer: replay buffer
-    ::param trajectory_start_end_tuple: a tuple from buffer.trajectories
 
     .. code-block:: python
 

@@ -278,8 +278,8 @@ def test_trajectory_info():
     driver.episode(env, policy)
     driver.episode(env, policy)
 
-    assert buffer.trajectory_info[0]['R'] == 2.0
+    assert buffer.trajectory_info[0]['return'] == 2.0
     assert buffer.trajectory_info[0]['len'] == 3
 
-    assert buffer.trajectory_info[1]['R'] == 0.0
+    assert buffer.trajectory_info[1]['return'] == 0.0
     assert buffer.trajectory_info[1]['len'] == 1

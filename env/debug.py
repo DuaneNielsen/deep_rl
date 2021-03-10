@@ -46,8 +46,10 @@ class LinearEnv(gym.Env):
     """
     A continuous environment such that...
 
-            T - 0 -------- 1.0 - T
-    Reward  T - 0 -------- 1.0 - T
+    .. code-block ::
+
+                T - 0 -------- 1.0 - T
+        Reward  T - 0 -------- 1.0 - T
 
     Action is deterministic float, simply adds or subtracts from the state
 
@@ -88,6 +90,19 @@ def one_hot(state, size):
 
 
 class LineGrid(gym.Env):
+    """
+    Discrete linear environment in form
+
+    [0, 0, 0, 1, 0, 0, 0]
+
+    Args:
+        inital_state: index of the state to start with, indexing is 0 .. n
+        n_states: number of states 0 .. n
+        reward_map: dictionary of states to that have rewards, keyed by integer of state
+
+    going off the "end of the world" ends the episode
+
+    """
     def __init__(self, initial_state, n_states, reward_map):
         super().__init__()
         self.initial_state = initial_state
@@ -99,48 +114,62 @@ class LineGrid(gym.Env):
         self.terminal_map = {0: True, n_states-1: True}
 
     def d_s(self, s, a):
+        """ given a state and action, returns the change in state """
         return self.action_map[a]
 
     def reward(self, s):
+        """ reward for transitioning into a state """
         return self.reward_map.get(s, 0.0)
 
     def done(self, s):
+        """ returns True if the state is terminal """
         return self.terminal_map.get(s, False)
 
     def reset(self):
+        """ resets the environment to the initial state"""
         self.state = self.initial_state
         return one_hot(self.state, self.observation_space.n)
 
     def step(self, action: int):
+        """ takes a step in the environment according to action """
         self.state += self.d_s(self.state, action)
         return one_hot(self.state, self.observation_space.n), self.reward(self.state), self.done(self.state), {}
 
     def lookahead(self, state, action):
+        """ computes the next state, given a current state and action """
         next_state = np.argmax(state)
         next_state += self.d_s(state, action)
         return one_hot(next_state, self.observation_space.n), self.reward(next_state), self.done(next_state), {}
 
     def render(self, mode=None):
+        """ prints the current state to the console """
         print(one_hot(self.state, self.observation_space.n))
 
 
 class Bandit(LineGrid):
-    def __init__(self):
-        """
+    """
+
+    [T(-1.0), S, T(1.0)]
+
         S : Start state
         T : Terminal state
-        () : Reward
-        [T(-1.0), S, T(1.0)]
-        """
+        (1.0) : Reward
+
+    """
+    def __init__(self):
         super().__init__(initial_state=1, n_states=3, reward_map=dict([(0, -1.0), (2, 1.0)]))
 
 
 class DelayedBandit(LineGrid):
-    def __init__(self):
-        """
+    """
+
+    [T(-1.0), E, E, S, E, E, T(1.0)]
+
         S : Start state
         T : Terminal state
-        () : Reward
-        [T(-1.0), E, E, S, E, E, T(1.0)]
-        """
+        (1.0) : Reward
+
+
+    """
+    def __init__(self):
         super().__init__(initial_state=3, n_states=7, reward_map=dict([(0, -1.0), (6, 1.0)]))

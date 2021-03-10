@@ -6,7 +6,9 @@ import torch
 class LogRewards(gym.Wrapper):
     """
     Wrapper to log episode rewards and lengths for wandb
-    :param prefix: prefix to prepend to the metric names
+
+    Args:
+        prefix: prefix to prepend to the metric names
     """
     def __init__(self, env, prefix=None):
         super().__init__(env)
@@ -16,11 +18,13 @@ class LogRewards(gym.Wrapper):
         self.prefix = prefix + '_' if prefix is not None else ''
 
     def reset(self):
+        """ wraps the env reset method """
         self.reward = 0
         self.len = 0
         return self.env.reset()
 
     def step(self, action):
+        """ wraps the env step method """
         state, reward, done, info = self.env.step(action)
         self.reward += reward
         self.len += 1
@@ -33,6 +37,7 @@ class LogRewards(gym.Wrapper):
 
 
 def nancheck(tensor, error):
+    """ checks the tensor for nan and reports error to wandb if detected. then throws assertion """
     if torch.isnan(tensor).any():
         wandb.summary['FAIL'] = error
         assert False, error

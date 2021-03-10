@@ -2,7 +2,7 @@ import time
 import torch
 
 
-def render_env(env, render, delay):
+def _render_env(env, render, delay):
     if render:
         env.render(render)
         time.sleep(delay)
@@ -11,29 +11,33 @@ def render_env(env, render, delay):
 def episode(env, policy, render=False, delay=0.01, **kwargs):
     """
     Runs one episode using the provided policy on the environment
-    :param env: gym environment to generate an episode for
-    :param policy: takes state as input, must output an action runnable on the environment
-    :param render: if True will call environments render function
-    :param delay: rendering delay
-    :param kwargs: kwargs will be passed to policy, environment step, and observers
+
+    Args:
+        env: gym environment to generate an episode for
+        policy: policy(state) -> action takes state as input, must output an action runnable on the environment
+        render: if True will call environments render function
+        delay: rendering delay
+        kwargs: kwargs will be passed to policy
     """
     with torch.no_grad():
         state, reward, done, info = env.reset(), 0.0, False, {}
         action = policy(state, **kwargs)
-        render_env(env, render, delay)
+        _render_env(env, render, delay)
         while not done:
             state, reward, done, info = env.step(action)
             action = policy(state)
-            render_env(env, render, delay)
+            _render_env(env, render, delay)
 
 
 def step_environment(env, policy, render=False, **kwargs):
     """
     Transition generator, advances a single transition each iteration
-    :param env: gym environment to step
-    :param policy: policy use
-    :param render: calls env render function if True
-    :param kwargs: will be passed to the policy, and environment
+
+    Args:
+        env: gym environment to step
+        policy: policy to use, policy(state) -> action
+        render: calls env render function if True
+        kwargs: will be passed to the policy
     """
     done = True
     state = None
