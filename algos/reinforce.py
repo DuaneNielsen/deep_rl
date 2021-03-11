@@ -29,7 +29,7 @@ def train(buffer, policy_net, optim, clip_min=-2.0, clip_max=-0.1, device='cpu',
         a_dist = policy_net(state)
         G = (G - torch.mean(G)) / (G.max() - G.min()).detach()
         logprob = a_dist.log_prob(action)
-        loss = - torch.mean(logprob.clamp(min=clip_min, max=clip_max) * G)
+        loss = - torch.mean(logprob.clamp(max=clip_max) * G)
         loss.backward()
         optim.step()
 

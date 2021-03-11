@@ -1,18 +1,19 @@
 import torch
+from torch.nn.functional import mse_loss
 from torch.utils.data import DataLoader, SubsetRandomSampler
 import random
 import buffer as bf
 
 
-def train(buffer, v_net, v_optim, policy_net, policy_optim, discount=0.95, batch_size=10000, device='cpu', dtype=torch.float):
+def train(buffer, a2c_net, optim, discount=0.95, batch_size=10000, device='cpu', dtype=torch.float):
     """
 
     Advantage Actor Critic
 
     Args:
         buffer: replay buffer
-        v_net: v_net(state) -> values
-        v_optim: optimizer for v_net
+        a2c_net: a2c_net(state) -> values, a_dist
+        optim: optimizer for a2c_net
         policy_net: policy_net(state) -> action
         policy_optim: optimizer for policy
         discount: discount factor, default 0.95
@@ -21,7 +22,6 @@ def train(buffer, v_net, v_optim, policy_net, policy_optim, discount=0.95, batch
         dtype: all floats will be cast to dtype
 
     """
-
 
     """ sample from batch_size transitions from the replay buffer """
     ds = bf.ReplayBufferDataset(buffer)
@@ -36,27 +36,24 @@ def train(buffer, v_net, v_optim, policy_net, policy_optim, discount=0.95, batch
         r = r.type(dtype).to(device).unsqueeze(1)
         d = d.to(device).unsqueeze(1)
 
-        v_optim.zero_grad()
+        optim.zero_grad()
 
-        v_s = v_net(state)
+        v_s, a_dist = a2c_net(state)
         with torch.no_grad():
-            v_sp = v_net(state_p) * (~d).float()
-            v_sp = r + v_sp * discount
-        loss = torch.mean((v_sp - v_s) ** 2)
+            v_sp, _ = a2c_net(state_p)
+            v_sp = v_sp * (~d).float()
+            advantage = r + v_sp * discount - v_s
+        critic_loss = mse_loss(r + v_sp * discount, v_s)
+
+        action_logprob = a_dist.log_prob(action)
+        actor_loss = - torch.mean(action_logprob * advantage)
+
+        entropy = torch.mean(- action_logprob * torch.exp(action_logprob))
+
+        loss = actor_loss + 0.5 * critic_loss - 0.05 * entropy
 
         loss.backward()
-        v_optim.step()
-
-        with torch.no_grad():
-            advantage = r + v_net(state_p) - v_net(state)
-
-        policy_optim.zero_grad()
-
-        a_dist = policy_net(state)
-        loss = - torch.mean(a_dist.log_prob(action).clamp(min=-2.0, max=-0.1) * advantage)
-
-        loss.backward()
-        policy_optim.step()
+        optim.step()
 
         break
 
