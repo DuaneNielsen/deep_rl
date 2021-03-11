@@ -35,24 +35,21 @@ def train(buffer, a2c_net, optim, discount=0.95, batch_size=10000, device='cpu',
         r = r.type(dtype).to(device).unsqueeze(1)
         d = d.to(device).unsqueeze(1)
 
-
         optim.zero_grad()
 
         v_s, a_dist = a2c_net(state)
-        #with torch.no_grad():
-        tail_value, _ = a2c_net(state_p)
-        G = torch.zeros_like(r)
-        G[-1, :] = tail_value[-1:]
+        with torch.no_grad():
+            tail_value, _ = a2c_net(state_p)
+            v_sp = torch.zeros_like(r)
+            v_sp[-1, :] = tail_value[-1:]
 
-        for i in reversed(range(0, len(r) - 1)):
-            G[i] += r[i] + discount * G[i + 1] * (~d[i + 1]).float()
-        v_sp = G
-        #v_sp = v_sp * (~d).float()
-        advantage = r + v_sp * discount - v_s
+            for i in reversed(range(0, len(r) - 1)):
+                v_sp[i] += r[i] + discount * v_sp[i + 1] * (~d[i + 1]).float()
+            advantage = r + v_sp * discount - v_s
         critic_loss = mse_loss(r + v_sp * discount, v_s)
 
         action_logprob = a_dist.log_prob(action)
-        actor_loss = - torch.mean(action_logprob.clamp(max=-0.3) * advantage)
+        actor_loss = - torch.mean(action_logprob * advantage)
 
         entropy = torch.mean(- action_logprob * torch.exp(action_logprob))
 
