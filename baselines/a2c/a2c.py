@@ -24,8 +24,8 @@ class RescaleReward(gym.RewardWrapper):
 if __name__ == '__main__':
 
     """ configuration """
-    batch_size = 64
-    discount = 0.95
+    batch_size = 8
+    discount = 0.99
     max_steps = 20000000
     min_action = - 1.0
     max_action = 1.0
@@ -78,8 +78,9 @@ if __name__ == '__main__':
     def policy(state):
         state = torch.from_numpy(state).float()
         value, action = a2c_net(state)
-        a = action.rsample().numpy()
-        return a
+        a = action.rsample()
+        assert torch.isnan(a) == False
+        return a.numpy()
 
     """ main loop """
     steps = 0
@@ -92,4 +93,5 @@ if __name__ == '__main__':
         if steps < batch_size:
             continue
         else:
-            a2c.train(buffer, a2c_net, optim)
+            a2c.train(buffer, a2c_net, optim, batch_size=batch_size)
+            steps = 0
