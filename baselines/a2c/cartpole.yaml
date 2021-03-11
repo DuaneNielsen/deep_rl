@@ -1,0 +1,12 @@
+comment:  Cartpole Reinforce
+seed: 0
+env:
+  name: CartPoleContinuous-v1
+max_steps: 30000
+test:
+  steps: 3000
+  episodes: 10
+discount: 0.71
+batch_size: 64
+hidden_dim: 16
+optim_lr: 0.0067

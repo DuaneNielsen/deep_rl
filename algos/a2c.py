@@ -5,7 +5,7 @@ import random
 import buffer as bf
 
 
-def train(buffer, a2c_net, optim, discount=0.95, batch_size=10000, device='cpu', dtype=torch.float):
+def train(buffer, a2c_net, optim, discount=0.95, batch_size=64, device='cpu', dtype=torch.float):
     """
 
     Advantage Actor Critic
@@ -39,12 +39,13 @@ def train(buffer, a2c_net, optim, discount=0.95, batch_size=10000, device='cpu',
 
         v_s, a_dist = a2c_net(state)
         with torch.no_grad():
+            # compute target values
             tail_value, _ = a2c_net(state_p)
             v_sp = torch.zeros_like(r)
             v_sp[-1, :] = tail_value[-1:]
-
             for i in reversed(range(0, len(r) - 1)):
                 v_sp[i] += r[i] + discount * v_sp[i + 1] * (~d[i + 1]).float()
+
             advantage = r + v_sp * discount - v_s
         critic_loss = mse_loss(r + v_sp * discount, v_s)
 
