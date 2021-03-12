@@ -1,34 +1,23 @@
 import torch
 import torch.nn as nn
-
 import gym
-
+import env
 import buffer as bf
 import driver
 from algos import reinforce
 from distributions import ScaledTanhTransformedGaussian
-import env
-from gymviz import Plot
 import wandb
 import wandb_utils
 from config import ArgumentParser, exists_and_not_none
 import checkpoint
-
-
-class RescaleReward(gym.RewardWrapper):
-    def __init__(self, env, multiple=1.0, bias=0.0):
-        super().__init__(env)
-        self.multiple = multiple
-        self.bias = bias
-
-    def reward(self, reward):
-        return reward * self.multiple + self.bias
+import baselines.helper as helper
+from gymviz import Plot
 
 
 if __name__ == '__main__':
 
     """ configuration """
-    parser = ArgumentParser(description='configuration switches')
+    parser = ArgumentParser(description='reinforce')
     parser.add_argument('-c', '--config', type=str)
     parser.add_argument('-d', '--device', type=str)
     parser.add_argument('-r', '--run_id', type=int, default=-1)
@@ -38,7 +27,7 @@ if __name__ == '__main__':
     """ reproducibility """
     parser.add_argument('--seed', type=int, default=None)
 
-    """ main loop control """
+    """ training loop control """
     parser.add_argument('--max_steps', type=int, default=2000000)
     parser.add_argument('--test_steps', type=int, default=100000)
     parser.add_argument('--test_episodes', type=int, default=10)
@@ -50,10 +39,6 @@ if __name__ == '__main__':
     """ environment """
     parser.add_argument('--env_name', type=str, default='CartPoleContinuous-v1')
     parser.add_argument('--env_render', action='store_true', default=False)
-    parser.add_argument('--env_reward_multiple', type=float, default=1.0)
-    parser.add_argument('--env_reward_bias', type=float, default=0.0)
-    parser.add_argument('--env_action_max', type=float, default=1.0)
-    parser.add_argument('--env_action_min', type=float, default=-1.0)
 
     """ hyper-parameters """
     parser.add_argument('--optim_class', type=str)
@@ -68,37 +53,32 @@ if __name__ == '__main__':
 
     config = parser.parse_args()
 
+    """ random seed """
+    if config.seed is not None:
+        torch.manual_seed(config.seed)
+
     wandb.init(project=f"reinforce-{config.env_name}", config=config)
 
     """ environment """
     def make_env():
         env = gym.make(config.env_name)
-        # rescale reward to reduce gradient size
-        env = RescaleReward(env, multiple=config.env_reward_multiple, bias=config.env_reward_bias)
         assert len(env.observation_space.shape) == 1, "Only 1D continuous observation space is supported"
         assert len(env.action_space.shape) == 1, "Only 1D continuous action space is supported"
+        if config.seed is not None:
+            env.seed(config.seed)
+            env.action_space.seed(config.seed)
         return env
 
-    env = make_env()
-
-    """ replay buffer """
-    train_env, buffer = bf.wrap(env)
-    buffer.enrich(bf.DiscountedReturns(discount=config.discount))
-    if not config.silent:
-        train_env = Plot(train_env, episodes_per_point=config.episodes_per_batch)
+    train_env, train_buffer = bf.wrap(make_env())
+    train_buffer.enrich(bf.DiscountedReturns(discount=config.discount))
     train_env = wandb_utils.LogRewards(train_env)
+    if not config.silent:
+        train_env = Plot(train_env, episodes_per_point=config.episodes_per_batch, title=f'Train reinforce-{config.env_name}')
 
     test_env = make_env()
     if not config.silent:
-        test_env = Plot(make_env())
-
-    """ random seed """
-    if exists_and_not_none(config, 'seed'):
-        torch.manual_seed(config.seed)
-        train_env.seed(config.seed)
-        train_env.action_space.seed(config.seed)
-        test_env.seed(config.seed)
-        test_env.action_space.seed(config.seed)
+        test_env = Plot(test_env, episodes_per_point=1, title=f'Test reinforce-{config.env_name}')
+    evaluator = helper.Evaluator(test_env)
 
     """ network """
     class PolicyNet(nn.Module):
@@ -121,20 +101,13 @@ if __name__ == '__main__':
             scale = torch.sigmoid(self.scale(state)) + config.min_variance
             return ScaledTanhTransformedGaussian(mu, scale, min=self.min, max=self.max)
 
-
-    policy_net = PolicyNet(env.observation_space.shape[0],
+    policy_net = PolicyNet(train_env.observation_space.shape[0],
                            config.hidden_dim,
-                           env.action_space.shape[0],
-                           max=config.env_action_max,
-                           min=config.env_action_min)
+                           train_env.action_space.shape[0],
+                           min=test_env.action_space.low[0],
+                           max=test_env.action_space.high[0])
 
     optim = torch.optim.Adam(policy_net.parameters(), lr=config.optim_lr)
-
-    """ load weights from file if required"""
-    if exists_and_not_none(config, 'load'):
-        checkpoint.load(config.load, prefix='best', policy_net=policy_net, optim=optim)
-
-    wandb.watch(policy_net)
 
     """ policy to run on environment """
     def policy(state):
@@ -143,39 +116,27 @@ if __name__ == '__main__':
         a = action.rsample()
         return a.numpy()
 
-    """ demo  """
-    if config.demo:
-        while True:
-            driver.episode(test_env, policy, render=True)
-            buffer.clear()
+    """ load weights from file if required"""
+    if exists_and_not_none(config, 'load'):
+        checkpoint.load(config.load, prefix='best', policy_net=policy_net, optim=optim)
 
+    """ demo if command switch is set """
+    evaluator.demo(config.demo, policy)
 
-    """ main loop """
+    """ begin training loop """
     total_steps = 0
-    best_mean_return = -999999
     tests_run = 0
 
     while total_steps < config.max_steps:
         for ep in range(config.episodes_per_batch):
             driver.episode(train_env, policy)
-        total_steps += len(buffer)
+        total_steps += len(train_buffer)
 
         """ train """
-        reinforce.train(buffer, policy_net, optim, clip_min=config.clip_min, clip_max=config.clip_max)
+        reinforce.train(train_buffer, policy_net, optim, clip_min=config.clip_min, clip_max=config.clip_max)
 
-        """ test  """
+        """ test """
         if total_steps > config.test_steps * tests_run:
+            evaluator.evaluate(policy, config.run_dir, {'policy_net': policy_net, 'optim': optim}, config.test_episodes)
             tests_run += 1
 
-            mean_return, stdev_return = checkpoint.sample_policy_returns(test_env, policy, config.test_episodes,
-                                                                         render=config.env_render)
-
-            wandb.run.summary["last_mean_return"] = mean_return
-            wandb.run.summary["last_stdev_return"] = stdev_return
-
-            # checkpoint policy if mean return is better
-            if mean_return > best_mean_return:
-                best_mean_return = mean_return
-                wandb.run.summary["best_mean_return"] = best_mean_return
-                wandb.run.summary["best_stdev_return"] = stdev_return
-                checkpoint.save(config.run_dir, 'best', policy_net=policy_net, optim=optim)

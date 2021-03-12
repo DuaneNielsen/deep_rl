@@ -1,0 +1,12 @@
+comment:  Pendulum A2C
+seed: 0
+env:
+  name: Pendulum-v0
+max_steps: 1000000
+test:
+  steps: 5000
+  episodes: 10
+discount: 0.75
+batch_size: 8
+hidden_dim: 64
+optim_lr: 0.00044

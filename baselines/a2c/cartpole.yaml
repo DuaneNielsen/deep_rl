@@ -1,4 +1,4 @@
-comment:  Cartpole Reinforce
+comment:  Cartpole A2C
 seed: 0
 env:
   name: CartPoleContinuous-v1

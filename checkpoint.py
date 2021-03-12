@@ -1,30 +1,5 @@
-import buffer as bf
-import driver
-from statistics import mean, stdev
 from pathlib import Path
 import torch
-
-
-def sample_policy_returns(env, policy, samples, render=False):
-    """
-    samples n trajectories from environment using policy
-
-    Args:
-        env: the environment, create a fresh environment if you don't want to add to the current replay buffer
-    Returns:
-         mean_return
-         stdev_return
-    """
-    env, buffer = bf.wrap(env)
-    start = len(buffer.trajectories)
-    # run test trajectories and compute the returns
-    for _ in range(samples):
-        driver.episode(env, policy, render=render)
-    returns = [traj_info['return'] for traj_info in env.trajectory_info[start:]]
-    mean_return = mean(returns)
-    stdev_return = stdev(returns)
-    buffer.clear()
-    return mean_return, stdev_return
 
 
 def save(directory, prefix=None, **kwargs):

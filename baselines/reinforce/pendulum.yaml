@@ -2,8 +2,6 @@ comment:  Pendulum Reinforce
 seed: 0
 env:
   name: Pendulum-v0
-  action_min: -2.0
-  action_max: 2.0
 epochs: 2000
 max_steps: 500000
 test:

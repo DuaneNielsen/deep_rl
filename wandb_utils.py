@@ -42,3 +42,4 @@ def nancheck(tensor, error):
         wandb.summary['FAIL'] = error
         assert False, error
 
+

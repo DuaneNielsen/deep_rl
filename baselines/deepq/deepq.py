@@ -10,6 +10,7 @@ import wandb
 import wandb_utils
 from config import ArgumentParser, exists_and_not_none
 import checkpoint
+import baselines.helper as helper
 
 
 if __name__ == '__main__':
@@ -73,7 +74,8 @@ if __name__ == '__main__':
 
     test_env = make_env()
     if not config.silent:
-        test_env = Plot(make_env(), title=f'Test {config.env_name}')
+        test_env = Plot(test_env, episodes_per_point=1, title=f'Test deepq-{config.env_name}')
+    evaluator = helper.Evaluator(test_env)
 
     """ random seed """
     if exists_and_not_none(config, 'seed'):
@@ -143,16 +145,5 @@ if __name__ == '__main__':
 
         """ periodically test  """
         if step_n > config.test_steps * tests_run:
+            evaluator.evaluate(policy, config.run_dir, {'q_net': q_net, 'optim': optim}, config.test_episodes)
             tests_run += 1
-
-            mean_return, stdev_return = checkpoint.sample_policy_returns(test_env, exploit_policy, config.test_episodes,
-                                                                         render=config.env_render)
-            wandb.run.summary["last_mean_return"] = mean_return
-            wandb.run.summary["last_stdev_return"] = stdev_return
-
-            # checkpoint policy if mean return is better
-            if mean_return > best_mean_return:
-                best_mean_return = mean_return
-                wandb.run.summary["best_mean_return"] = best_mean_return
-                wandb.run.summary["best_stdev_return"] = stdev_return
-                checkpoint.save(config.run_dir, 'best', q_net=q_net, optim=optim)

@@ -14,7 +14,7 @@ from config import exists_and_not_none, ArgumentParser
 import wandb
 import wandb_utils
 import checkpoint
-
+import baselines.helper as helper
 
 if __name__ == '__main__':
 
@@ -50,31 +50,32 @@ if __name__ == '__main__':
 
     config = parser.parse_args()
 
+    """ random seed """
+    if config.seed is not None:
+        torch.manual_seed(config.seed)
+
     wandb.init(project=f"a2c-{config.env_name}", config=config)
 
     """ environment """
     def make_env():
         env = gym.make(config.env_name)
+        if config.seed is not None:
+            env.seed(config.seed)
+            env.action_space.seed(config.seed)
         return env
 
-    """ replay buffer """
-    train_env = make_env()
-    train_env, buffer = bf.wrap(train_env)
-    if not config.silent:
-        train_env = Plot(train_env, episodes_per_point=5, title=f"Train a2c-{config.env_name}")
+    """ training env with replay buffer """
+    train_env, train_buffer = bf.wrap(make_env())
+    train_buffer.enrich(bf.DiscountedReturns(discount=config.discount))
     train_env = wandb_utils.LogRewards(train_env)
+    if not config.silent:
+        train_env = Plot(train_env, episodes_per_point=5, title=f'Train a2c-{config.env_name}')
 
+    """ test env """
     test_env = make_env()
     if not config.silent:
-        test_env = Plot(make_env(), title=f"Test a2c-{config.env_name}")
-
-    """ random seed """
-    if exists_and_not_none(config, 'seed'):
-        torch.manual_seed(config.seed)
-        train_env.seed(config.seed)
-        train_env.action_space.seed(config.seed)
-        test_env.seed(config.seed)
-        test_env.action_space.seed(config.seed)
+        test_env = Plot(test_env, episodes_per_point=1, title=f'Test a2c-{config.env_name}')
+    evaluator = helper.Evaluator(test_env)
 
     """ network """
     class A2CNet(nn.Module):
@@ -82,14 +83,14 @@ if __name__ == '__main__':
         policy(state) returns distribution over actions
         uses ScaledTanhTransformedGaussian as per Hafner
         """
-        def __init__(self, min, max):
+        def __init__(self, input_dims, hidden_dims, min, max):
             super().__init__()
             self.min = min
             self.max = max
-            self.mu = nn.Sequential(nn.Linear(4, 32), nn.SELU(inplace=True),
-                                    nn.Linear(32, 32), nn.SELU(inplace=True),
-                                    nn.Linear(32, 2))
-            self.scale = nn.Linear(4, 1, bias=False)
+            self.mu = nn.Sequential(nn.Linear(input_dims, hidden_dims), nn.SELU(inplace=True),
+                                    nn.Linear(hidden_dims, hidden_dims), nn.SELU(inplace=True),
+                                    nn.Linear(hidden_dims, 2))
+            self.scale = nn.Linear(input_dims, 1, bias=False)
 
         def forward(self, state):
             output = self.mu(state)
@@ -99,9 +100,16 @@ if __name__ == '__main__':
             a_dist = ScaledTanhTransformedGaussian(mu, scale, min=self.min, max=self.max)
             return value, a_dist
 
-    a2c_net = A2CNet(min=test_env.action_space.low[0],
-                     max=test_env.action_space.high[0])
+    a2c_net = A2CNet(
+        input_dims=test_env.observation_space.shape[0],
+        hidden_dims=config.hidden_dim,
+        min=test_env.action_space.low[0],
+        max=test_env.action_space.high[0])
     optim = torch.optim.Adam(a2c_net.parameters(), lr=config.optim_lr)
+
+    """ load weights from file if required"""
+    if exists_and_not_none(config, 'load'):
+        checkpoint.load(config.load, prefix='best', a2c_net=a2c_net, optim=optim)
 
     """ policy to run on environment """
     def policy(state):
@@ -110,6 +118,9 @@ if __name__ == '__main__':
         a = action.rsample()
         assert torch.isnan(a) == False
         return a.numpy()
+
+    """ demo  """
+    evaluator.demo(config.demo, policy)
 
     """ main loop """
     steps = 0
@@ -125,22 +136,10 @@ if __name__ == '__main__':
         if steps < config.batch_size:
             continue
         else:
-            a2c.train(buffer, a2c_net, optim, batch_size=config.batch_size)
+            a2c.train(train_buffer, a2c_net, optim, batch_size=config.batch_size)
             steps = 0
 
         """ test  """
         if total_steps > config.test_steps * tests_run:
             tests_run += 1
-
-            mean_return, stdev_return = checkpoint.sample_policy_returns(test_env, policy, config.test_episodes,
-                                                                         render=config.env_render)
-
-            wandb.run.summary["last_mean_return"] = mean_return
-            wandb.run.summary["last_stdev_return"] = stdev_return
-
-            # checkpoint policy if mean return is better
-            if mean_return > best_mean_return:
-                best_mean_return = mean_return
-                wandb.run.summary["best_mean_return"] = best_mean_return
-                wandb.run.summary["best_stdev_return"] = stdev_return
-                checkpoint.save(config.run_dir, 'best', a2c_net=a2c_net, optim=optim)
+            evaluator.evaluate(policy, config.run_dir, {'a2c_net': a2c_net, 'optim': optim})
