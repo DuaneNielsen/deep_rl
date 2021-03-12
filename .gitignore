@@ -1,8 +1,8 @@
 # Project exclude paths
 /data/
 /.idea/
-/baselines/reinforce/wandb/
-/baselines/reinforce/.run_id
-/baselines/reinforce/runs/
+/baselines/*/wandb/
+/baselines/*/.run_id
+/baselines/*/runs/
 /docsrc/*.rst
 /wandb/
