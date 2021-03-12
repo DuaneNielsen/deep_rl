@@ -88,5 +88,5 @@ class Evaluator:
         """
         if demo:
             while True:
-                driver.episode(self, policy, render=True)
+                driver.episode(self.env, policy, render=True)
                 self.buffer.clear()
