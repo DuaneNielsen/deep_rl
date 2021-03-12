@@ -40,14 +40,15 @@ class ContinuousCartPoleEnv(gym.Env):
             self.x_threshold * 2,
             np.finfo(np.float32).max,
             self.theta_threshold_radians * 2,
-            np.finfo(np.float32).max])
+            np.finfo(np.float32).max], dtype=np.float32)
 
         self.action_space = spaces.Box(
             low=self.min_action,
             high=self.max_action,
-            shape=(1,)
+            shape=(1,),
+            dtype=np.float32
         )
-        self.observation_space = spaces.Box(-high, high)
+        self.observation_space = spaces.Box(-high, high, dtype=np.float32)
 
         self.seed()
         self.viewer = None
