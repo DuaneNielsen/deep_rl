@@ -5,6 +5,17 @@ import random
 import buffer as bf
 
 
+def td_targets(bootstrap_value, rewards, done, discount):
+    v_targets = torch.zeros_like(rewards)
+    prev = bootstrap_value
+
+    for i in reversed(range(0, len(rewards))):
+        prev = rewards[i] + discount * prev * (~done[i]).float()
+        v_targets[i] = prev
+
+    return v_targets
+
+
 def train(buffer, a2c_net, optim, discount=0.95, batch_size=64, device='cpu', dtype=torch.float):
     """
 
@@ -38,17 +49,13 @@ def train(buffer, a2c_net, optim, discount=0.95, batch_size=64, device='cpu', dt
         optim.zero_grad()
 
         v_s, a_dist = a2c_net(state)
+
         with torch.no_grad():
-            tail_value, _ = a2c_net(state_p)
-            v_sp = torch.zeros_like(r)
-            v_sp[-1, :] = tail_value[-1:]
-
-            for i in reversed(range(0, len(r) - 1)):
-                v_sp[i] += r[i] + discount * v_sp[i + 1] * (~d[i + 1]).float()
-
+            v_sp, _ = a2c_net(state_p)
+            td_tar = td_targets(v_sp[-1, :], r, d, discount)
             advantage = r + v_sp * discount - v_s
 
-        critic_loss = mse_loss(r + v_sp * discount, v_s)
+        critic_loss = mse_loss(td_tar, v_s)
 
         action_logprob = a_dist.log_prob(action)
         actor_loss = - torch.mean(action_logprob * advantage)
@@ -64,4 +71,3 @@ def train(buffer, a2c_net, optim, discount=0.95, batch_size=64, device='cpu', dt
 
     """ since this is an on-policy algorithm, throw away the data """
     buffer.clear()
-

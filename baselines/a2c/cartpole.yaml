@@ -2,9 +2,9 @@ comment:  Cartpole A2C
 seed: 0
 env:
   name: CartPoleContinuous-v1
-max_steps: 30000
+max_steps: 40000
 test:
-  steps: 3000
+  steps: 4000
   episodes: 10
 discount: 0.71
 batch_size: 64
