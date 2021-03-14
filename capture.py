@@ -4,6 +4,30 @@ import gym
 import numpy as np
 import torch
 from torchvision.io import write_video, write_jpeg, write_png
+from matplotlib import pyplot as plt
+
+
+class LiveMonitor(gym.Wrapper):
+    def __init__(self, env):
+        super().__init__(env)
+        plt.ion()
+        self.fig = plt.figure()
+        self.ax = self.fig.add_subplot()
+        self.fig.canvas.draw()
+
+    def reset(self):
+        state = self.env.reset()
+        self.ax.clear()
+        self.ax.imshow(state)
+        self.fig.canvas.draw()
+        return state
+
+    def step(self, action):
+        state, reward, done, info = self.env.step(action)
+        self.ax.clear()
+        self.ax.imshow(state)
+        self.fig.canvas.draw()
+        return state, reward, done, info
 
 
 class VideoCapture(gym.Wrapper):

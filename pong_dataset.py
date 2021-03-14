@@ -1,6 +1,6 @@
 from driver import episode
 from capture import PngCapture
-from env.wrappers import ClipState2D
+from env.wrappers import ClipState2D, Greyscale
 import gym
 from random import randint
 from pathlib import Path

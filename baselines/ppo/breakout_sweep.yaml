@@ -1,0 +1,39 @@
+command:
+- ${env}
+- ${interpreter}
+- ${program}
+- --silent
+- ${args}
+method: bayes
+metric:
+  goal: maximize
+  name: best_mean_return
+parameters:
+  env_name:
+    value: BreakoutDeterministic-v4
+  max_steps:
+    value: 1000000000
+  test_steps:
+    value: 100000
+  seed:
+    value: 0
+  discount:
+    distribution: uniform
+    max: 1.0
+    min: 0.8
+  batch_size:
+    values:
+    - 128
+    - 64
+    - 32
+    - 8
+  hidden_dim:
+    values:
+    - 64
+    - 32
+    - 16
+  optim_lr:
+    distribution: log_uniform
+    max: -5
+    min: -10
+program: ppo_a2c_atari.py

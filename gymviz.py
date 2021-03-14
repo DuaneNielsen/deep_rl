@@ -36,8 +36,7 @@ class Plot(gym.Wrapper):
             self.fig.suptitle(title)
         elif env.unwrapped.spec is not None:
             self.fig.suptitle(env.unwrapped.spec.id)
-        else:
-            self.fig.suptitle('set env.spec.id to show title')
+
         spec = plt.GridSpec(ncols=self.cols, nrows=self.rows, figure=self.fig)
 
         self.update_cooldown = Cooldown(secs=refresh_cooldown)
@@ -53,6 +52,8 @@ class Plot(gym.Wrapper):
         self.epi_len_ax = self.fig.add_subplot(spec[1, 0:4])
         self.epi_len = deque(maxlen=history_length)
         self.block_ave_len = []
+
+        self.fig.canvas.draw()
 
     def reset(self):
         """ wraps the gym env reset method"""
@@ -88,7 +89,7 @@ class Plot(gym.Wrapper):
             self.epi_len_ax.set_xlabel('steps')
             self.epi_len_ax.plot(self.total_step_tracker, self.block_ave_len)
 
-            plt.pause(0.001)
+            self.fig.canvas.draw()
         return state, reward, done, info
 
     def save(self):

@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from torch.nn.functional import mse_loss
 from torch.utils.data import DataLoader
 import buffer as bf
 import copy
@@ -45,6 +46,8 @@ def train(buffer, policy_net, optim, clip=0.2, dtype=torch.float, device='cpu'):
     for state, action, advantage in dl:
         state = state.type(dtype).to(device)
         action = action.type(dtype).to(device)
+
+        # this is just standard normalized policy gradient, not advantage
         advantage = advantage.type(dtype).to(device).unsqueeze(1)
         advantage = (advantage - advantage.mean()) / advantage.var()
 
@@ -58,3 +61,71 @@ def train(buffer, policy_net, optim, clip=0.2, dtype=torch.float, device='cpu'):
 
         buffer.clear()
         break
+
+def td_targets(bootstrap_value, rewards, done, discount):
+    v_targets = torch.zeros_like(rewards)
+    prev = bootstrap_value
+
+    for i in reversed(range(0, len(rewards))):
+        prev = rewards[i] + discount * prev * (~done[i]).float()
+        v_targets[i] = prev
+
+    return v_targets
+
+
+def train_a2c(buffer, a2c_net, optim, discount=0.95, clip=0.2, batch_size=64, device='cpu', dtype=torch.float):
+    """
+
+    Advantage Actor Critic
+
+    Args:
+        buffer: replay buffer
+        a2c_net: a2c_net(state) -> values, a_dist
+        optim: optimizer for a2c_net
+        discount: discount factor, default 0.95
+        batch_size: batch size
+        device: device to train on
+        dtype: all floats will be cast to dtype
+
+    """
+
+    """ sample from batch_size transitions from the replay buffer """
+    ds = bf.ReplayBufferDataset(buffer)
+    dl = DataLoader(buffer, batch_size=batch_size)
+
+    """ loads 1 batch and runs a single training step """
+    for s, a, s_p, r, d in dl:
+        state = s.type(dtype).to(device)
+        action = a.type(dtype).to(device)
+        state_p = s_p.type(dtype).to(device)
+        r = r.type(dtype).to(device).unsqueeze(1)
+        d = d.to(device).unsqueeze(1)
+
+        optim.zero_grad()
+
+        v_s, a_dist = a2c_net(state)
+
+        with torch.no_grad():
+            v_sp, _ = a2c_net(state_p)
+            td_tar = td_targets(v_sp[-1, :], r, d, discount)
+            advantage = r + v_sp * discount - v_s
+
+        critic_loss = mse_loss(td_tar, v_s)
+
+        new_logprob = a_dist.log_prob(action)
+        _, old_dist = a2c_net(state, old=True)
+        old_logprob = old_dist.log_prob(action).detach()
+        actor_loss = ppo_loss(new_logprob, old_logprob, advantage, clip=clip)
+        a2c_net.backup()
+
+        entropy = torch.mean(- new_logprob * torch.exp(new_logprob))
+
+        loss = actor_loss + 0.5 * critic_loss - 0.05 * entropy
+
+        loss.backward()
+        optim.step()
+
+        break
+
+    """ since this is an on-policy algorithm, throw away the data """
+    buffer.clear()

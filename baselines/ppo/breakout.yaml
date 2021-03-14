@@ -1,0 +1,12 @@
+comment:  Pendulum A2C
+seed: 0
+env:
+  name: BreakoutDeterministic-v4
+max_steps: 100000000
+test:
+  steps: 100000000
+  episodes: 5
+discount: 0.98
+batch_size: 64
+hidden_dim: 16
+optim_lr: 0.0001
