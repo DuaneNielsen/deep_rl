@@ -2,6 +2,8 @@
 
 Minimal pytorch framework for developing Deep Reinforcement Learning algorithms.
 
+![Alt Text](resources/breakout.gif)
+
 ### Features
 
 * Simple and flexible replay buffer
