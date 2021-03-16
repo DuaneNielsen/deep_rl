@@ -9,7 +9,7 @@ from algos import reinforce
 import gym
 from env import debug
 import pytest
-
+from matplotlib import pyplot as plt
 
 def test_linear_env():
     env = debug.LinearEnv()
@@ -196,3 +196,73 @@ def test_delayed_bandit():
     assert np.allclose(state, debug.one_hot(0, 7))
     assert reward == -1.0
     assert done
+
+
+def test_mnist_bandit():
+    env = debug.MnistBandit(mnist_dir='./data')
+
+    state = env.reset()
+    assert np.allclose(state, env.mnist_obs(1))
+
+    state = env.reset()
+    state, reward, done, info = env.step(0)
+    assert np.allclose(state, env.mnist_obs(0))
+    assert reward == -1.0
+    assert done
+
+    state = env.reset()
+    state, reward, done, info = env.step(1)
+    assert np.allclose(state, env.mnist_obs(2))
+    assert reward == 1.0
+    assert done
+
+
+def test_mnist_target_grid():
+    # plt.ion()
+    # fig = plt.figure(figsize=(8, 8))
+    # spec = plt.GridSpec(ncols=1, nrows=2, figure=fig)
+    # ax = fig.add_subplot(spec[0, 0])
+    # ax2 = fig.add_subplot(spec[1, 0])
+    env = debug.MnistTargetGrid(mnist_dir='./data', initial_state=1, n_states=3, easy=True)
+    env.seed(1)
+    state = env.reset()
+    expected = env.obs(debug.MTGState(1, 0))
+    # env.render()
+    # ax.clear()
+    # ax2.clear()
+    # ax.imshow(expected)
+    # ax2.imshow(state)
+    # fig.canvas.draw()
+    assert np.allclose(state, expected)
+
+    state, reward, done, info = env.step(np.array([0]))
+    expected = env.obs(debug.MTGState(0, 0))
+    assert np.allclose(state, expected)
+    assert reward == 1.0
+    assert done == True
+
+
+def test_mnist_target_grid_long():
+    env = debug.MnistTargetGrid(mnist_dir='./data', initial_state=3, n_states=7, easy=True)
+    env.seed(1)
+    state = env.reset()
+    expected = env.obs(debug.MTGState(3, 1))
+    assert np.allclose(state, expected)
+
+    state, reward, done, info = env.step(np.array([0]))
+    expected = env.obs(debug.MTGState(2, 1))
+    assert np.allclose(state, expected)
+    assert reward == 0.0
+    assert done == False
+
+    state, reward, done, info = env.step(np.array([0]))
+    expected = env.obs(debug.MTGState(1, 1))
+    assert np.allclose(state, expected)
+    assert reward == 1.0
+    assert done == False
+
+    state, reward, done, info = env.step(np.array([0]))
+    expected = env.obs(debug.MTGState(0, 6))
+    assert np.allclose(state, expected)
+    assert reward == 0.0
+    assert done == True
