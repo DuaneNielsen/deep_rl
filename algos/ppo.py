@@ -96,7 +96,7 @@ def train_a2c(buffer, a2c_net, optim, discount=0.95, clip=0.2, batch_size=64, de
     """ loads 1 batch and runs a single training step """
     for s, a, s_p, r, d in dl:
         state = s.type(dtype).to(device)
-        action = a.type(dtype).to(device)
+        action = a.type(dtype).to(device).squeeze()
         state_p = s_p.type(dtype).to(device)
         r = r.type(dtype).to(device).unsqueeze(1)
         d = d.to(device).unsqueeze(1)
@@ -108,19 +108,19 @@ def train_a2c(buffer, a2c_net, optim, discount=0.95, clip=0.2, batch_size=64, de
         with torch.no_grad():
             v_sp, _ = a2c_net(state_p)
             td_tar = td_targets(v_sp[-1, :], r, d, discount)
-            advantage = r + v_sp * discount - v_s
+            advantage = r + v_sp * discount * (~d).float() - v_s
 
         critic_loss = mse_loss(td_tar, v_s)
 
         new_logprob = a_dist.log_prob(action)
         _, old_dist = a2c_net(state, old=True)
         old_logprob = old_dist.log_prob(action).detach()
-        actor_loss = ppo_loss(new_logprob, old_logprob, advantage, clip=clip)
+        actor_loss = ppo_loss(new_logprob, old_logprob, advantage.squeeze(), clip=clip)
         a2c_net.backup()
 
         entropy = torch.mean(- new_logprob * torch.exp(new_logprob))
 
-        loss = actor_loss + 0.5 * critic_loss - 0.05 * entropy
+        loss = actor_loss + 0.5 * critic_loss - 0.01 * entropy
 
         loss.backward()
         optim.step()
