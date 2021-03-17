@@ -36,35 +36,45 @@ class VideoCapture(gym.Wrapper):
         Args:
             env: environment to wrap
             directory: directory to write the files to
+            freq: number of steps to to wait before capturing 1 episode
     """
 
-    def __init__(self, env, directory):
+    def __init__(self, env, directory, freq=10000):
         super().__init__(env)
         self.t = []
         self.directory = directory
-        self.cap_id = 0
+        self.cap_id = 1
+        self.freq = freq
+        self.total_steps = 0
+        self.capturing = False
 
     def reset(self):
         """ wraps the gym reset call """
         state = self.env.reset()
-        self.t.append(state)
+        if self.total_steps > self.freq * self.cap_id:
+            self.capturing = True
+            self.t.append(state)
         return state
 
     def step(self, action):
         """ wraps the gym step call """
         state, reward, done, info = self.env.step(action)
-        self.t.append(state)
-
-        if done:
-            self.done()
+        self.total_steps += 1
+        if self.capturing:
+            self.t.append(state)
+            if done:
+                self.capture()
 
         return state, reward, done, info
 
-    def done(self):
+    def capture(self):
         Path(self.directory).mkdir(parents=True, exist_ok=True)
         stream = torch.from_numpy(np.stack(self.t))
         write_video(f'{self.directory}/capture_{self.cap_id}.mp4', stream, 24.0)
+        del self.t
+        self.t = []
         self.cap_id += 1
+        self.capturing = False
 
 
 class JpegCapture(gym.Wrapper):
