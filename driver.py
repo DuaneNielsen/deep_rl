@@ -4,7 +4,7 @@ import torch
 
 def _render_env(env, render, delay):
     if render:
-        env.render(render)
+        env.render()
         time.sleep(delay)
 
 
