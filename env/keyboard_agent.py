@@ -42,6 +42,7 @@ def make_env():
     env = wrappers.WarpFrame(env)
     env = Gradient(env)
     env = wrappers.ClipRewardEnv(env)
+    env = wrappers.PenalizeOneIfDone(env)
 
     # env = RemapActions(env, remap=np.array([1, 2, 3]))
 
