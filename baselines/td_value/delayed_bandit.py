@@ -72,10 +72,10 @@ if __name__ == '__main__':
         if step_n > 2000000:
             break
 
-        """ train the q network using dqn """
+        """ train the v network using dqn """
         adv.train(buffer, v_net, optim, batch_size=batch_size, discount=discount)
 
-        """ periodically print the Q table to the console """
+        """ periodically print the V table to the console """
         if step_n % 100 == 0:
             print(v_net.vtable.T)
         time.sleep(0.01)
