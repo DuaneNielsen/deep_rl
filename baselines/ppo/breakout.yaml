@@ -4,9 +4,12 @@ env:
   name: BreakoutDeterministic-v4
 max_steps: 100000000
 test:
-  steps: 100000000
-  episodes: 5
-discount: 0.98
+  steps: 10000
+  episodes: 10
+discount: 0.99
 batch_size: 64
-hidden_dim: 16
-optim_lr: 0.0001
+hidden_dim: 64
+exploration: 0.1
+optim_lr: 0.0001838
+load: runs/run_831
+capture_freq: 1000000
