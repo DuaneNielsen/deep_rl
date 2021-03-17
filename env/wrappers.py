@@ -289,6 +289,16 @@ class RewardOneIfNotDone(gym.Wrapper):
         return state, reward, done, info
 
 
+class PenalizeOneIfDone(gym.Wrapper):
+    def __init__(self, env):
+        super().__init__(env)
+
+    def step(self, action):
+        state, reward, done, info = self.env.step(action)
+        reward = -1.0 if done else reward
+        return state, reward, done, info
+
+
 class Normalizer:
     def __init__(self, min, max):
         self.min, self.max = min, max
