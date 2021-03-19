@@ -119,52 +119,50 @@ if __name__ == '__main__':
         """
         def __init__(self, input_dims, hidden_dims, actions):
             super().__init__()
-            self.actions = actions
-
             self.conv1 = nn.Sequential(
-                nn.Conv2d(2, 32, kernel_size=3, stride=2, padding=1),
-                nn.SELU(inplace=True))
+                nn.Conv2d(2, 16, kernel_size=3, stride=1, padding=1),
+                nn.SELU(inplace=True),
+                nn.MaxPool2d(kernel_size=2, stride=2))
             self.conv2 = nn.Sequential(
-                nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1),
-                nn.SELU(inplace=True))
+                nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1),
+                nn.SELU(inplace=True),
+                nn.MaxPool2d(kernel_size=2, stride=2))
             self.conv3 = nn.Sequential(
-                nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1),
-                nn.SELU(inplace=True))
-            # self.conv4 = nn.Sequential(
-            #     nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
-            #     nn.SELU(inplace=True),
-            #     nn.MaxPool2d(kernel_size=2, stride=2))
-            # self.conv5 = nn.Sequential(
-            #     nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1),
-            #     nn.SELU(inplace=True),
-            #     nn.MaxPool2d(kernel_size=2, stride=2))
-            # self.conv6 = nn.Sequential(
-            #     nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1),
-            #     nn.SELU(inplace=True),
-            #     nn.MaxPool2d(kernel_size=2, stride=2))
+                nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
+                nn.SELU(inplace=True),
+                nn.MaxPool2d(kernel_size=2, stride=2))
+            self.conv4 = nn.Sequential(
+                nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
+                nn.SELU(inplace=True),
+                nn.MaxPool2d(kernel_size=2, stride=2))
+            self.conv5 = nn.Sequential(
+                nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1),
+                nn.SELU(inplace=True),
+                nn.MaxPool2d(kernel_size=2, stride=2))
+            self.conv6 = nn.Sequential(
+                nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1),
+                nn.SELU(inplace=True),
+                nn.MaxPool2d(kernel_size=2, stride=2))
 
 
-            # self.mlp = nn.Sequential(nn.Linear(512, hidden_dims), nn.SELU(inplace=True),
-            #                          nn.Linear(hidden_dims, hidden_dims), nn.SELU(inplace=True),
-            #                          nn.Linear(hidden_dims, actions+1))
+            self.value = nn.Sequential(nn.Linear(512, hidden_dims), nn.SELU(inplace=True),
+                                     nn.Linear(hidden_dims, hidden_dims), nn.SELU(inplace=True),
+                                     nn.Linear(hidden_dims, 1))
 
-            #self.lstm = nn.LSTMCell(32 * 5 * 5, hidden_dims)
-            self.contract = nn.Sequential(nn.Linear(3872, hidden_dims), nn.SELU(inplace=True),
-                                          nn.Linear(hidden_dims, hidden_dims), nn.SELU(inplace=True))
-            self.value = nn.Linear(hidden_dims, 1)
-            self.action = nn.Linear(hidden_dims, actions)
+            self.action = nn.Sequential(nn.Linear(512, hidden_dims), nn.SELU(inplace=True),
+                                     nn.Linear(hidden_dims, hidden_dims), nn.SELU(inplace=True),
+                                     nn.Linear(hidden_dims, actions))
 
         def forward(self, state):
             l1 = self.conv1(state.permute(0, 3, 1, 2))
             l2 = self.conv2(l1)
             l3 = self.conv3(l2)
-            # l4 = self.conv4(l3)
-            # l5 = self.conv5(l4)
-            # l6 = self.conv6(l5)
+            l4 = self.conv4(l3)
+            l5 = self.conv5(l4)
+            l6 = self.conv6(l5)
 
-            hidden = self.contract(l3.flatten(start_dim=1))
-            value = self.value(hidden)
-            action = softmax(self.action(hidden), dim=1)
+            value = self.value(l6.flatten(start_dim=1))
+            action = softmax(self.action(l6.flatten(start_dim=1)), dim=1)
             noise = softmax(torch.ones_like(action), dim=1)
             action = (1 - config.exploration_noise) * action + config.exploration_noise * noise
             a_dist = Categorical(action)
@@ -181,6 +179,7 @@ if __name__ == '__main__':
     """ load weights from file if required"""
     if exists_and_not_none(config, 'load'):
         checkpoint.load(config.load, prefix='best', a2c_net=a2c_net, optim=optim)
+        a2c_net.backup()  # old parameters don't get stored, so use the new one
 
     """ policy to run on environment """
     def policy(state):
