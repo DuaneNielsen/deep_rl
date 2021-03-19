@@ -144,6 +144,7 @@ class ReplayBuffer(gym.Wrapper):
         self._enrich = []
         self.eps_reward = 0
         self.eps_len = 0
+        self.record = True
 
     def enrich(self, enricher):
         """
@@ -178,34 +179,37 @@ class ReplayBuffer(gym.Wrapper):
     def reset(self):
         """  Wraps the gym reset method """
         state = self.env.reset()
-        self.buffer.append((None, state, 0.0, False, {}))
-        self.transitions.append(len(self.buffer) - 1)
-        self.eps_reward = 0
-        self.eps_len = 0
 
-        for enricher in self._enrich:
-            enricher.reset(self, state)
+        if self.record:
+            self.buffer.append((None, state, 0.0, False, {}))
+            self.transitions.append(len(self.buffer) - 1)
+            self.eps_reward = 0
+            self.eps_len = 0
+
+            for enricher in self._enrich:
+                enricher.reset(self, state)
         return state
 
     def step(self, action):
         """  Wraps the gym step method """
         state, reward, done, info = self.env.step(action)
 
-        self.buffer.append((action, state, reward, done, info))
-        self.eps_reward += reward
-        self.eps_len += 1
+        if self.record:
+            self.buffer.append((action, state, reward, done, info))
+            self.eps_reward += reward
+            self.eps_len += 1
 
-        if done:
-            """ terminal state, trajectory is complete """
-            self.trajectories.append((self.traj_start, len(self.buffer)))
-            self.traj_start = len(self.buffer)
-            self.trajectory_info.append({'return': self.eps_reward, 'len': self.eps_len})
-        else:
-            """ if not terminal, then by definition, this will be a transition """
-            self.transitions.append(len(self.buffer) - 1)
+            if done:
+                """ terminal state, trajectory is complete """
+                self.trajectories.append((self.traj_start, len(self.buffer)))
+                self.traj_start = len(self.buffer)
+                self.trajectory_info.append({'return': self.eps_reward, 'len': self.eps_len})
+            else:
+                """ if not terminal, then by definition, this will be a transition """
+                self.transitions.append(len(self.buffer) - 1)
 
-        for enricher in self._enrich:
-            enricher.step(self, action, state, reward, done, info)
+            for enricher in self._enrich:
+                enricher.step(self, action, state, reward, done, info)
 
         return state, reward, done, info
 
@@ -225,6 +229,8 @@ class ReplayBuffer(gym.Wrapper):
             """ so we can't use the transition at the end yet"""
             return len(self.transitions) - 1
         return len(self.transitions)
+
+
 
 
 class ReplayBufferDataset:

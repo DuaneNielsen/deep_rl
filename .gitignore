@@ -6,3 +6,5 @@
 /baselines/*/runs/
 /docsrc/*.rst
 /wandb/
+*.pkl
+/demos/deepq/wandb/
