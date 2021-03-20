@@ -1,0 +1,47 @@
+  command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - --silent
+  - ${args}
+  method: bayes
+  metric:
+    goal: maximize
+    name: last_mean_return
+  parameters:
+    env_name:
+      value: BreakoutDeterministic-v4
+    max_steps:
+      value: 8000000
+    test_steps:
+      value: 50000
+    test_episodes:
+      value: 25
+    capture_freq:
+      value: 500000
+    seed:
+      values:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        - 6
+        - 7
+        - 8
+        - 9
+        - 10
+    discount:
+      value: 0.99
+    batch_size:
+      value: 8
+    hidden_dim:
+      value: 64
+    exploration_noise:
+      value: 0.0565
+    optim_lr:
+      value: 1.2998e-5
+  early_terminate:
+    type: hyperband
+    min_iter: 4
+  program: ppo_a2c_atari.py
