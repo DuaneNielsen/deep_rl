@@ -145,5 +145,6 @@ if __name__ == '__main__':
 
         """ periodically test  """
         if step_n > config.test_steps * tests_run:
-            evaluator.evaluate(policy, config.run_dir, {'q_net': q_net, 'optim': optim}, config.test_episodes)
+            evaluator.evaluate(policy, config.run_dir, {'q_net': q_net, 'optim': optim}, config.test_episodes,
+                               capture=True)
             tests_run += 1

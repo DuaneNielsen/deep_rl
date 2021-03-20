@@ -11,7 +11,7 @@ from gymviz import Plot
 
 import buffer as bf
 from algos import ppo
-from torch.nn.functional import max_pool2d, softmax
+from torch.nn.functional import max_pool2d, log_softmax
 from torch.distributions import Categorical
 from config import exists_and_not_none, ArgumentParser
 import wandb
@@ -37,10 +37,10 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=None)
 
     """ main loop control """
-    parser.add_argument('--max_steps', type=int, default=100000000)
-    parser.add_argument('--test_steps', type=int, default=3000000)
-    parser.add_argument('--test_episodes', type=int, default=10)
-    parser.add_argument('--capture_freq', type=int, default=5000)
+    parser.add_argument('--max_steps', type=int, default=8000000)
+    parser.add_argument('--test_steps', type=int, default=50000)
+    parser.add_argument('--test_episodes', type=int, default=25)
+    parser.add_argument('--capture_freq', type=int, default=500000)
 
     """ resume settings """
     parser.add_argument('--demo', action='store_true', default=False)
@@ -51,11 +51,11 @@ if __name__ == '__main__':
     parser.add_argument('--env_render', action='store_true', default=False)
 
     """ hyper-parameters """
-    parser.add_argument('--optim_lr', type=float, default=1e-4)
-    parser.add_argument('--batch_size', type=int, default=512)
+    parser.add_argument('--optim_lr', type=float, default=1.3e-5)
+    parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--discount', type=float, default=0.99)
     parser.add_argument('--hidden_dim', type=int, default=64)
-    parser.add_argument('--exploration_noise', type=float, default=0.3)
+    parser.add_argument('--exploration_noise', type=float, default=0.0565)
 
     config = parser.parse_args()
 
@@ -86,9 +86,6 @@ if __name__ == '__main__':
         env = wrappers.Gradient(env)
         env = wrappers.ClipRewardEnv(env)
         env = wrappers.PenalizeOneIfDone(env)
-        #env = RemapActions(env, remap=np.array([1, 2, 3]))
-
-        #env = LiveMonitor(env)
 
         if config.seed is not None:
             env.seed(config.seed)
@@ -100,13 +97,13 @@ if __name__ == '__main__':
     train_env = wandb_utils.LogRewards(train_env)
     if not config.silent:
         train_env = Plot(train_env, episodes_per_point=20, title=f'Train ppo-a2c-{config.env_name}-{config.run_id}',
-                         history_length=200, refresh_cooldown=5.0)
+                         refresh_cooldown=5.0)
 
     """ test env """
     test_env = make_env()
     if not config.silent:
         test_env = Plot(test_env, episodes_per_point=config.test_episodes, title=f'Test ppo-a2c-{config.env_name}-{config.run_id}',
-                        history_length=200, refresh_cooldown=5.0)
+                        refresh_cooldown=5.0)
     evaluator = helper.Evaluator(test_env)
 
     actions = train_env.action_space.n
@@ -119,6 +116,7 @@ if __name__ == '__main__':
         """
         def __init__(self, input_dims, hidden_dims, actions):
             super().__init__()
+            self.actions = actions
             self.conv1 = nn.Sequential(
                 nn.Conv2d(2, 16, kernel_size=3, stride=1, padding=1),
                 nn.SELU(inplace=True),
@@ -162,10 +160,9 @@ if __name__ == '__main__':
             l6 = self.conv6(l5)
 
             value = self.value(l6.flatten(start_dim=1))
-            action = softmax(self.action(l6.flatten(start_dim=1)), dim=1)
-            noise = softmax(torch.ones_like(action), dim=1)
-            action = (1 - config.exploration_noise) * action + config.exploration_noise * noise
-            a_dist = Categorical(action)
+            action = log_softmax(self.action(l6.flatten(start_dim=1)), dim=1)
+            action = torch.log((1 - config.exploration_noise) * torch.exp(action) + config.exploration_noise * torch.ones_like(action)/self.actions)
+            a_dist = Categorical(logits=action)
             return value, a_dist
 
     a2c_net = A2CNet(
@@ -179,7 +176,6 @@ if __name__ == '__main__':
     """ load weights from file if required"""
     if exists_and_not_none(config, 'load'):
         checkpoint.load(config.load, prefix='best', a2c_net=a2c_net, optim=optim)
-        a2c_net.backup()  # old parameters don't get stored, so use the new one
 
     """ policy to run on environment """
     def policy(state):
@@ -213,4 +209,4 @@ if __name__ == '__main__':
         if total_steps > config.test_steps * tests_run and total_steps != 0:
             tests_run += 1
             evaluator.evaluate(policy, config.run_dir, {'a2c_net': a2c_net, 'optim': optim},
-                               sample_n=config.test_episodes)
+                               sample_n=config.test_episodes, capture=True)

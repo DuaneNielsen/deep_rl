@@ -1,39 +1,45 @@
-command:
-- ${env}
-- ${interpreter}
-- ${program}
-- --silent
-- ${args}
-method: bayes
-metric:
-  goal: maximize
-  name: best_mean_return
-parameters:
-  env_name:
-    value: PongDeterministic-v4
-  max_steps:
-    value: 1000000000
-  test_steps:
-    value: 200000
-  seed:
-    value: 0
-  discount:
-    distribution: uniform
-    max: 1.0
-    min: 0.8
-  batch_size:
-    values:
-    - 512
-    - 128
-    - 32
-    - 8
-  hidden_dim:
-    values:
-    - 64
-    - 32
-    - 16
-  optim_lr:
-    distribution: log_uniform
-    max: -5
-    min: -10
-program: ppo_a2c_atari.py
+  command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - --silent
+  - ${args}
+  method: bayes
+  metric:
+    goal: maximize
+    name: last_mean_return
+  parameters:
+    env_name:
+      value: BreakoutDeterministic-v4
+    max_steps:
+      value: 8000000
+    test_steps:
+      value: 50000
+    test_episodes:
+      value: 25
+    capture_freq:
+      value: 500000
+    seed:
+      value: 0
+    discount:
+      value: 0.99
+    batch_size:
+      values:
+        - 8
+        - 32
+        - 128
+    hidden_dim:
+      values:
+        - 64
+    exploration_noise:
+      distribution: uniform
+      min: 0
+      max: 0.33
+    optim_lr:
+      distribution: log_uniform
+      max: -9
+      min: -12
+  early_terminate:
+    type: hyperband
+    min_iter: 4
+  program: ppo_a2c_atari.py

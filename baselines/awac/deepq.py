@@ -48,7 +48,7 @@ if __name__ == '__main__':
         def __init__(self, state_size, hidden_size, action_size):
             super().__init__()
             self.q_net = nn.Sequential(nn.Linear(state_size, hidden_size), nn.SELU(inplace=True),
-                                       nn.Linear(hidden_sie, action_size))
+                                       nn.Linear(hidden_size, action_size))
 
         def forward(self, state):
             action = self.q_net(state)
