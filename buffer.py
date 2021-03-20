@@ -166,6 +166,7 @@ class ReplayBuffer(gym.Wrapper):
         self.buffer = []
         self.trajectories = []
         self.transitions = []
+        self.trajectory_info = []
         self.traj_start = 0
 
     def tail_trajectory_complete(self):
