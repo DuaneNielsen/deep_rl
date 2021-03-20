@@ -37,10 +37,10 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=None)
 
     """ main loop control """
-    parser.add_argument('--max_steps', type=int, default=8000000)
-    parser.add_argument('--test_steps', type=int, default=50000)
+    parser.add_argument('--max_steps', type=int, default=1000000)
+    parser.add_argument('--test_steps', type=int, default=5000)
     parser.add_argument('--test_episodes', type=int, default=25)
-    parser.add_argument('--capture_freq', type=int, default=500000)
+    parser.add_argument('--capture_freq', type=int, default=50000)
 
     """ resume settings """
     parser.add_argument('--demo', action='store_true', default=False)

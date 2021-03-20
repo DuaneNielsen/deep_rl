@@ -118,9 +118,7 @@ def train_a2c(buffer, a2c_net, optim, discount=0.95, clip=0.2, batch_size=64, de
         actor_loss = ppo_loss(new_logprob, old_logprob, advantage.squeeze(), clip=clip)
         a2c_net.backup()
 
-        entropy = torch.mean(- new_logprob * torch.exp(new_logprob))
-
-        loss = actor_loss + 0.5 * critic_loss - 0.01 * entropy
+        loss = actor_loss + 0.5 * critic_loss - 0.01 * a_dist.entropy().mean()
 
         loss.backward()
         optim.step()

@@ -31,10 +31,9 @@
     hidden_dim:
       values:
         - 64
+        - 128
     exploration_noise:
-      distribution: uniform
-      min: 0
-      max: 0.33
+      value: 0.05
     optim_lr:
       distribution: log_uniform
       max: -9

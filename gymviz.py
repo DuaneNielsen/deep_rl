@@ -15,7 +15,7 @@ class Plot(gym.Wrapper):
 
     Args:
         refresh_cooldown: maximum refresh frequency
-        history_length: amount of trajectory returns to buffer
+        history_length: amount of points to plot on chart, discard older ones
         episodes_per_point: combines episodes and plots the average result
         title: sets the title of the plot
 
@@ -46,12 +46,12 @@ class Plot(gym.Wrapper):
         self.total_step_tracker = []
 
         self.epi_reward_ax = self.fig.add_subplot(spec[0, 0:4])
-        self.epi_reward = deque(maxlen=history_length)
-        self.block_ave_reward = []
+        self.epi_reward = deque()
+        self.block_ave_reward = deque(maxlen=history_length)
 
         self.epi_len_ax = self.fig.add_subplot(spec[1, 0:4])
-        self.epi_len = deque(maxlen=history_length)
-        self.block_ave_len = []
+        self.epi_len = deque()
+        self.block_ave_len = deque(maxlen=history_length)
 
         self.fig.canvas.draw()
 
