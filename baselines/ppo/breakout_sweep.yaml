@@ -27,11 +27,6 @@
       values:
         - 8
         - 32
-        - 128
-    hidden_dim:
-      values:
-        - 64
-        - 128
     exploration_noise:
       value: 0.05
     optim_lr:
