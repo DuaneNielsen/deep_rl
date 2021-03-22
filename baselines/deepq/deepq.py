@@ -11,7 +11,11 @@ import wandb_utils
 from config import ArgumentParser, exists_and_not_none
 import checkpoint
 import baselines.helper as helper
+from gym.wrappers.transform_reward import TransformReward
 
+
+def rescale_reward(reward):
+    return reward * config.env_reward_scale - config.env_reward_bias
 
 if __name__ == '__main__':
 
@@ -38,6 +42,8 @@ if __name__ == '__main__':
     """ environment """
     parser.add_argument('--env_name', type=str, default='CartPole-v1')
     parser.add_argument('--env_render', action='store_true', default=False)
+    parser.add_argument('--env_reward_scale', type=float, default=1.0)
+    parser.add_argument('--env_reward_bias', type=float, default=0.0)
 
     """ vizualization """
     parser.add_argument('--plot_episodes_per_point', type=int, default=32)
@@ -51,13 +57,16 @@ if __name__ == '__main__':
     parser.add_argument('--hidden_size', type=int, default=16)
     parser.add_argument('--batch_size', type=int, default=8)
 
+
     config = parser.parse_args()
 
     wandb.init(project=f"dqn-{config.env_name}", config=config)
 
+
     """ Environment """
     def make_env():
         env = gym.make(config.env_name)
+        env = TransformReward(env, rescale_reward)
         """ check environment has continuous input, discrete output"""
         assert isinstance(env.observation_space, gym.spaces.Box)
         assert len(env.observation_space.shape) == 1
@@ -93,6 +102,7 @@ if __name__ == '__main__':
         def __init__(self, state_size, hidden_size, action_size):
             super().__init__()
             self.q_net = nn.Sequential(nn.Linear(state_size, hidden_size), nn.SELU(inplace=True),
+                                       nn.Linear(hidden_size, hidden_size), nn.SELU(inplace=True),
                                        nn.Linear(hidden_size, action_size))
 
         def forward(self, state):

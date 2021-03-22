@@ -46,7 +46,7 @@ if __name__ == '__main__':
 
     """ hyper-parameters """
     parser.add_argument('--optim_lr', type=float, default=1e-4)
-    parser.add_argument('--batch_size', type=int, default=64)
+    parser.add_argument('--batch_size', type=int, default=256)
     parser.add_argument('--discount', type=float, default=0.99)
     parser.add_argument('--hidden_dim', type=int, default=16)
 
@@ -135,7 +135,9 @@ if __name__ == '__main__':
     steps = 0
     best_mean_return = -999999
     tests_run = 0
+
     offline_steps = len(train_buffer)
+    wandb.run.summary['offline_steps'] = offline_steps
     train_buffer.record = False
     print(f'OFF POLICY FOR {len(train_buffer)} steps')
 
@@ -147,10 +149,11 @@ if __name__ == '__main__':
         if total_steps > offline_steps:
             if not train_buffer.record:
                 print('Recording NOW')
+                train_buffer.clear()
             train_buffer.record = True
 
         """ train offline after batch steps saved"""
-        if steps < config.batch_size:
+        if len(train_buffer) < config.batch_size:
             continue
         else:
             awac.train_discrete(train_buffer, awac_net, q_optim, policy_optim, batch_size=config.batch_size)

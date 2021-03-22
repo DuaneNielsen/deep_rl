@@ -43,7 +43,7 @@ def train_discrete(buffer, a2c_net, critic_optim, actor_optim, discount=0.95, ba
         critic_loss = mse_loss(target, v_s)
 
         action_logprob = a_dist.log_prob(action.squeeze()).unsqueeze(1)
-        actor_loss = - torch.mean(action_logprob * advantage)
+        actor_loss = - torch.mean(action_logprob * torch.exp(advantage / 0.3))
 
         #entropy = torch.mean(- action_logprob * torch.exp(action_logprob))
 

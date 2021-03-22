@@ -22,6 +22,7 @@ import numpy as np
 import os
 import capture
 import random
+import models.atari as models
 
 if __name__ == '__main__':
 
@@ -109,66 +110,10 @@ if __name__ == '__main__':
     actions = train_env.action_space.n
 
     """ network """
-    class A2CNet(nn.Module):
-        """
-        policy(state) returns distribution over actions
-        uses ScaledTanhTransformedGaussian as per Hafner
-        """
-        def __init__(self, input_dims, hidden_dims, actions):
-            super().__init__()
-            self.actions = actions
-            self.conv1 = nn.Sequential(
-                nn.Conv2d(2, 16, kernel_size=3, stride=1, padding=1),
-                nn.SELU(inplace=True),
-                nn.MaxPool2d(kernel_size=2, stride=2))
-            self.conv2 = nn.Sequential(
-                nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1),
-                nn.SELU(inplace=True),
-                nn.MaxPool2d(kernel_size=2, stride=2))
-            self.conv3 = nn.Sequential(
-                nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
-                nn.SELU(inplace=True),
-                nn.MaxPool2d(kernel_size=2, stride=2))
-            self.conv4 = nn.Sequential(
-                nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
-                nn.SELU(inplace=True),
-                nn.MaxPool2d(kernel_size=2, stride=2))
-            self.conv5 = nn.Sequential(
-                nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1),
-                nn.SELU(inplace=True),
-                nn.MaxPool2d(kernel_size=2, stride=2))
-            self.conv6 = nn.Sequential(
-                nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1),
-                nn.SELU(inplace=True),
-                nn.MaxPool2d(kernel_size=2, stride=2))
-
-
-            self.value = nn.Sequential(nn.Linear(512, hidden_dims), nn.SELU(inplace=True),
-                                     nn.Linear(hidden_dims, hidden_dims), nn.SELU(inplace=True),
-                                     nn.Linear(hidden_dims, 1))
-
-            self.action = nn.Sequential(nn.Linear(512, hidden_dims), nn.SELU(inplace=True),
-                                     nn.Linear(hidden_dims, hidden_dims), nn.SELU(inplace=True),
-                                     nn.Linear(hidden_dims, actions))
-
-        def forward(self, state):
-            l1 = self.conv1(state.permute(0, 3, 1, 2))
-            l2 = self.conv2(l1)
-            l3 = self.conv3(l2)
-            l4 = self.conv4(l3)
-            l5 = self.conv5(l4)
-            l6 = self.conv6(l5)
-
-            value = self.value(l6.flatten(start_dim=1))
-            action = log_softmax(self.action(l6.flatten(start_dim=1)), dim=1)
-            action = torch.log((1 - config.exploration_noise) * torch.exp(action) + config.exploration_noise * torch.ones_like(action)/self.actions)
-            a_dist = Categorical(logits=action)
-            return value, a_dist
-
-    a2c_net = A2CNet(
-        input_dims=test_env.observation_space.shape[0],
+    a2c_net = models.SmallNet(
         hidden_dims=config.hidden_dim,
-        actions=actions)
+        actions=actions,
+        exploration_noise=config.exploration_noise)
     optim = torch.optim.Adam(a2c_net.parameters(), lr=config.optim_lr, weight_decay=0.0)
 
     a2c_net = ppo.PPOWrapModel(a2c_net).to(config.device)

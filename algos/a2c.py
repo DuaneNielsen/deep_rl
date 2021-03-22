@@ -35,7 +35,7 @@ def train(buffer, a2c_net, optim, discount=0.95, batch_size=64, device='cpu', dt
 
     """ sample from batch_size transitions from the replay buffer """
     ds = bf.ReplayBufferDataset(buffer)
-    dl = DataLoader(buffer, batch_size=batch_size)
+    dl = DataLoader(ds, batch_size=batch_size)
 
     """ loads 1 batch and runs a single training step """
     for s, a, s_p, r, d in dl:
@@ -59,9 +59,10 @@ def train(buffer, a2c_net, optim, discount=0.95, batch_size=64, device='cpu', dt
         action_logprob = a_dist.log_prob(action)
         actor_loss = - torch.mean(action_logprob * advantage)
 
-        entropy = torch.mean(- action_logprob * torch.exp(action_logprob))
+        entropy = a_dist.entropy()
+        #entropy = - torch.mean(torch.exp(action_logprob) / (action_logprob + eps))
 
-        loss = actor_loss + 0.5 * critic_loss - 0.05 * entropy
+        loss = actor_loss + 0.5 * critic_loss - 0.01 * entropy
 
         loss.backward()
         optim.step()

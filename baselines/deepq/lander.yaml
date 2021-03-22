@@ -1,0 +1,14 @@
+comment:  Lunar Lander DeepQ
+seed: 0
+env:
+  name: LunarLander-v2
+max_steps: 160000
+test:
+  steps: 20000
+  episodes: 10
+discount: 0.97
+batch_size: 16
+hidden_dim: 16
+epsilon: 0.18
+optim_lr: 0.0025
+plot_episodes_per_point: 1
