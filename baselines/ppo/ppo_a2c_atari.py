@@ -110,7 +110,7 @@ if __name__ == '__main__':
     actions = train_env.action_space.n
 
     """ network """
-    a2c_net = models.SmallNet(
+    a2c_net = models.A2CNet(
         hidden_dims=config.hidden_dim,
         actions=actions,
         exploration_noise=config.exploration_noise)
