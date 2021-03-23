@@ -59,11 +59,9 @@ def train(buffer, a2c_net, optim, discount=0.95, batch_size=64, device='cpu', dt
         action_logprob = a_dist.log_prob(action)
         actor_loss = - torch.mean(action_logprob * advantage)
 
-        entropy = a_dist.entropy()
-        #entropy = - torch.mean(torch.exp(action_logprob) / (action_logprob + eps))
+        entropy = a_dist.entropy().mean()
 
         loss = actor_loss + 0.5 * critic_loss - 0.01 * entropy
-
         loss.backward()
         optim.step()
 
