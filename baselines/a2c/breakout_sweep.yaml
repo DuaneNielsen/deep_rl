@@ -1,0 +1,37 @@
+  command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - --silent
+  - ${args}
+  method: bayes
+  metric:
+    goal: maximize
+    name: last_mean_return
+  parameters:
+    env_name:
+      value: BreakoutDeterministic-v4
+    max_steps:
+      value: 2000000
+    test_steps:
+      value: 50000
+    test_episodes:
+      value: 25
+    capture_freq:
+      value: 400000
+    seed:
+      value: 0
+    discount:
+      value: 0.99
+    batch_size:
+      value: 8
+    exploration_noise:
+      value: 0.05
+    optim_lr:
+      distribution: log_uniform
+      max: -5
+      min: -12
+  early_terminate:
+    type: hyperband
+    min_iter: 4
+  program: a2c_atari.py

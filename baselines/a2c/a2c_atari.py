@@ -70,7 +70,7 @@ if __name__ == '__main__':
         #torch.backends.cudnn.benchmark = False
         #torch.use_deterministic_algorithms(True)
 
-    wandb.init(project=f"ppp-a2c-{config.env_name}", config=config)
+    wandb.init(project=f"a2c-{config.env_name}", config=config)
 
     """ environment """
     def make_env():
@@ -97,13 +97,13 @@ if __name__ == '__main__':
     train_env, train_buffer = bf.wrap(make_env())
     train_env = wandb_utils.LogRewards(train_env)
     if not config.silent:
-        train_env = Plot(train_env, episodes_per_point=20, title=f'Train ppo-a2c-{config.env_name}-{config.run_id}',
+        train_env = Plot(train_env, episodes_per_point=20, title=f'Train a2c-{config.env_name}-{config.run_id}',
                          refresh_cooldown=5.0)
 
     """ test env """
     test_env = make_env()
     if not config.silent:
-        test_env = Plot(test_env, episodes_per_point=config.test_episodes, title=f'Test ppo-a2c-{config.env_name}-{config.run_id}',
+        test_env = Plot(test_env, episodes_per_point=config.test_episodes, title=f'Test a2c-{config.env_name}-{config.run_id}',
                         refresh_cooldown=5.0)
     evaluator = helper.Evaluator(test_env)
 
