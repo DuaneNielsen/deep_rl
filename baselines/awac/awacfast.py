@@ -43,9 +43,9 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=None)
 
     """ main loop control """
-    parser.add_argument('--max_steps', type=int, default=200000)
+    parser.add_argument('--max_steps', type=int, default=150000)
     parser.add_argument('--test_steps', type=int, default=2000)
-    parser.add_argument('--test_samples', type=int, default=10)
+    parser.add_argument('--test_samples', type=int, default=5)
     parser.add_argument('--test_capture', action='store_true', default=False)
 
     """ resume settings """
@@ -94,23 +94,24 @@ if __name__ == '__main__':
 
     #tds = TensorDataset(state, action, state_p, reward, done)
     class FastDataset:
-        def __init__(self, load_buff, device='cpu', length=None):
+        def __init__(self, load_buff, device='cpu', length=None, capacity=None):
 
             self.device = device
 
             s, a, s_p, r, d = load_buff[0]
-            length = min(len(load_buff), length) if length is not None else len(load_buff)
-            self.state = torch.empty(length, s.shape[0], dtype=torch.float32, device=device)
-            self.action = torch.empty(length, 1, dtype=torch.long, device=device)
-            self.state_p = torch.empty(length, s_p.shape[0], dtype=torch.float32, device=device)
-            self.reward = torch.empty(length, 1, dtype=torch.float32, device=device)
-            self.done = torch.empty(length, 1, dtype=torch.float32, device=device)
+            self.length = min(len(load_buff), length) if length is not None else len(load_buff)
+            self.capacity = max(length, capacity) if capacity is not None else length
+            self.state = torch.empty(self.capacity, s.shape[0], dtype=torch.float32, device=device)
+            self.action = torch.empty(self.capacity, 1, dtype=torch.long, device=device)
+            self.state_p = torch.empty(self.capacity, s_p.shape[0], dtype=torch.float32, device=device)
+            self.reward = torch.empty(self.capacity, 1, dtype=torch.float32, device=device)
+            self.done = torch.empty(self.capacity, 1, dtype=torch.float32, device=device)
 
             for i in range(0, length):
                 self[i] = load_buff[i]
 
         def __len__(self):
-            return len(self.state)
+            return self.length
 
         def __getitem__(self, i):
             return self.state[i], self.action[i], self.state_p[i], self.reward[i], self.done[i]
@@ -123,11 +124,19 @@ if __name__ == '__main__':
             self.reward[i] = r
             self.done[i] = 0.0 if d else 1.0
 
+        def append(self, transition):
+            if self.length < self.capacity:
+                i = self.length
+                self.length += 1
+            else:
+                i = randint(0, self.length-1)
+            self[i] = transition
+
     file = open(config.load_buffer, 'rb')
     load_buff = pickle.load(file)
     file.close()
 
-    tds = FastDataset(load_buff, length=config.buffer_steps)
+    tds = FastDataset(load_buff, length=config.buffer_steps, capacity=150000)
 
     train_env = wandb_utils.LogRewards(train_env)
 
@@ -190,7 +199,7 @@ if __name__ == '__main__':
 
     offline_steps = len(tds)
     wandb.run.summary['offline_steps'] = offline_steps
-    #train_buffer.record = False
+    on_policy = False
     print(f'OFF POLICY FOR {len(tds)} steps')
     timing = []
 
@@ -200,10 +209,10 @@ if __name__ == '__main__':
             break
 
         if total_steps > offline_steps:
-            i = randint(0, len(tds) - 1)
-            tds[i] = (s, a, s_p, r, d)
-            if not train_buffer.record:
-                print('Recording NOW')
+            tds.append((s, a, s_p, r, d))
+            if not on_policy:
+                print('on policy NOW')
+                on_policy = True
 
         """ train offline after batch steps saved"""
         if len(tds) < config.batch_size:
