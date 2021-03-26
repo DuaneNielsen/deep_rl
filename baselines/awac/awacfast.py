@@ -67,8 +67,12 @@ if __name__ == '__main__':
 
     """ experimental parameters """
     parser.add_argument('--buffer_steps', type=int)
+    parser.add_argument('--buffer_capacity', type=int)
 
     config = parser.parse_args()
+
+    if config.buffer_capacity is None:
+        config.buffer_capacity = config.max_steps
 
     """ random seed """
     if config.seed is not None:
@@ -137,7 +141,7 @@ if __name__ == '__main__':
     load_buff = pickle.load(file)
     file.close()
 
-    tds = FastDataset(load_buff, length=config.buffer_steps, capacity=150000)
+    tds = FastDataset(load_buff, length=config.buffer_steps, capacity=config.buffer_capacity)
 
     train_env = wandb_utils.LogRewards(train_env)
 

@@ -97,15 +97,16 @@ def train_fast(ds, a2c_net, critic_optim, actor_optim, discount=0.95, batch_size
     N = state.shape[0]
 
     q_s, a_dist = a2c_net(state)
-    v_s = q_s[torch.arange(N), action.squeeze()].unsqueeze(1)
+    v_sa = q_s[torch.arange(N), action.squeeze()].unsqueeze(1)
 
     with torch.no_grad():
         q_sp, a_sp_dist = a2c_net(state_p)
+        v_s = torch.sum(q_s.detach() * a_dist.probs.detach(), dim=1, keepdim=True)
         v_sp = torch.sum(q_sp * a_sp_dist.probs, dim=1, keepdim=True)
         target = reward + v_sp * discount * done
-        advantage = target - v_s
+        advantage = v_sa - v_s
 
-    critic_loss = mse_loss(target, v_s)
+    critic_loss = mse_loss(target, v_sa)
 
     action_logprob = a_dist.log_prob(action.squeeze()).unsqueeze(1)
     actor_loss = - torch.mean(action_logprob * torch.exp(advantage / 0.3))

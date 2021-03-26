@@ -28,7 +28,7 @@ parameters:
       - 4
       - 5
   max_steps:
-    value: 400000
+    value: 150000
   test_steps:
     value: 50000
   test_samples:
