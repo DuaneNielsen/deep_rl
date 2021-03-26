@@ -21,7 +21,9 @@ from gym.wrappers.transform_reward import TransformReward
 from time import time
 from statistics import mean, stdev
 from torch.utils.data import TensorDataset
-
+from collections import namedtuple
+from random import randint
+import os
 
 def rescale_reward(reward):
     return reward * config.env_reward_scale - config.env_reward_bias
@@ -42,8 +44,9 @@ if __name__ == '__main__':
 
     """ main loop control """
     parser.add_argument('--max_steps', type=int, default=200000)
-    parser.add_argument('--test_steps', type=int, default=30000)
+    parser.add_argument('--test_steps', type=int, default=2000)
     parser.add_argument('--test_samples', type=int, default=10)
+    parser.add_argument('--test_capture', action='store_true', default=False)
 
     """ resume settings """
     parser.add_argument('--demo', action='store_true', default=False)
@@ -71,6 +74,9 @@ if __name__ == '__main__':
     if config.seed is not None:
         torch.manual_seed(config.seed)
 
+    if 'DEVICE' in os.environ:
+        config.device = os.environ['DEVICE']
+
     wandb.init(project=f"awac-{config.env_name}", config=config)
 
     """ environment """
@@ -85,15 +91,43 @@ if __name__ == '__main__':
     """ training env with replay buffer """
     train_env, train_buffer = bf.wrap(make_env())
 
+
+    #tds = TensorDataset(state, action, state_p, reward, done)
+    class FastDataset:
+        def __init__(self, load_buff, device='cpu', length=None):
+
+            self.device = device
+
+            s, a, s_p, r, d = load_buff[0]
+            length = min(len(load_buff), length) if length is not None else len(load_buff)
+            self.state = torch.empty(length, s.shape[0], dtype=torch.float32, device=device)
+            self.action = torch.empty(length, 1, dtype=torch.long, device=device)
+            self.state_p = torch.empty(length, s_p.shape[0], dtype=torch.float32, device=device)
+            self.reward = torch.empty(length, 1, dtype=torch.float32, device=device)
+            self.done = torch.empty(length, 1, dtype=torch.float32, device=device)
+
+            for i in range(0, length):
+                self[i] = load_buff[i]
+
+        def __len__(self):
+            return len(self.state)
+
+        def __getitem__(self, i):
+            return self.state[i], self.action[i], self.state_p[i], self.reward[i], self.done[i]
+
+        def __setitem__(self, i, transition):
+            s, a, s_p, r, d = transition
+            self.state[i] = torch.from_numpy(s).type(torch.float32)
+            self.action[i] = a
+            self.state_p[i] = torch.from_numpy(s_p).type(torch.float32)
+            self.reward[i] = r
+            self.done[i] = 0.0 if d else 1.0
+
     file = open(config.load_buffer, 'rb')
     load_buff = pickle.load(file)
     file.close()
 
-
-    train_buffer.buffer = load_buff.buffer
-    train_buffer.transitions = load_buff.transitions
-    train_buffer.trajectories = load_buff.trajectories
-    train_buffer.trajectory_info = load_buff.trajectory_info
+    tds = FastDataset(load_buff, length=config.buffer_steps)
 
     train_env = wandb_utils.LogRewards(train_env)
 
@@ -154,28 +188,28 @@ if __name__ == '__main__':
     best_mean_return = -999999
     tests_run = 0
 
-    offline_steps = len(train_buffer)
+    offline_steps = len(tds)
     wandb.run.summary['offline_steps'] = offline_steps
-    train_buffer.record = False
-    print(f'OFF POLICY FOR {len(train_buffer)} steps')
+    #train_buffer.record = False
+    print(f'OFF POLICY FOR {len(tds)} steps')
     timing = []
 
-    for total_steps, _ in enumerate(driver.step_environment(train_env, policy)):
+    for total_steps, (s, a, s_p, r, d, _) in enumerate(driver.step_environment(train_env, policy)):
         steps += 1
         if total_steps > config.max_steps:
             break
 
         if total_steps > offline_steps:
+            i = randint(0, len(tds) - 1)
+            tds[i] = (s, a, s_p, r, d)
             if not train_buffer.record:
                 print('Recording NOW')
-                train_buffer.clear()
-            train_buffer.record = True
 
         """ train offline after batch steps saved"""
-        if len(train_buffer) < config.batch_size:
+        if len(tds) < config.batch_size:
             continue
         else:
-            awac.train_discrete(train_buffer, awac_net, q_optim, policy_optim, batch_size=config.batch_size, device=config.device)
+            awac.train_fast(tds, awac_net, q_optim, policy_optim, batch_size=config.batch_size, device=config.device)
             steps = 0
 
 
@@ -183,5 +217,5 @@ if __name__ == '__main__':
         """ test  """
         if total_steps > config.test_steps * tests_run:
             tests_run += 1
-            evaluator.evaluate(policy, config.run_dir, sample_n=config.test_samples, capture=True,
+            evaluator.evaluate(policy, config.run_dir, sample_n=config.test_samples, capture=config.test_capture,
                                params={'awac_net': awac_net, 'q_optim': q_optim, 'policy_optim': policy_optim})

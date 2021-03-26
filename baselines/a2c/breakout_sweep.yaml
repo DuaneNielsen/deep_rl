@@ -12,7 +12,7 @@
     env_name:
       value: BreakoutDeterministic-v4
     max_steps:
-      value: 2000000
+      value: 8000000
     test_steps:
       value: 50000
     test_episodes:
@@ -28,9 +28,7 @@
     exploration_noise:
       value: 0.05
     optim_lr:
-      distribution: log_uniform
-      max: -5
-      min: -12
+      value: 0.00009659
   early_terminate:
     type: hyperband
     min_iter: 4

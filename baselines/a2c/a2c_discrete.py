@@ -9,13 +9,14 @@ from gymviz import Plot
 
 import buffer as bf
 from algos import a2c
-from distributions import ScaledTanhTransformedGaussian
+from torch.distributions import Categorical
 from config import exists_and_not_none, ArgumentParser
 import wandb
 import wandb_utils
 import checkpoint
 import baselines.helper as helper
 from gym.wrappers.transform_reward import TransformReward
+
 
 def rescale_reward(reward):
     return reward * config.env_reward_scale - config.env_reward_bias
@@ -26,7 +27,7 @@ if __name__ == '__main__':
     """ configuration """
     parser = ArgumentParser(description='configuration switches')
     parser.add_argument('-c', '--config', type=str)
-    parser.add_argument('-d', '--device', type=str)
+    parser.add_argument('-d', '--device', type=str, default='cpu')
     parser.add_argument('-r', '--run_id', type=int, default=-1)
     parser.add_argument('--comment', type=str)
     parser.add_argument('--silent', action='store_true', default=False)
@@ -50,10 +51,11 @@ if __name__ == '__main__':
     parser.add_argument('--env_reward_bias', type=float, default=0.0)
 
     """ hyper-parameters """
-    parser.add_argument('--optim_lr', type=float, default=1e-4)
+    parser.add_argument('--optim_lr', type=float, default=0.00009659)
     parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--discount', type=float, default=0.99)
     parser.add_argument('--hidden_dim', type=int, default=16)
+    parser.add_argument('--exploration_noise', type=float, default=0.05)
 
     config = parser.parse_args()
 
@@ -86,33 +88,32 @@ if __name__ == '__main__':
     evaluator = helper.Evaluator(test_env)
 
     """ network """
-    class A2CNet(nn.Module):
+    class A2CDiscreteNet(nn.Module):
         """
         policy(state) returns distribution over actions
         uses ScaledTanhTransformedGaussian as per Hafner
         """
-        def __init__(self, input_dims, hidden_dims, min, max):
+        def __init__(self, obs_dims, action_dims, hidden_dims):
             super().__init__()
-            self.min = min
-            self.max = max
-            self.mu = nn.Sequential(nn.Linear(input_dims, hidden_dims), nn.SELU(inplace=True),
-                                    nn.Linear(hidden_dims, hidden_dims), nn.SELU(inplace=True),
-                                    nn.Linear(hidden_dims, 2))
-            self.scale = nn.Linear(input_dims, 1, bias=False)
-
+            self.action_dims = action_dims
+            self.q = nn.Sequential(nn.Linear(obs_dims, hidden_dims), nn.SELU(inplace=True),
+                                   nn.Linear(hidden_dims, hidden_dims), nn.SELU(inplace=True),
+                                   nn.Linear(hidden_dims, 1))
+            self.policy = nn.Sequential(nn.Linear(obs_dims, hidden_dims), nn.SELU(inplace=True),
+                                        nn.Linear(hidden_dims, hidden_dims), nn.SELU(inplace=True),
+                                        nn.Linear(hidden_dims, action_dims))
         def forward(self, state):
-            output = self.mu(state)
-            value = output[..., 0:1]
-            mu = output[..., 1:2]
-            scale = torch.sigmoid(self.scale(state)) + 0.01
-            a_dist = ScaledTanhTransformedGaussian(mu, scale, min=self.min, max=self.max)
+            value = self.q(state)
+            action_logits = torch.log_softmax(self.policy(state), dim=1)
+            noise = torch.ones_like(action_logits) / self.action_dims
+            action_probs = torch.exp(action_logits) * (1 - config.exploration_noise) + config.exploration_noise * noise
+            a_dist = Categorical(probs=action_probs)
             return value, a_dist
 
-    a2c_net = A2CNet(
-        input_dims=test_env.observation_space.shape[0],
+    a2c_net = A2CDiscreteNet(
+        obs_dims=test_env.observation_space.shape[0],
         hidden_dims=config.hidden_dim,
-        min=test_env.action_space.low[0],
-        max=test_env.action_space.high[0])
+        action_dims=test_env.action_space.n)
     optim = torch.optim.Adam(a2c_net.parameters(), lr=config.optim_lr)
 
     """ load weights from file if required"""
@@ -121,11 +122,11 @@ if __name__ == '__main__':
 
     """ policy to run on environment """
     def policy(state):
-        state = torch.from_numpy(state).float()
+        state = torch.from_numpy(state).float().unsqueeze(0)
         value, action = a2c_net(state)
-        a = action.rsample()
+        a = action.sample()
         assert torch.isnan(a) == False
-        return a.numpy()
+        return a.item()
 
     """ demo  """
     evaluator.demo(config.demo, policy)
@@ -150,4 +151,4 @@ if __name__ == '__main__':
         """ test  """
         if total_steps > config.test_steps * tests_run:
             tests_run += 1
-            evaluator.evaluate(policy, config.run_dir, {'a2c_net': a2c_net, 'optim': optim})
+            evaluator.evaluate(policy, config.run_dir, {'a2c_net': a2c_net, 'optim': optim}, capture=True)

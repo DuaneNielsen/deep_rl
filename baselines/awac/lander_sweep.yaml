@@ -1,0 +1,44 @@
+command:
+- ${env}
+- ${interpreter}
+- ${program}
+- --silent
+- ${args}
+method: grid
+metric:
+  goal: maximize
+  name: last_mean_return
+parameters:
+  buffer_steps:
+    values:
+      - 1524
+      - 2000
+      - 4000
+      - 8000
+      - 12000
+  load_buffer:
+    value: lander.pkl
+  env_name:
+    value: LunarLander-v2
+  env_reward_scale:
+    value: 0.005
+  env_reward_bias:
+    value: 0.0
+  seed:
+    value: 0
+  max_steps:
+    value: 400000
+  test_steps:
+    value: 50000
+  test_samples:
+    value: 8
+  batch_size:
+    value: 1024
+  hidden_dim:
+    value: 64
+  optim_lr:
+    value: 1e-4
+early_terminate:
+  type: hyperband
+  min_iter: 1
+program: awacfast.py

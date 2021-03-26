@@ -1,0 +1,10 @@
+env_name: BreakoutDeterministic-v4
+max_steps: 10000000
+test_steps: 1000000
+test_episodes: 25
+capture_freq: 1000000
+seed: 0
+discount: 0.99
+batch_size: 8
+exploration_noise: 0.05
+optim_lr: 0.00009659

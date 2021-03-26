@@ -55,6 +55,10 @@ class Evaluator:
             delay: rendering delay
             kwargs: kwargs will be passed to policy
         """
+
+        returns = 0
+        length = 0
+
         with torch.no_grad():
             state, reward, done, info = env.reset(), 0.0, False, {}
             action = policy(state)
@@ -66,11 +70,15 @@ class Evaluator:
 
             while not done:
                 state, reward, done, info = env.step(action)
+                returns += reward
+                length += 1
                 action = policy(state)
                 _render_env(env, render, delay)
                 if capture:
                     frame = self.env.render(mode='rgb_array')
                     self.vid_buffer.append(frame)
+                if done:
+                    wandb.log({'test_reward': returns, 'test_len': length})
 
     def sample_policy_returns(self, policy, samples, render=False, capture=False):
         """
