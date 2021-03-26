@@ -97,17 +97,21 @@ if __name__ == '__main__':
 
 
     #tds = TensorDataset(state, action, state_p, reward, done)
-    class FastDataset:
-        def __init__(self, load_buff, device='cpu', length=None, capacity=None):
+    class FastOfflineDataset:
+        def __init__(self, load_buff, capacity, device='cpu', length=None):
+
+            if length is None:
+                length = len(load_buff)
 
             self.device = device
 
             s, a, s_p, r, d = load_buff[0]
-            self.length = min(len(load_buff), length) if length is not None else len(load_buff)
-            self.capacity = max(length, capacity) if capacity is not None else length
-            self.state = torch.empty(self.capacity, s.shape[0], dtype=torch.float32, device=device)
+
+            self.length = min(len(load_buff), length)
+            self.capacity = max(length, capacity)
+            self.state = torch.empty(self.capacity, *s.shape, dtype=torch.float32, device=device)
             self.action = torch.empty(self.capacity, 1, dtype=torch.long, device=device)
-            self.state_p = torch.empty(self.capacity, s_p.shape[0], dtype=torch.float32, device=device)
+            self.state_p = torch.empty(self.capacity, *s_p.shape, dtype=torch.float32, device=device)
             self.reward = torch.empty(self.capacity, 1, dtype=torch.float32, device=device)
             self.done = torch.empty(self.capacity, 1, dtype=torch.float32, device=device)
 
@@ -141,7 +145,7 @@ if __name__ == '__main__':
     load_buff = pickle.load(file)
     file.close()
 
-    tds = FastDataset(load_buff, length=config.buffer_steps, capacity=config.buffer_capacity)
+    tds = FastOfflineDataset(load_buff, length=config.buffer_steps, capacity=config.buffer_capacity)
 
     train_env = wandb_utils.LogRewards(train_env)
 

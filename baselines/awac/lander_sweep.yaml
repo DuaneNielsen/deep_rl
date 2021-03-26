@@ -9,8 +9,6 @@ metric:
   goal: maximize
   name: last_mean_return
 parameters:
-  buffer_steps:
-    value: 4000
   load_buffer:
     value: lander.pkl
   env_name:
