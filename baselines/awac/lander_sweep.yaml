@@ -10,12 +10,7 @@ metric:
   name: last_mean_return
 parameters:
   buffer_steps:
-    values:
-      - 1524
-      - 2000
-      - 4000
-      - 8000
-      - 12000
+    value: 4000
   load_buffer:
     value: lander.pkl
   env_name:
@@ -25,7 +20,14 @@ parameters:
   env_reward_bias:
     value: 0.0
   seed:
-    value: 0
+    values:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
   max_steps:
     value: 400000
   test_steps:

@@ -22,7 +22,7 @@ from time import time
 from statistics import mean, stdev
 from torch.utils.data import TensorDataset
 from collections import namedtuple
-from random import randint
+from random import randint, sample
 import os
 
 def rescale_reward(reward):
@@ -107,8 +107,8 @@ if __name__ == '__main__':
             self.reward = torch.empty(self.capacity, 1, dtype=torch.float32, device=device)
             self.done = torch.empty(self.capacity, 1, dtype=torch.float32, device=device)
 
-            for i in range(0, length):
-                self[i] = load_buff[i]
+            for i, sampled in enumerate(sample(range(len(load_buff)), self.length)):
+                self[i] = load_buff[sampled]
 
         def __len__(self):
             return self.length
@@ -125,6 +125,7 @@ if __name__ == '__main__':
             self.done[i] = 0.0 if d else 1.0
 
         def append(self, transition):
+            # if capacity in the buffer, append, else overwrite at random
             if self.length < self.capacity:
                 i = self.length
                 self.length += 1
