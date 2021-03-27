@@ -10,7 +10,7 @@ metric:
   name: last_mean_return
 parameters:
   load_buffer:
-    value: lander.pkl
+    value: lander_big.pkl
   buffer_steps:
     value: 75000
   env_name:
