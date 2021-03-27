@@ -24,6 +24,7 @@ from torch.utils.data import TensorDataset
 from collections import namedtuple
 from random import randint, sample
 import os
+import random
 
 def rescale_reward(reward):
     return reward * config.env_reward_scale - config.env_reward_bias
@@ -77,6 +78,7 @@ if __name__ == '__main__':
     """ random seed """
     if config.seed is not None:
         torch.manual_seed(config.seed)
+        random.seed(config.seed)
 
     if 'DEVICE' in os.environ:
         config.device = os.environ['DEVICE']

@@ -11,6 +11,8 @@ metric:
 parameters:
   load_buffer:
     value: lander.pkl
+  buffer_steps:
+    value: 75000
   env_name:
     value: LunarLander-v2
   env_reward_scale:

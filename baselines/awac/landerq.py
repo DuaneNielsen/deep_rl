@@ -87,9 +87,9 @@ if __name__ == '__main__':
 
 
     """ demo """
-    for _ in range(25):
-        driver.episode(env, exploit_policy, render=True)
+    for _ in range(25 * 7):
+        driver.episode(env, exploit_policy, render=False)
 
-    file = open('./lander.pkl', mode='wb')
+    file = open('./lander_big.pkl', mode='wb')
     pickle.dump(buffer, file)
     file.close()
