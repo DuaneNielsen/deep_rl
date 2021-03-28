@@ -68,7 +68,7 @@ if __name__ == '__main__':
         hidden_dims=config.hidden_dim).to(config.device)
 
     """ load weights from file if required"""
-    checkpoint.load('.', prefix='lander', awac_net=awac_net)
+    checkpoint.load('.', prefix='lander2', awac_net=awac_net)
 
     """ policy to run on environment """
     def policy(state):
