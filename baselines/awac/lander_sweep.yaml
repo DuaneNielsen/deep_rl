@@ -12,7 +12,13 @@ parameters:
   load_buffer:
     value: lander_big.pkl
   buffer_steps:
-    value: 75000
+    values:
+      - 2000
+      - 4000
+      - 8000
+      - 16000
+      - 32000
+      - 64000
   env_name:
     value: LunarLander-v2
   env_reward_scale:
@@ -20,13 +26,7 @@ parameters:
   env_reward_bias:
     value: 0.0
   seed:
-    values:
-      - 0
-      - 1
-      - 2
-      - 3
-      - 4
-      - 5
+    value: 0
   max_steps:
     value: 150000
   test_steps:

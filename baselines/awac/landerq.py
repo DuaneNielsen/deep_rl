@@ -90,6 +90,4 @@ if __name__ == '__main__':
     for _ in range(25 * 7):
         driver.episode(env, exploit_policy, render=False)
 
-    file = open('./lander_big.pkl', mode='wb')
-    pickle.dump(buffer, file)
-    file.close()
+    bf.save(buffer, './lander_big.pkl')

@@ -65,6 +65,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=1024)
     parser.add_argument('--discount', type=float, default=0.99)
     parser.add_argument('--hidden_dim', type=int, default=16)
+    parser.add_argument('--lam', type=float, default=0.3)
 
     """ experimental parameters """
     parser.add_argument('--buffer_steps', type=int)
@@ -143,9 +144,7 @@ if __name__ == '__main__':
                 i = randint(0, self.length-1)
             self[i] = transition
 
-    file = open(config.load_buffer, 'rb')
-    load_buff = pickle.load(file)
-    file.close()
+    load_buff = bf.load(config.load_buffer)
 
     tds = FastOfflineDataset(load_buff, length=config.buffer_steps, capacity=config.buffer_capacity)
 
@@ -229,13 +228,11 @@ if __name__ == '__main__':
         if len(tds) < config.batch_size:
             continue
         else:
-            awac.train_fast(tds, awac_net, q_optim, policy_optim, batch_size=config.batch_size, device=config.device)
+            awac.train_fast(tds, awac_net, q_optim, policy_optim, lam=config.lam, batch_size=config.batch_size, device=config.device)
             steps = 0
 
-
-
         """ test  """
-        if total_steps > config.test_steps * tests_run:
+        if total_steps > config.test_steps * tests_run and total_steps > 1:
             tests_run += 1
             evaluator.evaluate(policy, config.run_dir, sample_n=config.test_samples, capture=config.test_capture,
                                params={'awac_net': awac_net, 'q_optim': q_optim, 'policy_optim': policy_optim})

@@ -1,5 +1,7 @@
 from collections import namedtuple
 import gym
+import pickle
+
 
 """
 buffer.py
@@ -350,3 +352,16 @@ def wrap(env):
     """
     buffer = ReplayBuffer(env)
     return buffer, buffer
+
+
+def save(buffer, filepath):
+    file = open(filepath, mode='wb')
+    pickle.dump(buffer, file)
+    file.close()
+
+
+def load(filepath):
+    file = open(filepath, 'rb')
+    load_buff = pickle.load(file)
+    file.close()
+    return load_buff

@@ -60,7 +60,7 @@ def train_discrete(buffer, a2c_net, critic_optim, actor_optim, discount=0.95, ba
 timing = []
 
 
-def train_fast(ds, a2c_net, critic_optim, actor_optim, discount=0.95, batch_size=64, device='cpu', dtype=torch.float):
+def train_fast(ds, a2c_net, critic_optim, actor_optim, discount=0.95, batch_size=64, lam=0.3, device='cpu', dtype=torch.float):
     """
 
     AWAC
@@ -109,7 +109,7 @@ def train_fast(ds, a2c_net, critic_optim, actor_optim, discount=0.95, batch_size
     critic_loss = mse_loss(target, v_sa)
 
     action_logprob = a_dist.log_prob(action.squeeze()).unsqueeze(1)
-    actor_loss = - torch.mean(action_logprob * torch.exp(advantage / 0.3))
+    actor_loss = - torch.mean(action_logprob * torch.exp(advantage / lam))
 
     #entropy = torch.mean(- action_logprob * torch.exp(action_logprob))
 
