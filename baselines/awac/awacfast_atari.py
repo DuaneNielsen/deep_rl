@@ -260,8 +260,14 @@ if __name__ == '__main__':
 
     """ policy to run on environment """
     def policy(state):
-        state = torch.from_numpy(state).float().unsqueeze(0).to(config.device)
+
+        state = torch.from_numpy(state)
+        state = state.float().unsqueeze(0)
+        #start = time()
+        state = state.to(config.device)
+        #end = time()
         value, action = awac_net(state)
+        #print(end - start)
         a = action.sample()
         assert torch.isnan(a) == False
         return a.item()
@@ -278,15 +284,21 @@ if __name__ == '__main__':
     wandb.run.summary['offline_steps'] = offline_steps
     on_policy = False
     print(f'OFF POLICY FOR {len(tds)} steps')
-    timing = []
+    train_time = []
+    frame_time = []
+
+    #start = time()
 
     for total_steps, (s, a, s_p, r, d, _) in enumerate(driver.step_environment(train_env, policy)):
+
+        #get_frame = time()
 
         if total_steps > offline_steps:
             tds.append((s, a, s_p, r, d))
             if not on_policy:
                 print('on policy NOW')
                 on_policy = True
+
 
         """ train offline after batch steps saved"""
         if len(tds) < config.batch_size:
@@ -295,8 +307,20 @@ if __name__ == '__main__':
             awac.train_fast(tds, awac_net, q_optim, policy_optim, lam=config.lam, batch_size=config.batch_size,
                             device=config.device, debug=config.debug)
 
+        #train = time()
+
         """ test  """
-        if total_steps > config.test_steps * tests_run:
+        if total_steps > config.test_steps * (tests_run + 1):
             tests_run += 1
             evaluator.evaluate(policy, config.run_dir, sample_n=config.test_samples, capture=config.test_capture,
                                params={'awac_net': awac_net, 'q_optim': q_optim, 'policy_optim': policy_optim})
+
+
+        #train_time += [train - get_frame]
+        #frame_time += [get_frame - start]
+
+        #start = time()
+
+        # if total_steps % 100 == 0:
+        #     print(f'train_time: {mean(train_time)}, frame_time: {mean(frame_time)}')
+        #     train_time, frame_time = [], []
