@@ -61,6 +61,7 @@ if __name__ == '__main__':
     parser.add_argument('--env_render', action='store_true', default=False)
     parser.add_argument('--env_reward_scale', type=float, default=1.0)
     parser.add_argument('--env_reward_bias', type=float, default=0.0)
+    parser.add_argument('--env_timelimit', type=int, default=3000)
 
     """ hyper-parameters """
     parser.add_argument('--optim_lr', type=float, default=1e-4)
@@ -92,6 +93,7 @@ if __name__ == '__main__':
     """ environment """
     def make_env():
         env = gym.make(config.env_name)
+        env = wrappers.TimeLimit(env.unwrapped, max_episode_steps=config.env_timelimit)
         env = capture.VideoCapture(env, config.run_dir, freq=config.capture_freq)
         env = wrappers.EpisodicLifeEnv(env)
         if 'NOOP' in env.unwrapped.get_action_meanings():

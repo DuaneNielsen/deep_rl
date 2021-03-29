@@ -36,7 +36,7 @@ parameters:
   test_samples:
     value: 8
   batch_size:
-    value: 1024
+    value: 128
   hidden_dim:
     value: 64
   optim_lr:
