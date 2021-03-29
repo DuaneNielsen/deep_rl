@@ -60,7 +60,7 @@ def train_discrete(buffer, a2c_net, critic_optim, actor_optim, discount=0.95, ba
 timing = []
 
 
-def train_fast(ds, a2c_net, critic_optim, actor_optim, discount=0.95, batch_size=64, lam=0.3, device='cpu', dtype=torch.float):
+def train_fast(ds, a2c_net, critic_optim, actor_optim, discount=0.95, batch_size=64, lam=0.3, device='cpu', dtype=torch.float, debug=False):
     """
 
     AWAC
@@ -68,20 +68,14 @@ def train_fast(ds, a2c_net, critic_optim, actor_optim, discount=0.95, batch_size
 
     """
 
-    # begin = time.time()
-    # loaded = None
-    # end = None
+    begin = time.time()
+    loaded = None
+    end = None
+    init = None
 
-    """ sample from batch_size transitions from the replay buffer """
-    # sampler = SubsetRandomSampler()
-    # dl = DataLoader(ds, batch_size=batch_size, sampler=sampler)
-    #
+    if debug:
+        init = time.time()
 
-    #
-    # """ loads 1 batch and runs a single training step """
-    # for state, action, state_p, reward, done in dl:
-
-    # init = time.time()
     i = torch.tensor(random.sample(range(len(ds)), batch_size)).to(device)
     state = ds.state[i].to(device)
     action = ds.action[i].to(device)
@@ -89,7 +83,8 @@ def train_fast(ds, a2c_net, critic_optim, actor_optim, discount=0.95, batch_size
     reward = ds.reward[i].to(device)
     done = ds.done[i].to(device)
 
-    # loaded = time.time()
+    if debug:
+        loaded = time.time()
 
     critic_optim.zero_grad()
     actor_optim.zero_grad()
@@ -118,16 +113,19 @@ def train_fast(ds, a2c_net, critic_optim, actor_optim, discount=0.95, batch_size
     actor_loss.backward()
     actor_optim.step()
 
-    #end = time.time()
-    #break
+    if debug:
+        # if torch.stack([torch.isnan(p.grad).any() for p in a2c_net.parameters()]).any():
+        #     print(a2c_net.parameters())
+        #     assert False, "NaN detected"
 
-    # init_time = init - begin
-    # load_time = loaded - init
-    # train_time = end - loaded
-    # timing.append((init_time, load_time, train_time))
-    #
-    # if len(timing) % 500 == 0 and len(timing) > 1:
-    #     mean_init = mean([init_time for init_time, load_time, train_time in timing])
-    #     mean_load = mean([load_time for _, load_time, train_time in timing])
-    #     mean_train = mean([train_time for _, load_time, train_time in timing])
-    #     print(mean_init, mean_load, mean_train)
+        end = time.time()
+        init_time = init - begin
+        load_time = loaded - init
+        train_time = end - loaded
+        timing.append((init_time, load_time, train_time))
+
+        if len(timing) % 100 == 0 and len(timing) > 1:
+            mean_init = mean([init_time for init_time, load_time, train_time in timing])
+            mean_load = mean([load_time for _, load_time, train_time in timing])
+            mean_train = mean([train_time for _, load_time, train_time in timing])
+            print(mean_init, mean_load, mean_train)

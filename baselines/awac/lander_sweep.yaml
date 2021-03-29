@@ -9,18 +9,17 @@ metric:
   goal: maximize
   name: last_mean_return
 parameters:
+  lam:
+    values:
+      - 8.8
+      - 4.0
+      - 2.0
+      - 1.0
+      - 0.7
   load_buffer:
     value: lander_big.pkl
-  buffer_steps:
-    values:
-      - 2000
-      - 4000
-      - 8000
-      - 16000
-      - 32000
-      - 64000
   env_name:
-    value: LunarLander-v2
+    value:
   env_reward_scale:
     value: 0.005
   env_reward_bias:
@@ -30,7 +29,7 @@ parameters:
   max_steps:
     value: 150000
   test_steps:
-    value: 50000
+    value: 10000
   test_samples:
     value: 8
   batch_size:
