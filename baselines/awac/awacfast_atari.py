@@ -302,7 +302,11 @@ if __name__ == '__main__':
 
     offline_steps = len(tds)
 
-    dl = DataLoader(tds, batch_size=config.batch_size, sampler=RandomSampler(tds, replacement=False), num_workers=2)
+    num_workers = 0 if config.debug else 2
+
+    dl = DataLoader(tds, batch_size=config.batch_size, sampler=RandomSampler(tds, replacement=False),
+                    num_workers=num_workers)
+
     wandb.run.summary['offline_steps'] = offline_steps
     on_policy = False
     print(f'OFF POLICY FOR {len(tds)} steps')

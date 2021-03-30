@@ -12,13 +12,16 @@ class LogRewards(gym.Wrapper):
     """
     def __init__(self, env, prefix=None):
         super().__init__(env)
+        self.prev_reward = 0
+        self.prev_len = 0
         self.reward = 0
         self.len = 0
-        self.run_steps = 0
         self.prefix = prefix + '_' if prefix is not None else ''
 
     def reset(self):
         """ wraps the env reset method """
+        self.prev_reward = self.reward
+        self.prev_len= self.len
         self.reward = 0
         self.len = 0
         return self.env.reset()
@@ -28,11 +31,9 @@ class LogRewards(gym.Wrapper):
         state, reward, done, info = self.env.step(action)
         self.reward += reward
         self.len += 1
-        self.run_steps += 1
-        if done:
-            wandb.log({
-                f'{self.prefix}epi_reward': self.reward,
-                f'{self.prefix}epi_len': self.len}, step=self.run_steps)
+        wandb.log({
+            f'{self.prefix}epi_reward': self.prev_reward,
+            f'{self.prefix}epi_len': self.prev_len})
         return state, reward, done, info
 
 
