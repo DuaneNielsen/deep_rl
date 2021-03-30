@@ -21,6 +21,8 @@ parameters:
     value: 1.0
   env_reward_bias:
     value: 0.0
+  env_timelimit:
+    value: 3000
   exploration_noise:
     value: 0.01
   seed:
@@ -28,11 +30,11 @@ parameters:
       - 0
       - 1
   max_steps:
-    value: 150000
+    value: 40000
   buffer_capacity:
-    value: 150000
+    value: 40000
   test_steps:
-    value: 5000
+    value: 2000
   test_samples:
     value: 8
   batch_size:

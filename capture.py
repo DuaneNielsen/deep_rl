@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from torchvision.io import write_video, write_jpeg, write_png
 from matplotlib import pyplot as plt
+from collections import deque
 
 
 class LiveMonitor(gym.Wrapper):
@@ -39,9 +40,10 @@ class VideoCapture(gym.Wrapper):
             freq: number of steps to to wait before capturing 1 episode
     """
 
-    def __init__(self, env, directory, freq=10000):
+    def __init__(self, env, directory, freq=10000, maxlen=3000):
         super().__init__(env)
-        self.t = []
+        self.maxlen = maxlen
+        self.t = deque(maxlen=maxlen)
         self.directory = directory
         self.cap_id = 1
         self.freq = freq
@@ -72,7 +74,7 @@ class VideoCapture(gym.Wrapper):
         stream = torch.from_numpy(np.stack(self.t))
         write_video(f'{self.directory}/capture_{self.cap_id}.mp4', stream, 24.0)
         del self.t
-        self.t = []
+        self.t = deque(maxlen=self.maxlen)
         self.cap_id += 1
         self.capturing = False
 

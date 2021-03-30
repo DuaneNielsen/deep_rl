@@ -18,16 +18,18 @@ import wandb_utils
 import checkpoint
 import baselines.helper as helper
 from torch.nn.functional import log_softmax
+from torch.utils.data import DataLoader, RandomSampler
 from gym.wrappers.transform_reward import TransformReward
 from time import time
 from statistics import mean, stdev
 from random import randint, sample
 import os
 import random
-
+import numpy as np
 
 def rescale_reward(reward):
     return reward * config.env_reward_scale - config.env_reward_bias
+
 
 
 if __name__ == '__main__':
@@ -162,6 +164,7 @@ if __name__ == '__main__':
                 i = randint(0, self.length-1)
             self[i] = transition
 
+
     load_buff = bf.load(config.load_buffer)
 
     tds = FastOfflineDataset(load_buff, length=config.buffer_steps, capacity=config.buffer_capacity, rescale_reward=config.env_reward_scale)
@@ -262,16 +265,18 @@ if __name__ == '__main__':
 
     """ policy to run on environment """
     def policy(state):
+        state = torch.from_numpy(state).unsqueeze(0)
 
-        state = torch.from_numpy(state)
-        state = state.float().unsqueeze(0)
-        #start = time()
+        start_1 = time()
         state = state.to(config.device)
-        #end = time()
+        end_1 = time()
+        #print(f'to {config.device} {end_1 - start_1}')
+
         value, action = awac_net(state)
-        #print(end - start)
+
         a = action.sample()
         assert torch.isnan(a) == False
+
         return a.item()
 
     """ demo  """
@@ -283,17 +288,19 @@ if __name__ == '__main__':
     tests_run = 0
 
     offline_steps = len(tds)
+
+    dl = DataLoader(tds, batch_size=config.batch_size, sampler=RandomSampler(tds, replacement=False), num_workers=2)
     wandb.run.summary['offline_steps'] = offline_steps
     on_policy = False
     print(f'OFF POLICY FOR {len(tds)} steps')
     train_time = []
     frame_time = []
 
-    #start = time()
+    start = time()
 
     for total_steps, (s, a, s_p, r, d, _) in enumerate(driver.step_environment(train_env, policy)):
 
-        #get_frame = time()
+        get_frame = time()
 
         if total_steps > offline_steps:
             tds.append((s, a, s_p, r, d))
@@ -301,15 +308,14 @@ if __name__ == '__main__':
                 print('on policy NOW')
                 on_policy = True
 
-
         """ train offline after batch steps saved"""
         if len(tds) < config.batch_size:
             continue
         else:
-            awac.train_fast(tds, awac_net, q_optim, policy_optim, lam=config.lam, batch_size=config.batch_size,
+            awac.train_fast(dl, awac_net, q_optim, policy_optim, lam=config.lam, batch_size=config.batch_size,
                             device=config.device, debug=config.debug)
 
-        #train = time()
+        train = time()
 
         """ test  """
         if total_steps > config.test_steps * (tests_run + 1):
@@ -317,12 +323,11 @@ if __name__ == '__main__':
             evaluator.evaluate(policy, config.run_dir, sample_n=config.test_samples, capture=config.test_capture,
                                params={'awac_net': awac_net, 'q_optim': q_optim, 'policy_optim': policy_optim})
 
+        train_time += [train - get_frame]
+        frame_time += [get_frame - start]
 
-        #train_time += [train - get_frame]
-        #frame_time += [get_frame - start]
+        start = time()
 
-        #start = time()
-
-        # if total_steps % 100 == 0:
-        #     print(f'train_time: {mean(train_time)}, frame_time: {mean(frame_time)}')
-        #     train_time, frame_time = [], []
+        if total_steps % 100 == 0:
+            print(f'train_time: {mean(train_time)}, frame_time: {mean(frame_time)}')
+            train_time, frame_time = [], []
