@@ -25,7 +25,6 @@ from statistics import mean, stdev
 from random import randint, sample
 import os
 import random
-import numpy as np
 
 def rescale_reward(reward):
     return reward * config.env_reward_scale - config.env_reward_bias
@@ -182,7 +181,7 @@ if __name__ == '__main__':
 
 
     class AtariVision(nn.Module):
-        def __init__(self):
+        def __init__(self, feature_size=512):
             super().__init__()
             self.conv1 = nn.Sequential(
                 nn.Conv2d(2, 16, kernel_size=3, stride=1, padding=1),
@@ -205,7 +204,7 @@ if __name__ == '__main__':
                 nn.SELU(inplace=True),
                 nn.MaxPool2d(kernel_size=2, stride=2))
             self.conv6 = nn.Sequential(
-                nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1),
+                nn.Conv2d(256, feature_size, kernel_size=3, stride=1, padding=1),
                 nn.SELU(inplace=True),
                 nn.MaxPool2d(kernel_size=2, stride=2))
 
@@ -218,40 +217,61 @@ if __name__ == '__main__':
             l6 = self.conv6(l5)
             return l6.flatten(start_dim=1)
 
-
-    class A2CNet(nn.Module):
-        """
-        policy(state) returns distribution over actions
-        uses ScaledTanhTransformedGaussian as per Hafner
-        """
-
-        def __init__(self, hidden_dims, actions, exploration_noise):
+    class Q(nn.Module):
+        def __init__(self, feature_size, hidden_dims, actions):
             super().__init__()
-            self.actions = actions
-            self.exploration_noise = exploration_noise
-
             self.q = nn.Sequential(
-                AtariVision(),
-                nn.Linear(512, hidden_dims), nn.SELU(inplace=True),
-                nn.Linear(hidden_dims, hidden_dims), nn.SELU(inplace=True),
-                nn.Linear(hidden_dims, actions))
-
-            self.policy = nn.Sequential(
-                AtariVision(),
-                nn.Linear(512, hidden_dims), nn.SELU(inplace=True),
+                AtariVision(feature_size),
+                nn.Linear(feature_size, hidden_dims), nn.SELU(inplace=True),
                 nn.Linear(hidden_dims, hidden_dims), nn.SELU(inplace=True),
                 nn.Linear(hidden_dims, actions))
 
         def forward(self, state):
-            value = self.q(state)
+            return self.q(state)
+
+    class Policy(nn.Module):
+        def __init__(self, feature_size, hidden_dims, actions, exploration_noise):
+            super().__init__()
+            self.exploration_noise = exploration_noise
+            self.actions = actions
+            self.policy = nn.Sequential(
+                AtariVision(feature_size),
+                nn.Linear(feature_size, hidden_dims), nn.SELU(inplace=True),
+                nn.Linear(hidden_dims, hidden_dims), nn.SELU(inplace=True),
+                nn.Linear(hidden_dims, actions))
+
+        def forward(self, state):
             action = log_softmax(self.policy(state), dim=1)
             action = torch.log((1 - self.exploration_noise) * torch.exp(action) +
                                self.exploration_noise * torch.ones_like(action) / self.actions)
             a_dist = Categorical(logits=action)
+            return a_dist
+
+    class A2CNet(nn.Module):
+        def __init__(self, feature_size, hidden_dims, actions, exploration_noise):
+            """
+
+            Args:
+                feature_size: features vector size output by the convolution layers
+                hidden_dims: hidden dim size of FC mlp
+                actions: number of discrete actions
+                exploration_noise:
+            """
+            super().__init__()
+            self.actions = actions
+            self.exploration_noise = exploration_noise
+
+            self.q = Q(feature_size, hidden_dims, actions)
+            self.policy = Policy(feature_size, hidden_dims, actions, exploration_noise)
+
+        def forward(self, state):
+            value = self.q(state)
+            a_dist = self.policy(state)
             return value, a_dist
 
 
     awac_net = A2CNet(
+        feature_size=512,
         actions=test_env.action_space.n,
         hidden_dims=config.hidden_dim,
         exploration_noise=config.exploration_noise).to(config.device)
@@ -266,17 +286,10 @@ if __name__ == '__main__':
     """ policy to run on environment """
     def policy(state):
         state = torch.from_numpy(state).unsqueeze(0)
-
-        start_1 = time()
         state = state.to(config.device)
-        end_1 = time()
-        #print(f'to {config.device} {end_1 - start_1}')
-
         value, action = awac_net(state)
-
         a = action.sample()
         assert torch.isnan(a) == False
-
         return a.item()
 
     """ demo  """
@@ -300,6 +313,9 @@ if __name__ == '__main__':
 
     for total_steps, (s, a, s_p, r, d, _) in enumerate(driver.step_environment(train_env, policy)):
 
+        if total_steps > config.max_steps:
+            break
+
         get_frame = time()
 
         if total_steps > offline_steps:
@@ -312,8 +328,8 @@ if __name__ == '__main__':
         if len(tds) < config.batch_size:
             continue
         else:
-            awac.train_fast(dl, awac_net, q_optim, policy_optim, lam=config.lam, batch_size=config.batch_size,
-                            device=config.device, debug=config.debug)
+            awac.train_discrete(dl, awac_net, q_optim, policy_optim, lam=config.lam,
+                            device=config.device, debug=config.debug, measure_kl=True)
 
         train = time()
 
