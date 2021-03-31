@@ -2,11 +2,11 @@ import torch
 import torch.nn as nn
 
 import gym
-import env
 import env.wrappers as wrappers
 import capture
 
 import driver
+from algos.awac import FastOfflineDataset
 from gymviz import Plot
 
 import buffer as bf
@@ -21,8 +21,7 @@ from torch.nn.functional import log_softmax
 from torch.utils.data import DataLoader, RandomSampler
 from gym.wrappers.transform_reward import TransformReward
 from time import time
-from statistics import mean, stdev
-from random import randint, sample
+from statistics import mean
 import os
 import random
 
@@ -116,53 +115,6 @@ if __name__ == '__main__':
 
     """ training env with replay buffer """
     train_env, train_buffer = bf.wrap(make_env())
-
-    class FastOfflineDataset:
-        def __init__(self, load_buff, capacity, device='cpu', length=None, rescale_reward=1.0):
-
-            if length is None:
-                length = len(load_buff)
-
-            self.device = device
-
-            s, a, s_p, r, d = load_buff[0]
-
-            self.length = min(len(load_buff), length)
-            self.capacity = max(length, capacity)
-            self.state = torch.empty(self.capacity, *s.shape, dtype=torch.float32, device=device)
-            self.action = torch.empty(self.capacity, 1, dtype=torch.long, device=device)
-            self.state_p = torch.empty(self.capacity, *s_p.shape, dtype=torch.float32, device=device)
-            self.reward = torch.empty(self.capacity, 1, dtype=torch.float32, device=device)
-            self.done = torch.empty(self.capacity, 1, dtype=torch.float32, device=device)
-
-            for i, sampled in enumerate(sample(range(len(load_buff)), self.length)):
-                self[i] = load_buff[sampled]
-
-            self.reward = self.reward * rescale_reward
-
-        def __len__(self):
-            return self.length
-
-        def __getitem__(self, i):
-            return self.state[i], self.action[i], self.state_p[i], self.reward[i], self.done[i]
-
-        def __setitem__(self, i, transition):
-            s, a, s_p, r, d = transition
-            self.state[i] = torch.from_numpy(s).type(torch.float32)
-            self.action[i] = a
-            self.state_p[i] = torch.from_numpy(s_p).type(torch.float32)
-            self.reward[i] = r
-            self.done[i] = 0.0 if d else 1.0
-
-        def append(self, transition):
-            # if capacity in the buffer, append, else overwrite at random
-            if self.length < self.capacity:
-                i = self.length
-                self.length += 1
-            else:
-                i = randint(0, self.length-1)
-            self[i] = transition
-
 
     load_buff = bf.load(config.load_buffer)
 
