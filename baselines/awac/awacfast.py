@@ -196,7 +196,8 @@ if __name__ == '__main__':
     for total_steps, (s, a, s_p, r, d, _) in enumerate(driver.step_environment(train_env, policy)):
         steps += 1
         if total_steps > config.max_steps:
-            break
+            print(f'Ending after {total_steps} steps')
+            exit
 
         if total_steps > offline_steps:
             tds.append((s, a, s_p, r, d))
