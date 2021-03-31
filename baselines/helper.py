@@ -77,8 +77,6 @@ class Evaluator:
                 if capture:
                     frame = self.env.render(mode='rgb_array')
                     self.vid_buffer.append(frame)
-                if done:
-                    wandb.log({'test_reward': returns, 'test_len': length})
 
     def sample_policy_returns(self, policy, samples, render=False, capture=False):
         """
@@ -90,18 +88,15 @@ class Evaluator:
             render: render while running
             capture: capture rgb render to buffer
         Returns:
-             mean_return
-             stdev_return
+            a list of returns
         """
         start = len(self.buffer.trajectories)
         # run test trajectories and compute the returns
         for _ in range(samples):
             self.episode(self.env, policy, render=render, capture=capture)
         returns = [traj_info['return'] for traj_info in self.env.trajectory_info[start:]]
-        mean_return = mean(returns)
-        stdev_return = stdev(returns)
         self.buffer.clear()
-        return mean_return, stdev_return
+        return returns
 
     def evaluate(self, policy, run_dir, params, sample_n=10, render=False, capture=False):
         """
@@ -125,8 +120,14 @@ class Evaluator:
             stdev_return
 
         """
-        mean_return, stdev_return = self.sample_policy_returns(policy, sample_n, render, capture=capture)
+        returns = self.sample_policy_returns(policy, sample_n, render, capture=capture)
 
+        wandb.log({"test_returns": wandb.Histogram(returns)})
+
+        mean_return = mean(returns)
+        stdev_return = stdev(returns)
+
+        wandb.log({"test_mean_return": mean_return})
         wandb.run.summary["last_mean_return"] = mean_return
         wandb.run.summary["last_stdev_return"] = stdev_return
 
