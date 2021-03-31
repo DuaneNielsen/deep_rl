@@ -17,6 +17,7 @@ class LogRewards(gym.Wrapper):
         self.reward = 0
         self.len = 0
         self.prefix = prefix + '_' if prefix is not None else ''
+        self.global_step = None
 
     def reset(self):
         """ wraps the env reset method """
@@ -33,7 +34,8 @@ class LogRewards(gym.Wrapper):
         self.len += 1
         wandb.log({
             f'{self.prefix}epi_reward': self.prev_reward,
-            f'{self.prefix}epi_len': self.prev_len})
+            f'{self.prefix}epi_len': self.prev_len,
+            'global_step': self.global_step})
         return state, reward, done, info
 
 

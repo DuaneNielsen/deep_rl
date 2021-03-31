@@ -14,7 +14,7 @@ timing = []
 
 
 def train_discrete(dl, a2c_net, critic_optim, actor_optim, discount=0.95, lam=0.3, device='cpu',
-               debug=False, measure_kl=False):
+               debug=False, measure_kl=False, global_step=None):
     """
 
     AWAC
@@ -74,7 +74,7 @@ def train_discrete(dl, a2c_net, critic_optim, actor_optim, discount=0.95, lam=0.
                 div = kl_divergence(a_dist, new_a_dist)
                 kl_mean = div.mean().item()
                 kl_std = div.std().item()
-                wandb.log({'kl_mean': kl_mean, 'kl_std': kl_std})
+                wandb.log({'kl_mean': kl_mean, 'kl_std': kl_std, 'global_step': global_step})
 
         if debug:
             # if torch.stack([torch.isnan(p.grad).any() for p in a2c_net.parameters()]).any():

@@ -98,7 +98,7 @@ class Evaluator:
         self.buffer.clear()
         return returns
 
-    def evaluate(self, policy, run_dir, params, sample_n=10, render=False, capture=False):
+    def evaluate(self, policy, run_dir, params, sample_n=10, render=False, capture=False, global_step=None):
         """
         Evaluate the policy and save if improved
 
@@ -121,13 +121,13 @@ class Evaluator:
 
         """
         returns = self.sample_policy_returns(policy, sample_n, render, capture=capture)
-
-        wandb.log({"test_returns": wandb.Histogram(returns)})
-
         mean_return = mean(returns)
         stdev_return = stdev(returns)
 
-        wandb.log({"test_mean_return": mean_return})
+        wandb.log({"test_returns": wandb.Histogram(returns),
+                   "test_mean_return": mean_return,
+                   "global_step": global_step})
+
         wandb.run.summary["last_mean_return"] = mean_return
         wandb.run.summary["last_stdev_return"] = stdev_return
 

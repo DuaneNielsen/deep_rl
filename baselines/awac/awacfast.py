@@ -108,7 +108,8 @@ if __name__ == '__main__':
 
     tds = awac.FastOfflineDataset(load_buff, length=config.buffer_steps, capacity=config.buffer_capacity)
 
-    train_env = wandb_utils.LogRewards(train_env)
+    wandb_env = wandb_utils.LogRewards(train_env)
+    train_env = wandb_env
 
     if not config.silent:
         train_env = Plot(train_env, episodes_per_point=5, title=f'Train awac-{config.env_name}')
@@ -193,13 +194,13 @@ if __name__ == '__main__':
     on_policy = False
     print(f'OFF POLICY FOR {len(tds)} steps')
 
-    for total_steps, (s, a, s_p, r, d, _) in enumerate(driver.step_environment(train_env, policy)):
-        steps += 1
-        if total_steps > config.max_steps:
-            print(f'Ending after {total_steps} steps')
-            exit
+    for global_step, (s, a, s_p, r, d, _) in enumerate(driver.step_environment(train_env, policy)):
+        wandb_env.global_step = global_step
+        if global_step > config.max_steps:
+            print(f'Ending after {global_step} steps')
+            quit()
 
-        if total_steps > offline_steps:
+        if global_step > offline_steps:
             tds.append((s, a, s_p, r, d))
             if not on_policy:
                 print('on policy NOW')
@@ -210,11 +211,12 @@ if __name__ == '__main__':
             continue
         else:
             awac.train_discrete(dl, awac_net, q_optim, policy_optim, lam=config.lam,
-                            device=config.device, debug=config.debug, measure_kl=True)
+                            device=config.device, debug=config.debug, measure_kl=True, global_step=global_step)
             steps = 0
 
         """ test  """
-        if total_steps > config.test_steps * (tests_run + 1):
+        if global_step > config.test_steps * (tests_run + 1):
             tests_run += 1
             evaluator.evaluate(policy, config.run_dir, sample_n=config.test_samples, capture=config.test_capture,
-                               params={'awac_net': awac_net, 'q_optim': q_optim, 'policy_optim': policy_optim})
+                               params={'awac_net': awac_net, 'q_optim': q_optim, 'policy_optim': policy_optim},
+                               global_step=global_step)
