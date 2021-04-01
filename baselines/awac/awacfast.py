@@ -2,14 +2,14 @@ import torch
 import torch.nn as nn
 
 import gym
-import env
 
 import driver
+from algos.awac import RecencyBiasSampler
 from gymviz import Plot
 
 import buffer as bf
 from algos import awac
-from torch.utils.data import DataLoader, RandomSampler
+from torch.utils.data import DataLoader
 from torch.distributions import Categorical
 from config import exists_and_not_none, ArgumentParser
 import wandb
@@ -17,13 +17,7 @@ import wandb_utils
 import checkpoint
 import baselines.helper as helper
 from torch.nn.functional import log_softmax
-import pickle
 from gym.wrappers.transform_reward import TransformReward
-from time import time
-from statistics import mean, stdev
-from torch.utils.data import TensorDataset
-from collections import namedtuple
-from random import randint, sample
 import os
 import random
 
@@ -69,6 +63,8 @@ if __name__ == '__main__':
     parser.add_argument('--discount', type=float, default=0.99)
     parser.add_argument('--hidden_dim', type=int, default=16)
     parser.add_argument('--lam', type=float, default=0.3)
+    parser.add_argument('--recency', type=float, default=1.0)
+
 
     """ experimental parameters """
     parser.add_argument('--buffer_steps', type=int)
@@ -187,8 +183,10 @@ if __name__ == '__main__':
     offline_steps = len(tds)
     num_workers = 0 if config.debug else 2
 
-    dl = DataLoader(tds, batch_size=config.batch_size, sampler=RandomSampler(tds, replacement=False),
-                    num_workers=num_workers)
+    dl = DataLoader(tds, batch_sampler=RecencyBiasSampler(tds, batch_size=config.batch_size, recency=0.5), num_workers=num_workers)
+
+    # dl = DataLoader(tds, batch_size=config.batch_size, batch_sampler=RandomSampler(tds, replacement=False),
+    #                 num_workers=num_workers)
 
     wandb.run.summary['offline_steps'] = offline_steps
     on_policy = False

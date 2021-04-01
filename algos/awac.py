@@ -1,8 +1,9 @@
+from math import floor
 from random import sample, randint
 
 import torch
 from torch.nn.functional import mse_loss
-from torch.utils.data import DataLoader, SubsetRandomSampler
+from torch.utils.data import DataLoader, SubsetRandomSampler, Sampler
 import buffer as bf
 import random
 import time
@@ -141,3 +142,38 @@ class FastOfflineDataset:
         else:
             i = randint(0, self.length-1)
         self[i] = transition
+
+
+class RecencyBiasSampler(Sampler):
+    def __init__(self, ds, batch_size, recency, debug=False):
+        """
+        Samples uniformly from the offline dataset, and induces a recency bias
+        in the online dataset, the idea is to approach online training
+        Args:
+            dataset_len: length of the dataset
+            batch_size: batch size
+            recency: 1.0 is uniform (unbiased), closer to zero biases towards recent data online
+        """
+        super().__init__(data_source=ds)
+        self.ds = ds
+        self.start_len = len(ds)
+        self.batch_size = batch_size
+        self.recency = recency
+        self.debug = debug
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        i = []
+        for _ in range(self.batch_size):
+            if random.random() <= self.start_len / len(self.ds) :
+                i += [random.randint(0, self.start_len-1)]
+            else:
+                x = random.random()
+                y = x ** self.recency
+                i += [floor(y * len(self.ds))]
+            if self.debug:
+                assert i[-1] < len(self.ds), f"{i[-1]} is out of range of buffer len {len(self.ds)}"
+                assert i[-1] >= 0, f"{i[-1]} is out of range of buffer len {len(self.ds)}"
+        return i

@@ -11,13 +11,16 @@ metric:
 parameters:
   lam:
     value: 1.0
+  recency:
+    values:
+      - 1.0
+      - 0.5
+      - 0.25
+      - 0.125
   load_buffer:
     value: lander_big.pkl
   buffer_steps:
-    values:
-    - 4000
-    - 8000
-    - 16000
+    values: 8000
   env_name:
     value: LunarLander-v2
   env_reward_scale:
@@ -35,11 +38,7 @@ parameters:
   test_samples:
     value: 8
   batch_size:
-    values:
-    - 1024
-    - 256
-    - 64
-    - 16
+    value: 64
   hidden_dim:
     value: 64
   optim_lr:

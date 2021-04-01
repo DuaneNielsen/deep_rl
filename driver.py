@@ -2,6 +2,7 @@ import time
 import torch
 from statistics import mean
 
+
 def _render_env(env, render, delay):
     if render:
         env.render()
