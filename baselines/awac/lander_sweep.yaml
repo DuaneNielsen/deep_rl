@@ -14,11 +14,11 @@ parameters:
   recency:
     distribution: log_uniform
     max: 1.386
-    min: 5.2
+    min: -5.2
   load_buffer:
     value: lander_big.pkl
   buffer_steps:
-    values: 10000
+    value: 10000
   env_name:
     value: LunarLander-v2
   env_reward_scale:
@@ -34,9 +34,9 @@ parameters:
   test_steps:
     value: 2000
   test_samples:
-    value: 8
+    value: 32
   batch_size:
-    value: 64
+    value: 128
   hidden_dim:
     value: 64
   optim_lr:

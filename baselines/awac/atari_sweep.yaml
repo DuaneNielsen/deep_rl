@@ -4,13 +4,17 @@ command:
 - ${program}
 - --silent
 - ${args}
-method: grid
+method: bayes
 metric:
   goal: maximize
   name: last_mean_return
 parameters:
+  recency:
+    distribution: log_uniform
+    max: 1.386
+    min: -5.2
   lam:
-    value: 1.0
+    value: 0.3
   load_buffer:
     value: breakout.pkl
   buffer_steps:
@@ -28,20 +32,17 @@ parameters:
   seed:
     value: 0
   max_steps:
-    value: 100000
+    value: 16000
   buffer_capacity:
-    value: 100000
+    value: 16000
   test_steps:
     value: 2000
   test_samples:
-    value: 8
+    value: 16
   batch_size:
-    values:
-      - 32
-      - 16
-      - 8
+    value: 32
   hidden_dim:
-    value: 64
+    value: 512
   optim_lr:
     value: 1e-4
 early_terminate:

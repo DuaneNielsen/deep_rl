@@ -70,6 +70,8 @@ if __name__ == '__main__':
     parser.add_argument('--hidden_dim', type=int, default=64)
     parser.add_argument('--exploration_noise', type=float, default=0.05)
     parser.add_argument('--lam', type=float, default=1.0)
+    parser.add_argument('--recency', type=float, default=1.0)
+
 
     """ experimental parameters """
     parser.add_argument('--buffer_steps', type=int)
@@ -257,7 +259,7 @@ if __name__ == '__main__':
 
     num_workers = 0 if config.debug else 2
 
-    dl = DataLoader(tds, batch_size=config.batch_size, sampler=RandomSampler(tds, replacement=False),
+    dl = DataLoader(tds, batch_sampler=awac.RecencyBiasSampler(tds, batch_size=config.batch_size, recency=config.recency),
                     num_workers=num_workers)
 
     wandb.run.summary['offline_steps'] = offline_steps
