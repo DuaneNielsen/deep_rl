@@ -185,3 +185,27 @@ class RecencyBiasSampler(Sampler):
                 assert i[-1] < len(self.ds), f"{i[-1]} is out of range of buffer len {len(self.ds)}"
                 assert i[-1] >= 0, f"{i[-1]} is out of range of buffer len {len(self.ds)}"
         return i
+
+
+class LinearInterpRandomSampler(Sampler[int]):
+    def __init__(self, ds, batch_size,
+                 replacement: bool = True, generator=None) -> None:
+        if not isinstance(replacement, bool):
+            raise ValueError("replacement should be a boolean value, but got "
+                             "replacement={}".format(replacement))
+        self.batch_size = batch_size
+        self.replacement = replacement
+        self.generator = generator
+        self.ds = ds
+        self.offline_len = len(ds)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        weights = torch.cat((torch.ones(self.offline_len), torch.linspace(1.0, 0.0, len(self.ds) - self.offline_len)))
+        rand_tensor = torch.multinomial(weights, self.batch_size, self.replacement, generator=self.generator)
+        return rand_tensor.tolist()
+
+    def __len__(self):
+        return self.batch_size

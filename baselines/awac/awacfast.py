@@ -183,7 +183,8 @@ if __name__ == '__main__':
     offline_steps = len(tds)
     num_workers = 0 if config.debug else 2
 
-    dl = DataLoader(tds, batch_sampler=RecencyBiasSampler(tds, batch_size=config.batch_size, recency=config.recency), num_workers=num_workers)
+    dl = DataLoader(tds, batch_sampler=awac.LinearInterpRandomSampler(tds, batch_size=config.batch_size),
+                    num_workers=num_workers)
 
     # dl = DataLoader(tds, batch_size=config.batch_size, batch_sampler=RandomSampler(tds, replacement=False),
     #                 num_workers=num_workers)
