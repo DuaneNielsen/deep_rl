@@ -144,6 +144,14 @@ class FastOfflineDataset:
         self[i] = transition
 
 
+def recency_bias(x, offline_len, total_len, recency):
+    offline = offline_len / total_len
+    y = x ** recency
+    if x < offline:
+        y = x * (offline ** recency) / offline
+    return y
+
+
 class RecencyBiasSampler(Sampler):
     def __init__(self, ds, batch_size, recency, debug=False):
         """
@@ -167,12 +175,9 @@ class RecencyBiasSampler(Sampler):
     def __next__(self):
         i = []
         for _ in range(self.batch_size):
-            if random.random() <= self.start_len / len(self.ds) :
-                i += [random.randint(0, self.start_len-1)]
-            else:
-                x = random.random()
-                y = x ** self.recency
-                i += [floor(y * len(self.ds))]
+            x = random.random()
+            y = recency_bias(x, self.start_len, len(self.ds), self.recency)
+            i += [floor(y * len(self.ds))]
             if self.debug:
                 assert i[-1] < len(self.ds), f"{i[-1]} is out of range of buffer len {len(self.ds)}"
                 assert i[-1] >= 0, f"{i[-1]} is out of range of buffer len {len(self.ds)}"

@@ -28,16 +28,15 @@ parameters:
   seed:
     value: 0
   max_steps:
-    value: 40000
+    value: 100000
   buffer_capacity:
-    value: 40000
+    value: 100000
   test_steps:
     value: 2000
   test_samples:
     value: 8
   batch_size:
     values:
-      - 128
       - 32
       - 16
       - 8
