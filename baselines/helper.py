@@ -26,11 +26,12 @@ class Evaluator:
         plot: plot the episode returns if True
     """
     def __init__(self, env):
-        self.best_mean_return = -999999999
+        self.best_mean_return = -999999999.0
         env, buffer = bf.wrap(env)
         self.env = env
         self.buffer = buffer
         self.vid_buffer = []
+        self.test_number = 0
 
     def write_mp4(self, file):
         file = Path(file)
@@ -126,15 +127,17 @@ class Evaluator:
 
         wandb.log({"test_returns": wandb.Histogram(returns),
                    "test_mean_return": mean_return,
-                   "global_step": global_step})
+                   "global_step": global_step,
+                   "test_number": self.test_number})
+        self.test_number += 1
 
         wandb.run.summary["last_mean_return"] = mean_return
         wandb.run.summary["last_stdev_return"] = stdev_return
 
         # checkpoint policy if mean return is better
         if mean_return > self.best_mean_return:
-            best_mean_return = mean_return
-            wandb.run.summary["best_mean_return"] = best_mean_return
+            self.best_mean_return = mean_return
+            wandb.run.summary["best_mean_return"] = self.best_mean_return
             wandb.run.summary["best_stdev_return"] = stdev_return
             checkpoint.save(run_dir, 'best', **params)
             if capture:
