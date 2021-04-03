@@ -3,6 +3,9 @@ command:
 - ${interpreter}
 - ${program}
 - --silent
+- --load_buffer
+- space_invaders.pkl
+- space_invaders_strong.pkl
 - ${args}
 method: grid
 metric:
@@ -11,8 +14,6 @@ metric:
 parameters:
   lam:
     value: 0.81
-  load_buffer:
-    value: spaceinvaders_sweep.pkl spaceinvaders_strong.pkl
   env_name:
     value: SpaceInvadersDeterministic-v4
   env_reward_scale:
