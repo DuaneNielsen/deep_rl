@@ -10,38 +10,40 @@ metric:
   name: last_mean_return
 parameters:
   lam:
-    value: 1.0
+    distribution: uniform
+    max: 1.0
+    min: 0.1
   load_buffer:
-    value: lander_big.pkl
+    value: breakout.pkl
   buffer_steps:
-    value: 10000
+    value: 8000
   env_name:
-    value: LunarLander-v2
+    value: SpaeceInvadersDeterministic-v4
   env_reward_scale:
-    value: 0.005
+    value: 1.0
   env_reward_bias:
     value: 0.0
+  env_timelimit:
+    value: 3000
+  exploration_noise:
+    value: 0.01
   seed:
-    values:
-    - 0
-    - 1
-    - 2
-    - 3
+    value: 0
   max_steps:
-    value: 50000
+    value: 26000
   buffer_capacity:
-    value: 50000
+    value: 26000
   test_steps:
     value: 2000
   test_samples:
-    value: 32
+    value: 16
   batch_size:
-    value: 128
+    value: 32
   hidden_dim:
-    value: 64
+    value: 512
   optim_lr:
     value: 1e-4
 early_terminate:
   type: hyperband
   min_iter: 1
-program: awacfast.py
+program: awacfast_atari.py
