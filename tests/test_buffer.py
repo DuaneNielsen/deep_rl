@@ -283,3 +283,42 @@ def test_trajectory_info():
 
     assert buffer.trajectory_info[1]['return'] == 0.0
     assert buffer.trajectory_info[1]['len'] == 1
+
+def test_append_trajectory():
+
+    t1 = [(0, 0.0, False, {}), (1, 0.0, False, {}), (2, 1.0, False, {}), (2, 1.0, True, {})]
+    t2 = [(0, 0.0, False, {}), (1, 0.0, True, {})]
+    traj = [t1, t2]
+
+    env = DummyEnv(traj)
+    env, buffer1 = bf.wrap(env)
+
+    def policy(state):
+        return 0
+
+    driver.episode(env, policy)
+    driver.episode(env, policy)
+
+    t1 = [(5, 0.0, False, {}), (6, 0.0, False, {}), (7, 1.0, False, {}), (8, 1.0, True, {})]
+    t2 = [(9, 0.0, False, {}), (1, 0.0, True, {})]
+    traj = [t1, t2]
+
+    env = DummyEnv(traj)
+    env, buffer2 = bf.wrap(env)
+
+    def policy(state):
+        return 0
+
+    driver.episode(env, policy)
+    driver.episode(env, policy)
+
+    assert len(buffer1) == 4
+    assert len(buffer2) == 4
+
+    buffer1.append_buffer(buffer2)
+
+    assert len(buffer1) == 2 * len(buffer2)
+
+    assert buffer1[4].s == 5
+    assert buffer1[0].s == 0
+    assert buffer1[7].s == 9

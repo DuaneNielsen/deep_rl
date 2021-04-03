@@ -136,10 +136,10 @@ print("ACTIONS={}".format(ACTIONS))
 print("Press keys 1 2 3 ... to take actions 1 2 3 ...")
 print("No keys pressed is taking action 0")
 
-for i in range(10):
+for i in range(40):
     window_still_open = rollout(env)
     if window_still_open==False: break
-
+d
 print(f'buffer length {len(buffer)}')
 
 bf.save(buffer, 'space_invaders.pkl')

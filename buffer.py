@@ -118,8 +118,21 @@ class DiscountedReturns(Enricher):
                 i[self.key] = g
 
 
+class DummyEnv(gym.Env):
+    def __init__(self):
+        super().__init__()
+        self.observation_space = gym.spaces.Box(low=-1.0, high=2.0, shape=(1,), dtype=float)
+        self.action_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(1,), dtype=float)
+
+    def reset(self):
+        pass
+
+    def step(self, action):
+        pass
+
+
 class ReplayBuffer(gym.Wrapper):
-    def __init__(self, env):
+    def __init__(self, env=None):
         """
         Replay buffer
 
@@ -137,6 +150,7 @@ class ReplayBuffer(gym.Wrapper):
                             return:  The return (total reward) for the trajectory
                             len:  The length of the trajectory
         """
+        env = DummyEnv() if env is None else env
         super().__init__(env)
         self.buffer = []
         self.trajectories = []
@@ -222,6 +236,22 @@ class ReplayBuffer(gym.Wrapper):
         a, s_p, r, d, i_p = self.buffer[item + 1]
         Transition = namedtuple('Transition', ['s', 'a', 's_p', 'r', 'd'])
         return Transition(s, a, s_p, r, d)
+
+    def append_buffer(self, buffer):
+        for trajectory in buffer.trajectories:
+            first = True
+            for s, a, s_p, r, d, i in TrajectoryTransitions(buffer, trajectory):
+                if first:
+                    self.buffer.append((None, s, 0.0, False, {}))
+                    first = False
+                    self.eps_reward = 0
+                    self.eps_len = 0
+                self.transitions.append(len(self.buffer) - 1)
+                self.buffer.append((a, s_p, r, d, i))
+                self.eps_reward += r
+                self.eps_len += 1
+            self.trajectories.append((self.traj_start, len(self.buffer)))
+            self.trajectory_info.append({'return': self.eps_reward, 'len': self.eps_len})
 
     def __len__(self):
         if len(self.buffer) == 0:

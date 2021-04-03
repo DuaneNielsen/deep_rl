@@ -54,7 +54,7 @@ if __name__ == '__main__':
     """ resume settings """
     parser.add_argument('--demo', action='store_true', default=False)
     parser.add_argument('-l', '--load', type=str, default=None)
-    parser.add_argument('--load_buffer', type=str, default='buffer.pkl')
+    parser.add_argument('--load_buffer', nargs='+', default=[])
 
     """ environment """
     parser.add_argument('--env_name', type=str, default='BreakoutDeterministic-v4')
@@ -118,7 +118,9 @@ if __name__ == '__main__':
     """ training env with replay buffer """
     train_env, train_buffer = bf.wrap(make_env())
 
-    load_buff = bf.load(config.load_buffer)
+    load_buff = bf.ReplayBuffer()
+    for buffer_filename in config.load_buffer:
+        load_buff.append_buffer(bf.load(buffer_filename))
 
     tds = FastOfflineDataset(load_buff, length=config.buffer_steps, capacity=config.buffer_capacity, rescale_reward=config.env_reward_scale)
 

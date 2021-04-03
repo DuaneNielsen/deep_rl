@@ -4,21 +4,17 @@ command:
 - ${program}
 - --silent
 - ${args}
-method: bayes
+method: grid
 metric:
   goal: maximize
   name: last_mean_return
 parameters:
   lam:
-    distribution: uniform
-    max: 1.0
-    min: 0.1
+    value: 0.81
   load_buffer:
-    value: breakout.pkl
-  buffer_steps:
-    value: 8000
+    value: spaceinvaders_sweep.pkl spaceinvaders_strong.pkl
   env_name:
-    value: SpaeceInvadersDeterministic-v4
+    value: SpaceInvadersDeterministic-v4
   env_reward_scale:
     value: 1.0
   env_reward_bias:
@@ -30,15 +26,17 @@ parameters:
   seed:
     value: 0
   max_steps:
-    value: 26000
-  buffer_capacity:
-    value: 26000
+    value: 200000
   test_steps:
-    value: 2000
+    value: 5000
   test_samples:
     value: 16
   batch_size:
-    value: 32
+    values:
+    - 32
+    - 128
+    - 512
+    - 1024
   hidden_dim:
     value: 512
   optim_lr:
