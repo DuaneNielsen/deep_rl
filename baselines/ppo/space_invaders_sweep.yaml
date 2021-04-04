@@ -1,0 +1,39 @@
+  command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - --silent
+  - ${args}
+  method: bayes
+  metric:
+    goal: maximize
+    name: last_mean_return
+  parameters:
+    env_name:
+      value: SpaceInvadersDeterministic-v4
+    max_steps:
+      value: 2000000
+    test_steps:
+      value: 50000
+    test_episodes:
+      value: 25
+    capture_freq:
+      value: 500000
+    seed:
+      value: 0
+    discount:
+      value: 0.99
+    batch_size:
+      values:
+        - 8
+        - 16
+    exploration_noise:
+      distribution: uniform
+        max: 0.2
+        min: 0.01
+    optim_lr:
+      value: 1e-4
+  early_terminate:
+    type: hyperband
+    min_iter: 4
+  program: ppo_a2c_atari.py

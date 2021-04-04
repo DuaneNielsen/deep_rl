@@ -73,7 +73,7 @@ def td_targets(bootstrap_value, rewards, done, discount):
     return v_targets
 
 
-def train_a2c(buffer, a2c_net, optim, discount=0.95, clip=0.2, batch_size=64, device='cpu', dtype=torch.float):
+def train_a2c(dl, a2c_net, optim, discount=0.95, clip=0.2, batch_size=64, device='cpu', dtype=torch.float):
     """
 
     Advantage Actor Critic
@@ -88,10 +88,6 @@ def train_a2c(buffer, a2c_net, optim, discount=0.95, clip=0.2, batch_size=64, de
         dtype: all floats will be cast to dtype
 
     """
-
-    """ sample from batch_size transitions from the replay buffer """
-    ds = bf.ReplayBufferDataset(buffer)
-    dl = DataLoader(buffer, batch_size=batch_size)
 
     """ loads 1 batch and runs a single training step """
     for s, a, s_p, r, d in dl:
@@ -124,6 +120,3 @@ def train_a2c(buffer, a2c_net, optim, discount=0.95, clip=0.2, batch_size=64, de
         optim.step()
 
         break
-
-    """ since this is an on-policy algorithm, throw away the data """
-    buffer.clear()

@@ -1,5 +1,8 @@
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader
+from torch.nn.functional import max_pool2d, log_softmax
+from torch.distributions import Categorical
 
 import gym
 import env
@@ -11,8 +14,6 @@ from gymviz import Plot
 
 import buffer as bf
 from algos import ppo
-from torch.nn.functional import max_pool2d, log_softmax
-from torch.distributions import Categorical
 from config import exists_and_not_none, ArgumentParser
 import wandb
 import wandb_utils
@@ -23,6 +24,7 @@ import os
 import capture
 import random
 import models.atari as models
+
 
 if __name__ == '__main__':
 
@@ -70,7 +72,7 @@ if __name__ == '__main__':
         #torch.backends.cudnn.benchmark = False
         #torch.use_deterministic_algorithms(True)
 
-    wandb.init(project=f"ppp-a2c-{config.env_name}", config=config)
+    wandb.init(project=f"ppo-a2c-{config.env_name}", config=config)
 
     """ environment """
     def make_env():
@@ -138,6 +140,9 @@ if __name__ == '__main__':
     best_mean_return = -999999
     tests_run = 0
 
+    """ sample from batch_size transitions from the replay buffer """
+    dl = DataLoader(train_buffer, batch_size=config.batch_size)
+
     for total_steps, _ in enumerate(driver.step_environment(train_env, policy)):
         steps += 1
         if total_steps > config.max_steps:
@@ -147,7 +152,8 @@ if __name__ == '__main__':
         if steps < config.batch_size:
             continue
         else:
-            ppo.train_a2c(train_buffer, a2c_net, optim, discount=config.discount, batch_size=config.batch_size, device=config.device)
+            ppo.train_a2c(dl, a2c_net, optim, discount=config.discount, batch_size=config.batch_size, device=config.device)
+            train_buffer.clear()
             steps = 0
 
         """ test  """
