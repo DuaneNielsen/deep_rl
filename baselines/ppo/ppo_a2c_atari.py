@@ -131,15 +131,13 @@ if __name__ == '__main__':
     helper.demo(config.demo, env, policy)
 
     """ training loop """
-    num_workers = 0 if config.debug else 2
-    buffer = bf.ReplayBuffer()
-    ds = bf.ReplayBufferDataset(buffer)
-    dl = DataLoader(ds, batch_size=config.batch_size, num_workers=num_workers)
+    buffer = []
+    dl = DataLoader(buffer, batch_size=config.batch_size)
     evaluator = helper.Evaluator()
 
-    for global_step, transition in enumerate(bf.step_environment(train_env, policy)):
+    for global_step, (s, a, s_p, r, d, i) in enumerate(bf.step_environment(train_env, policy)):
 
-        buffer.append(*transition)
+        buffer.append((s, a, s_p, r, d))
 
         if len(buffer) == config.batch_size:
             ppo.train_a2c(dl, a2c_net, optim, discount=config.discount,
@@ -147,7 +145,7 @@ if __name__ == '__main__':
             buffer.clear()
 
         """ test  """
-        if global_step > config.test_steps * (evaluator.test_number + 1):
+        if evaluator.evaluate_now(global_step, config.test_steps):
             evaluator.evaluate(test_env, policy, config.run_dir, params={'a2c_net': a2c_net, 'optim': optim},
                                sample_n=config.test_episodes, capture=True)
 

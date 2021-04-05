@@ -27,7 +27,7 @@
       - 128
     exploration_noise:
       distribution: uniform
-      max: 0.12
+      max: 0.15
       min: 0.1
     optim_lr:
       value: 1e-4

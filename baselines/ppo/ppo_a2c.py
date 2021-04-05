@@ -25,7 +25,6 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--device', type=str)
     parser.add_argument('-r', '--run_id', type=int, default=-1)
     parser.add_argument('--comment', type=str)
-    parser.add_argument('--silent', action='store_true', default=False)
     parser.add_argument('--debug', action='store_true', default=False)
     parser.add_argument('--precision', type=str, action=EvalAction, default=torch.float32)
 
@@ -69,14 +68,13 @@ if __name__ == '__main__':
 
     """ training env with replay buffer """
     train_env = make_env()
-    train_buffer = bf.ReplayBuffer()
     train_env = wandb_utils.LogRewards(train_env)
-    if not config.silent:
+    if config.debug:
         train_env = Plot(train_env, episodes_per_point=5, title=f'Train ppo-a2c-{config.env_name}')
 
     """ test env """
     test_env = make_env()
-    if not config.silent:
+    if config.debug:
         test_env = Plot(test_env, episodes_per_point=1, title=f'Test ppo-a2c-{config.env_name}')
 
     """ network """
@@ -126,31 +124,26 @@ if __name__ == '__main__':
 
     """ demo  """
     helper.demo(config.demo, env, policy)
-    ds = bf.ReplayBufferDataset(train_buffer)
-    dl = DataLoader(ds, batch_size=config.batch_size)
 
-    """ main loop """
-    steps = 0
-    tests_run = 0
+    """ train loop """
     evaluator = helper.Evaluator()
+    buffer = []
+    dl = DataLoader(buffer, batch_size=config.batch_size)
 
-    for global_step, transition in enumerate(bf.step_environment(train_env, policy)):
-        train_buffer.append(*transition)
-        steps += 1
-        if global_step > config.max_steps:
-            break
+    for global_step, (s, a, s_p, r, d, i) in enumerate(bf.step_environment(train_env, policy)):
+
+        buffer.append((s, a, s_p, r, d))
 
         """ train online after batch steps saved"""
-        if steps < config.batch_size:
-            continue
-        else:
+        if len(buffer) == config.batch_size:
             ppo.train_a2c(dl, a2c_net, optim, discount=config.discount, batch_size=config.batch_size,
                           precision=config.precision)
-            train_buffer.clear()
-            steps = 0
+            buffer.clear()
 
-        """ test  """
-        if global_step > config.test_steps * (tests_run + 1):
-            tests_run += 1
+        """ test """
+        if evaluator.evaluate_now(global_step, config.test_steps):
             evaluator.evaluate(test_env, policy, config.run_dir, global_step=global_step,
                                params={'a2c_net': a2c_net, 'optim': optim})
+
+        if global_step > config.max_steps:
+            break

@@ -87,6 +87,18 @@ class Evaluator:
         self.best_mean_return = -999999999.0
         self.test_number = 0
 
+    def evaluate_now(self, global_step, test_steps):
+        """
+        Convenience method, returns true when time to run a test
+        Args:
+            global_step: the amount of steps run
+            test_steps: the amount of steps to run before testing
+
+        Returns: true when it's time to run a test
+
+        """
+        return global_step > test_steps * (self.test_number + 1)
+
     def evaluate(self, env, policy, run_dir, params, sample_n=10, render=False, capture=False, global_step=None):
         """
         Evaluate the policy and save if improved
@@ -109,6 +121,8 @@ class Evaluator:
             stdev_return
 
         """
+        start_t = time.time()
+
         returns = []
         vidstream = []
 
@@ -123,12 +137,6 @@ class Evaluator:
         wandb.run.summary["last_mean_return"] = mean_return
         wandb.run.summary["last_stdev_return"] = stdev_return
 
-        wandb.log({"test_returns": wandb.Histogram(returns),
-                   "test_mean_return": mean_return,
-                   "global_step": global_step,
-                   "test_number": self.test_number})
-        self.test_number += 1
-
         # checkpoint policy if mean return is better
         if mean_return > self.best_mean_return:
             self.best_mean_return = mean_return
@@ -139,6 +147,17 @@ class Evaluator:
         if capture:
             write_mp4(f'{run_dir}/test_run_{self.test_number}.mp4', vidstream)
             wandb.log({"video": wandb.Video(f'{run_dir}/test_run_{self.test_number}.mp4', fps=4, format="gif")})
+
+        end_t = time.time()
+        total_t = end_t - start_t
+
+        wandb.log({"test_returns": wandb.Histogram(returns),
+                   "test_mean_return": mean_return,
+                   "test_wall_time": total_t,
+                   "global_step": global_step,
+                   "test_number": self.test_number})
+
+        self.test_number += 1
 
         return mean_return, stdev_return
 
