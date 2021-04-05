@@ -3,7 +3,6 @@ from torch import nn
 import gym
 import driver
 from argparse import ArgumentParser
-import pickle
 import buffer as bf
 from gym.wrappers.transform_reward import TransformReward
 
@@ -31,13 +30,11 @@ if __name__ == '__main__':
         assert isinstance(env.action_space, gym.spaces.Discrete)
         return env
     env = make_env()
-    env, buffer = bf.wrap(env)
+    buffer = bf.ReplayBuffer()
 
     """ random seed """
     if config.seed is not None:
         torch.manual_seed(config.seed)
-        env.seed(config.seed)
-        env.action_space.seed(config.seed)
         env.seed(config.seed)
         env.action_space.seed(config.seed)
 
@@ -85,9 +82,15 @@ if __name__ == '__main__':
         action = torch.argmax(q_net(state), dim=1)
         return action.item()
 
+    episodes = 7 * 25
+    episodes_captured = 0
 
     """ demo """
-    for _ in range(25 * 7):
-        driver.episode(env, exploit_policy, render=False)
+    for transition in bf.step_environment(env, exploit_policy):
+        if episodes_captured < episodes:
+            buffer.append(*transition)
+            episodes_captured += 1 if transition.d else 0
+        else:
+            break
 
     bf.save(buffer, './lander_big.pkl')

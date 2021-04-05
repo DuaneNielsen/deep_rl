@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import gym
 import env
-import buffer as bf
+import legacy.buffer as bf
 import driver
 from algos import reinforce
 from distributions import ScaledTanhTransformedGaussian

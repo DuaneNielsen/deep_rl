@@ -1,6 +1,6 @@
 import time
-import torch
 from statistics import mean
+import torch
 
 
 def _render_env(env, render, delay):

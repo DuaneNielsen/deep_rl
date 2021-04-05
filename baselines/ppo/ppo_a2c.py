@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader
 
 import gym
 import env
@@ -10,7 +11,7 @@ from gymviz import Plot
 import buffer as bf
 from algos import ppo
 from distributions import ScaledTanhTransformedGaussian
-from config import exists_and_not_none, ArgumentParser
+from config import exists_and_not_none, ArgumentParser, EvalAction
 import wandb
 import wandb_utils
 import checkpoint
@@ -25,6 +26,8 @@ if __name__ == '__main__':
     parser.add_argument('-r', '--run_id', type=int, default=-1)
     parser.add_argument('--comment', type=str)
     parser.add_argument('--silent', action='store_true', default=False)
+    parser.add_argument('--debug', action='store_true', default=False)
+    parser.add_argument('--precision', type=str, action=EvalAction, default=torch.float32)
 
     """ reproducibility """
     parser.add_argument('--seed', type=int, default=None)
@@ -65,8 +68,8 @@ if __name__ == '__main__':
         return env
 
     """ training env with replay buffer """
-    train_env, train_buffer = bf.wrap(make_env())
-    train_buffer.enrich(bf.DiscountedReturns(discount=config.discount))
+    train_env = make_env()
+    train_buffer = bf.ReplayBuffer()
     train_env = wandb_utils.LogRewards(train_env)
     if not config.silent:
         train_env = Plot(train_env, episodes_per_point=5, title=f'Train ppo-a2c-{config.env_name}')
@@ -75,7 +78,6 @@ if __name__ == '__main__':
     test_env = make_env()
     if not config.silent:
         test_env = Plot(test_env, episodes_per_point=1, title=f'Test ppo-a2c-{config.env_name}')
-    evaluator = helper.Evaluator(test_env)
 
     """ network """
     class A2CNet(nn.Module):
@@ -115,33 +117,40 @@ if __name__ == '__main__':
 
     """ policy to run on environment """
     def policy(state):
-        state = torch.from_numpy(state).float()
-        value, action = a2c_net(state)
-        a = action.rsample()
-        assert torch.isnan(a) == False
-        return a.numpy()
+        with torch.no_grad():
+            state = torch.from_numpy(state).float()
+            value, action = a2c_net(state)
+            a = action.rsample()
+            assert torch.isnan(a) == False
+            return a.numpy()
 
     """ demo  """
-    evaluator.demo(config.demo, policy)
+    helper.demo(config.demo, env, policy)
+    ds = bf.ReplayBufferDataset(train_buffer)
+    dl = DataLoader(ds, batch_size=config.batch_size)
 
     """ main loop """
     steps = 0
-    best_mean_return = -999999
     tests_run = 0
+    evaluator = helper.Evaluator()
 
-    for total_steps, _ in enumerate(driver.step_environment(train_env, policy)):
+    for global_step, transition in enumerate(bf.step_environment(train_env, policy)):
+        train_buffer.append(*transition)
         steps += 1
-        if total_steps > config.max_steps:
+        if global_step > config.max_steps:
             break
 
         """ train online after batch steps saved"""
         if steps < config.batch_size:
             continue
         else:
-            ppo.train_a2c(train_buffer, a2c_net, optim, discount=config.discount, batch_size=config.batch_size)
+            ppo.train_a2c(dl, a2c_net, optim, discount=config.discount, batch_size=config.batch_size,
+                          precision=config.precision)
+            train_buffer.clear()
             steps = 0
 
         """ test  """
-        if total_steps > config.test_steps * tests_run:
+        if global_step > config.test_steps * (tests_run + 1):
             tests_run += 1
-            evaluator.evaluate(policy, config.run_dir, {'a2c_net': a2c_net, 'optim': optim})
+            evaluator.evaluate(test_env, policy, config.run_dir, global_step=global_step,
+                               params={'a2c_net': a2c_net, 'optim': optim})

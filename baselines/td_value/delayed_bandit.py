@@ -5,7 +5,7 @@ import driver
 import gym
 import env
 from gymviz import Plot
-import buffer as bf
+import legacy.buffer as bf
 import random
 import numpy as np
 import algos.td_value as adv

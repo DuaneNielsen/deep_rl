@@ -2,13 +2,16 @@ import buffer as bf
 import pytest
 
 import driver
+import observer
 from env.debug import DummyEnv
+import torch
+from torch.utils.data import DataLoader
 
 
 def transition_equal(t1, t2):
     for i, field in enumerate(t1):
         if isinstance(field, dict):
-            pass
+            assert t1[i]['s'] == t2[i]['s']
         else:
             assert t1[i] == t2[i]
 
@@ -19,15 +22,13 @@ def test_buffer():
     traj = [t1, t2]
 
     env = DummyEnv(traj)
-    buffer = bf.ReplayBuffer()
+    env, buffer = bf.wrap(env)
 
     def policy(state):
         return 0
 
-    for global_step, transition in enumerate(driver.step_environment(env, policy)):
-        buffer.append(*transition)
-        if global_step + 1 == 3:
-            break
+    driver.episode(buffer, policy)
+    driver.episode(buffer, policy)
 
     start, end = buffer.trajectories[0]
     assert len(buffer.buffer[start:end]) == 3
@@ -53,27 +54,22 @@ def test_load_before_trajectory_terminates():
     t2 = [(3, 0.0, False, {}), (4, 1.0, True, {})]
     traj = [t1, t2]
     env = DummyEnv(traj)
-    buffer = bf.ReplayBuffer()
+    env, buffer = bf.wrap(env)
 
     """ first step, from env reset """
-    s = env.reset()
+    env.reset()
     assert len(buffer) == 0
     assert len(buffer.trajectories) == 0
 
     """ second step, intermediate step"""
-    a = 0
-    s_p, r, d, i = env.step(a)
-    buffer.append(s, a, s_p, r, d, i)
+    env.step(0)
     assert len(buffer) == 1
     assert len(buffer.trajectories) == 0
     expected_transition = 0, 0, 1, 0.0, False
     transition_equal(buffer[0], expected_transition)
 
     """ third step, trajectory ends """
-    s = s_p
-    a = 0
-    s_p, r, d, i = env.step(a)
-    buffer.append(s, a, s_p, r, d, i)
+    env.step(0)
     assert len(buffer) == 2
     assert len(buffer.trajectories) == 1
     expected_transition = 0, 0, 1, 0.0, False
@@ -82,7 +78,7 @@ def test_load_before_trajectory_terminates():
     transition_equal(buffer[1], expected_transition)
 
     """ forth step, 2nd trajectory resets  """
-    s = env.reset()
+    env.reset()
     assert len(buffer) == 2
     assert len(buffer.trajectories) == 1
     expected_transition = 0, 0, 1, 0.0, False
@@ -91,9 +87,7 @@ def test_load_before_trajectory_terminates():
     transition_equal(buffer[1], expected_transition)
 
     """ fifth step, 2nd trajectory ends """
-    a = 0
-    s_p, r, d, i = env.step(a)
-    buffer.append(s, a, s_p, r, d, i)
+    env.step(0)
     assert len(buffer) == 3
     assert len(buffer.trajectories) == 2
     expected_transition = 0, 0, 1, 0.0, False
@@ -110,15 +104,13 @@ def test_buffer_iterator():
     traj = [t1, t2]
 
     env = DummyEnv(traj)
-    buffer = bf.ReplayBuffer()
+    env, buffer = bf.wrap(env)
 
     def policy(state):
         return 0
 
-    for global_step, transition in enumerate(driver.step_environment(env, policy)):
-        buffer.append(*transition)
-        if global_step + 1 == 3:
-            break
+    driver.episode(env, policy)
+    driver.episode(env, policy)
 
     assert len(buffer) == 3
 
@@ -133,15 +125,13 @@ def test_trajectory_iterator():
     traj = [t1, t2]
 
     env = DummyEnv(traj)
-    buffer = bf.ReplayBuffer()
+    env, buffer = bf.wrap(env)
 
     def policy(state):
         return 0
 
-    for global_step, transition in enumerate(driver.step_environment(env, policy)):
-        buffer.append(*transition)
-        if global_step + 1 == 3:
-            break
+    driver.episode(env, policy)
+    driver.episode(env, policy)
 
     trajectory = bf.TrajectoryTransitions(buffer, buffer.trajectories[0])
     transition_equal(next(trajectory), (0, 0, 1, 0.0, False, {'s': 1}))
@@ -162,15 +152,13 @@ def test_reverse_trajectory_iterator():
     traj = [t1, t2]
 
     env = DummyEnv(traj)
-    buffer = bf.ReplayBuffer()
+    env, buffer = bf.wrap(env)
 
     def policy(state):
         return 0
 
-    for global_step, transition in enumerate(driver.step_environment(env, policy)):
-        buffer.append(*transition)
-        if global_step + 1 == 3:
-            break
+    driver.episode(env, policy)
+    driver.episode(env, policy)
 
     trajectory = bf.TrajectoryTransitionsReverse(buffer, buffer.trajectories[0])
     transition_equal(next(trajectory), (1, 0, 2, 1.0, True, {'s': 2}))
@@ -185,28 +173,116 @@ def test_reverse_trajectory_iterator():
         next(trajectory)
 
 
+def test_enrichment_returns():
+    t1 = [(0, 0.0, False, {}), (1, 0.0, False, {}), (2, 1.0, False, {}), (2, 1.0, True, {})]
+    t2 = [(0, 0.0, False, {}), (1, 0.0, True, {})]
+    traj = [t1, t2]
+
+    env = DummyEnv(traj)
+    env, buffer = bf.wrap(env)
+
+    buffer.enrich(bf.Returns())
+
+    def policy(state):
+        return 0
+
+    driver.episode(env, policy)
+    driver.episode(env, policy)
+
+    dataset = bf.ReplayBufferDataset(buffer, info_keys=['g'])
+
+    assert dataset[0].g == 2.0
+    assert dataset[1].g == 2.0
+    assert dataset[2].g == 1.0
+
+    assert dataset[3].g == 0.0
+
+
+def test_enrichment_discounted_returns():
+    t1 = [(0, 0.0, False, {}), (1, 0.0, False, {}), (2, 1.0, False, {}), (2, 1.0, True, {})]
+    t2 = [(0, 0.0, False, {}), (1, 0.0, True, {})]
+    traj = [t1, t2]
+
+    env = DummyEnv(traj)
+    env, buffer = bf.wrap(env)
+
+    discount = 0.9
+
+    buffer.enrich(bf.DiscountedReturns(discount=discount))
+
+    def policy(state):
+        return 0
+
+    driver.episode(env, policy)
+    driver.episode(env, policy)
+
+    dataset = bf.ReplayBufferDataset(buffer, info_keys=['g'])
+
+    assert dataset[0].g == discount * 1.0 + discount ** 2 * 1.0
+    assert dataset[1].g == 1.0 + discount * 1.0
+    assert dataset[2].g == 1.0
+
+    assert dataset[3].g == 0.0
+
+
+def test_dataload():
+    t1 = [(0, 0.0, False, {}), (1, 0.0, False, {}), (2, 1.0, False, {}), (3, 1.0, True, {})]
+    t2 = [(0, 0.0, False, {}), (1, 0.0, True, {})]
+    traj = [t1, t2]
+
+    env = DummyEnv(traj)
+    env, buffer = bf.wrap(env)
+
+    buffer.enrich(bf.Returns())
+
+    def policy(state):
+        return 0
+
+    driver.episode(env, policy)
+    driver.episode(env, policy)
+
+    dataset = bf.ReplayBufferDataset(buffer, info_keys='g')
+    dl = DataLoader(dataset, batch_size=4)
+
+    for data in dl:
+        assert torch.allclose(data.s, torch.tensor([0, 1, 2, 0]))
+        assert torch.allclose(data.a, torch.tensor([0, 0, 0, 0]))
+        assert torch.allclose(data.r, torch.tensor([0.0, 1.0, 1.0, 0.0], dtype=torch.double))
+        assert (~torch.bitwise_xor(data.d, torch.tensor([False, False, True, True]))).all()
+        assert torch.allclose(data.s_p, torch.tensor([1, 2, 3, 1]))
+        assert torch.allclose(data.g, torch.tensor([2.0, 2.0, 1.0, 0.0], dtype=torch.double))
+
+    dataset = bf.ReplayBufferDataset(buffer, fields=('s', 'a'))
+    dl = DataLoader(dataset, batch_size=4)
+
+    for data in dl:
+        assert torch.allclose(data.s, torch.tensor([0, 1, 2, 0]))
+        assert torch.allclose(data.a, torch.tensor([0, 0, 0, 0]))
+        assert hasattr(data, 's_p') == False
+        assert hasattr(data, 'r') == False
+        assert hasattr(data, 'd') == False
+        assert hasattr(data, 'g') == False
+
+
 def test_trajectory_info():
     t1 = [(0, 0.0, False, {}), (1, 0.0, False, {}), (2, 1.0, False, {}), (2, 1.0, True, {})]
     t2 = [(0, 0.0, False, {}), (1, 0.0, True, {})]
     traj = [t1, t2]
 
     env = DummyEnv(traj)
-    buffer = bf.ReplayBuffer()
+    env, buffer = bf.wrap(env)
 
     def policy(state):
         return 0
 
-    for global_step, transition in enumerate(driver.step_environment(env, policy)):
-        buffer.append(*transition)
-        if global_step + 1 == 4:
-            break
+    driver.episode(env, policy)
+    driver.episode(env, policy)
 
     assert buffer.trajectory_info[0]['return'] == 2.0
     assert buffer.trajectory_info[0]['len'] == 3
 
     assert buffer.trajectory_info[1]['return'] == 0.0
     assert buffer.trajectory_info[1]['len'] == 1
-
 
 def test_append_trajectory():
 
@@ -215,30 +291,26 @@ def test_append_trajectory():
     traj = [t1, t2]
 
     env = DummyEnv(traj)
-    buffer1 = bf.ReplayBuffer()
+    env, buffer1 = bf.wrap(env)
 
     def policy(state):
         return 0
 
-    for global_step, transition in enumerate(driver.step_environment(env, policy)):
-        buffer1.append(*transition)
-        if global_step + 1 == 4:
-            break
+    driver.episode(env, policy)
+    driver.episode(env, policy)
 
     t1 = [(5, 0.0, False, {}), (6, 0.0, False, {}), (7, 1.0, False, {}), (8, 1.0, True, {})]
     t2 = [(9, 0.0, False, {}), (1, 0.0, True, {})]
     traj = [t1, t2]
 
     env = DummyEnv(traj)
-    buffer2 = bf.ReplayBuffer()
+    env, buffer2 = bf.wrap(env)
 
     def policy(state):
         return 0
 
-    for global_step, transition in enumerate(driver.step_environment(env, policy)):
-        buffer2.append(*transition)
-        if global_step + 1 == 4:
-            break
+    driver.episode(env, policy)
+    driver.episode(env, policy)
 
     assert len(buffer1) == 4
     assert len(buffer2) == 4

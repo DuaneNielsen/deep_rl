@@ -14,7 +14,7 @@ from gymviz import Plot
 
 import buffer as bf
 from algos import ppo
-from config import exists_and_not_none, ArgumentParser
+from config import exists_and_not_none, ArgumentParser, EvalAction
 import wandb
 import wandb_utils
 import checkpoint
@@ -34,7 +34,8 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--device', type=str, default='cuda')
     parser.add_argument('-r', '--run_id', type=int, default=-1)
     parser.add_argument('--comment', type=str)
-    parser.add_argument('--silent', action='store_true', default=False)
+    parser.add_argument('--debug', action='store_true', default=False)
+    parser.add_argument('--precision', type=str, action=EvalAction, default=torch.float32)
 
     """ reproducibility """
     parser.add_argument('--seed', type=int, default=None)
@@ -43,7 +44,6 @@ if __name__ == '__main__':
     parser.add_argument('--max_steps', type=int, default=1000000)
     parser.add_argument('--test_steps', type=int, default=5000)
     parser.add_argument('--test_episodes', type=int, default=25)
-    parser.add_argument('--capture_freq', type=int, default=50000)
 
     """ resume settings """
     parser.add_argument('--demo', action='store_true', default=False)
@@ -69,15 +69,12 @@ if __name__ == '__main__':
     """ random seed """
     if config.seed is not None:
         torch.manual_seed(config.seed)
-        #torch.backends.cudnn.benchmark = False
-        #torch.use_deterministic_algorithms(True)
 
     wandb.init(project=f"ppo-a2c-{config.env_name}", config=config)
 
     """ environment """
     def make_env():
         env = gym.make(config.env_name)
-        env = capture.VideoCapture(env, config.run_dir, freq=config.capture_freq)
         env = wrappers.EpisodicLifeEnv(env)
         if 'NOOP' in env.unwrapped.get_action_meanings():
             env = wrappers.NoopResetEnv(env)
@@ -96,25 +93,22 @@ if __name__ == '__main__':
         return env
 
     """ training env with replay buffer """
-    train_env, train_buffer = bf.wrap(make_env())
+    train_env = make_env()
     train_env = wandb_utils.LogRewards(train_env)
-    if not config.silent:
+    if config.debug:
         train_env = Plot(train_env, episodes_per_point=20, title=f'Train ppo-a2c-{config.env_name}-{config.run_id}',
                          refresh_cooldown=5.0)
 
     """ test env """
     test_env = make_env()
-    if not config.silent:
+    if config.debug:
         test_env = Plot(test_env, episodes_per_point=config.test_episodes, title=f'Test ppo-a2c-{config.env_name}-{config.run_id}',
                         refresh_cooldown=5.0)
-    evaluator = helper.Evaluator(test_env)
-
-    actions = train_env.action_space.n
 
     """ network """
     a2c_net = models.A2CNet(
         hidden_dims=config.hidden_dim,
-        actions=actions,
+        actions=train_env.action_space.n,
         exploration_noise=config.exploration_noise)
     optim = torch.optim.Adam(a2c_net.parameters(), lr=config.optim_lr, weight_decay=0.0)
 
@@ -126,38 +120,36 @@ if __name__ == '__main__':
 
     """ policy to run on environment """
     def policy(state):
-        state = torch.from_numpy(state).float().unsqueeze(0).to(config.device)
-        value, action = a2c_net(state)
-        a = action.sample()
-        assert torch.isnan(a) == False
-        return a.cpu().numpy()
+        with torch.no_grad():
+            state = torch.from_numpy(state).type(config.precision).unsqueeze(0).to(config.device)
+            value, action = a2c_net(state)
+            a = action.sample()
+            assert torch.isnan(a) == False
+            return a.item()
 
     """ demo  """
-    evaluator.demo(config.demo, policy)
+    helper.demo(config.demo, env, policy)
 
-    """ main loop """
-    steps = 0
-    best_mean_return = -999999
-    tests_run = 0
+    """ training loop """
+    num_workers = 0 if config.debug else 2
+    buffer = bf.ReplayBuffer()
+    ds = bf.ReplayBufferDataset(buffer)
+    dl = DataLoader(ds, batch_size=config.batch_size, num_workers=num_workers)
+    evaluator = helper.Evaluator()
 
-    """ sample from batch_size transitions from the replay buffer """
-    dl = DataLoader(train_buffer, batch_size=config.batch_size)
+    for global_step, transition in enumerate(bf.step_environment(train_env, policy)):
 
-    for total_steps, _ in enumerate(driver.step_environment(train_env, policy)):
-        steps += 1
-        if total_steps > config.max_steps:
-            break
+        buffer.append(*transition)
 
-        """ train online after batch steps saved"""
-        if steps < config.batch_size:
-            continue
-        else:
-            ppo.train_a2c(dl, a2c_net, optim, discount=config.discount, batch_size=config.batch_size, device=config.device)
-            train_buffer.clear()
-            steps = 0
+        if len(buffer) == config.batch_size:
+            ppo.train_a2c(dl, a2c_net, optim, discount=config.discount,
+                          device=config.device, precision=config.precision)
+            buffer.clear()
 
         """ test  """
-        if total_steps > config.test_steps * tests_run and total_steps != 0:
-            tests_run += 1
-            evaluator.evaluate(policy, config.run_dir, {'a2c_net': a2c_net, 'optim': optim},
+        if global_step > config.test_steps * (evaluator.test_number + 1):
+            evaluator.evaluate(test_env, policy, config.run_dir, params={'a2c_net': a2c_net, 'optim': optim},
                                sample_n=config.test_episodes, capture=True)
+
+        if global_step > config.max_steps:
+            break

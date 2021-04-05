@@ -16,6 +16,64 @@ def _render_env(env, render, delay):
         time.sleep(delay)
 
 
+def write_mp4(file, vid_buffer):
+    file = Path(file)
+    file.parent.mkdir(parents=True, exist_ok=True)
+    stream = torch.from_numpy(np.stack(vid_buffer))
+    write_video(str(file), stream, 24.0)
+
+
+def demo(demo, env, policy):
+    """
+    Infinite loop that runs policy on environment, and renders
+    Args:
+        demo: if true enters infinite loop
+        policy: policy(state) -> action to run
+
+    """
+    if demo:
+        while True:
+            driver.episode(env, policy, render=True)
+
+
+def episode(env, policy, render=False, delay=0.01, capture=False):
+    """
+    Runs one episode using the provided policy on the environment
+
+    Args:
+        env: gym environment to generate an episode for
+        policy: policy(state) -> action takes state as input, must output an action runnable on the environment
+        render: if True will call environments render function
+        delay: rendering delay
+        kwargs: kwargs will be passed to policy
+    """
+
+    returns = 0
+    length = 0
+    vid_buffer = []
+
+    with torch.no_grad():
+        state, reward, done, info = env.reset(), 0.0, False, {}
+        action = policy(state)
+        _render_env(env, render, delay)
+
+        if capture:
+            frame = env.render(mode='rgb_array')
+            vid_buffer.append(frame)
+
+        while not done:
+            state, reward, done, info = env.step(action)
+            returns += reward
+            length += 1
+            action = policy(state)
+            _render_env(env, render, delay)
+            if capture:
+                frame = env.render(mode='rgb_array')
+                vid_buffer.append(frame)
+
+    return returns, length, vid_buffer
+
+
 class Evaluator:
     """
     Evaluates policies and saves them if they improve
@@ -25,81 +83,11 @@ class Evaluator:
         seed: random seed
         plot: plot the episode returns if True
     """
-    def __init__(self, env):
+    def __init__(self):
         self.best_mean_return = -999999999.0
-        env, buffer = bf.wrap(env)
-        self.env = env
-        self.buffer = buffer
-        self.vid_buffer = []
         self.test_number = 0
 
-    def write_mp4(self, file):
-        file = Path(file)
-        file.parent.mkdir(parents=True, exist_ok=True)
-        stream = torch.from_numpy(np.stack(self.vid_buffer))
-        write_video(str(file), stream, 24.0)
-        del self.vid_buffer
-        self.vid_buffer = []
-
-    def clear_vid_buffers(self):
-        del self.vid_buffer
-        self.vid_buffer = []
-
-    def episode(self, env, policy, render=False, delay=0.01, capture=False):
-        """
-        Runs one episode using the provided policy on the environment
-
-        Args:
-            env: gym environment to generate an episode for
-            policy: policy(state) -> action takes state as input, must output an action runnable on the environment
-            render: if True will call environments render function
-            delay: rendering delay
-            kwargs: kwargs will be passed to policy
-        """
-
-        returns = 0
-        length = 0
-
-        with torch.no_grad():
-            state, reward, done, info = env.reset(), 0.0, False, {}
-            action = policy(state)
-            _render_env(env, render, delay)
-
-            if capture:
-                frame = self.env.render(mode='rgb_array')
-                self.vid_buffer.append(frame)
-
-            while not done:
-                state, reward, done, info = env.step(action)
-                returns += reward
-                length += 1
-                action = policy(state)
-                _render_env(env, render, delay)
-                if capture:
-                    frame = self.env.render(mode='rgb_array')
-                    self.vid_buffer.append(frame)
-
-    def sample_policy_returns(self, policy, samples, render=False, capture=False):
-        """
-        samples n trajectories from environment using policy
-
-        Args:
-            policy: policy(state) -> action, the policy to evaluate
-            samples: number of episodes to sample
-            render: render while running
-            capture: capture rgb render to buffer
-        Returns:
-            a list of returns
-        """
-        start = len(self.buffer.trajectories)
-        # run test trajectories and compute the returns
-        for _ in range(samples):
-            self.episode(self.env, policy, render=render, capture=capture)
-        returns = [traj_info['return'] for traj_info in self.env.trajectory_info[start:]]
-        self.buffer.clear()
-        return returns
-
-    def evaluate(self, policy, run_dir, params, sample_n=10, render=False, capture=False, global_step=None):
+    def evaluate(self, env, policy, run_dir, params, sample_n=10, render=False, capture=False, global_step=None):
         """
         Evaluate the policy and save if improved
 
@@ -121,9 +109,19 @@ class Evaluator:
             stdev_return
 
         """
-        returns = self.sample_policy_returns(policy, sample_n, render, capture=capture)
+        returns = []
+        vidstream = []
+
+        for _ in range(sample_n):
+            retn, length, video = episode(env, policy, render=render, capture=capture)
+            returns.append(retn)
+            if capture:
+                vidstream.extend(video)
+
         mean_return = mean(returns)
         stdev_return = stdev(returns)
+        wandb.run.summary["last_mean_return"] = mean_return
+        wandb.run.summary["last_stdev_return"] = stdev_return
 
         wandb.log({"test_returns": wandb.Histogram(returns),
                    "test_mean_return": mean_return,
@@ -131,32 +129,16 @@ class Evaluator:
                    "test_number": self.test_number})
         self.test_number += 1
 
-        wandb.run.summary["last_mean_return"] = mean_return
-        wandb.run.summary["last_stdev_return"] = stdev_return
-
         # checkpoint policy if mean return is better
         if mean_return > self.best_mean_return:
             self.best_mean_return = mean_return
             wandb.run.summary["best_mean_return"] = self.best_mean_return
             wandb.run.summary["best_stdev_return"] = stdev_return
             checkpoint.save(run_dir, 'best', **params)
-            if capture:
-                self.write_mp4(f'{run_dir}/best_eps.mp4')
-                wandb.log({"video": wandb.Video(f'{run_dir}/best_eps.mp4', fps=4, format="gif")})
 
-        self.clear_vid_buffers()
+        if capture:
+            write_mp4(f'{run_dir}/test_run_{self.test_number}.mp4', vidstream)
+            wandb.log({"video": wandb.Video(f'{run_dir}/test_run_{self.test_number}.mp4', fps=4, format="gif")})
 
         return mean_return, stdev_return
 
-    def demo(self, demo, policy):
-        """
-        Infinite loop that runs policy on environment, and renders
-        Args:
-            demo: if true enters infinite loop
-            policy: policy(state) -> action to run
-
-        """
-        if demo:
-            while True:
-                driver.episode(self.env, policy, render=True)
-                self.buffer.clear()

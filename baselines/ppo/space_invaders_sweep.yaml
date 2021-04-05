@@ -2,7 +2,6 @@
   - ${env}
   - ${interpreter}
   - ${program}
-  - --silent
   - ${args}
   method: bayes
   metric:
@@ -16,21 +15,20 @@
     test_steps:
       value: 50000
     test_episodes:
-      value: 25
-    capture_freq:
-      value: 500000
+      value: 16
     seed:
       value: 0
     discount:
       value: 0.99
     batch_size:
       values:
-        - 8
-        - 16
+      - 8
+      - 32
+      - 128
     exploration_noise:
       distribution: uniform
-        max: 0.2
-        min: 0.01
+      max: 0.12
+      min: 0.1
     optim_lr:
       value: 1e-4
   early_terminate:

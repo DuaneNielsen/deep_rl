@@ -11,7 +11,7 @@ import buffer as bf
 from algos import awac
 from torch.utils.data import DataLoader
 from torch.distributions import Categorical
-from config import exists_and_not_none, ArgumentParser
+from config import exists_and_not_none, ArgumentParser, EvalAction
 import wandb
 import wandb_utils
 import checkpoint
@@ -26,6 +26,7 @@ def rescale_reward(reward):
     return reward * config.env_reward_scale - config.env_reward_bias
 
 
+
 if __name__ == '__main__':
 
     """ configuration """
@@ -36,6 +37,7 @@ if __name__ == '__main__':
     parser.add_argument('--comment', type=str)
     parser.add_argument('--silent', action='store_true', default=False)
     parser.add_argument('--debug', action='store_true', default=False)
+    parser.add_argument('--precision', type=str, action=EvalAction, default=torch.float32)
 
     """ reproducibility """
     parser.add_argument('--seed', type=int, default=None)
@@ -65,15 +67,11 @@ if __name__ == '__main__':
     parser.add_argument('--lam', type=float, default=0.3)
     parser.add_argument('--recency', type=float, default=1.0)
 
-
     """ experimental parameters """
     parser.add_argument('--buffer_steps', type=int)
     parser.add_argument('--buffer_capacity', type=int)
 
     config = parser.parse_args()
-
-    if config.buffer_capacity is None:
-        config.buffer_capacity = config.max_steps
 
     """ random seed """
     if config.seed is not None:
@@ -98,11 +96,8 @@ if __name__ == '__main__':
 
 
     """ training env with replay buffer """
-    train_env, train_buffer = bf.wrap(make_env())
-
-    load_buff = bf.load(config.load_buffer)
-
-    tds = awac.FastOfflineDataset(load_buff, length=config.buffer_steps, capacity=config.buffer_capacity)
+    train_env = make_env()
+    tds = bf.load(config.load_buffer)
 
     wandb_env = wandb_utils.LogRewards(train_env)
     train_env = wandb_env
@@ -114,7 +109,9 @@ if __name__ == '__main__':
     test_env = make_env()
     if not config.silent:
         test_env = Plot(test_env, episodes_per_point=1, title=f'Test awac-{config.env_name}')
-    evaluator = helper.Evaluator(test_env)
+    evaluator = helper.Evaluator()
+
+    """ network """
 
 
     class Policy(nn.Module):
@@ -126,9 +123,6 @@ if __name__ == '__main__':
 
         def forward(self, state):
             return Categorical(logits=log_softmax(self.policy(state), dim=1))
-
-
-    """ network """
 
 
     class AWACnet(nn.Module):
@@ -165,42 +159,39 @@ if __name__ == '__main__':
 
 
     def policy(state):
-        state = torch.from_numpy(state).float().unsqueeze(0).to(config.device)
-        value, action = awac_net(state)
-        a = action.sample()
-        assert torch.isnan(a) == False
-        return a.item()
+        with torch.no_grad():
+            state = torch.as_tensor(state, device=config.device, dtype=config.precision).unsqueeze(0)
+            action = awac_net.policy(state)
+            a = action.sample()
+            assert torch.isnan(a) == False
+            return a.item()
 
 
     """ demo  """
-    evaluator.demo(config.demo, policy)
+    helper.demo(config.demo, test_env, policy)
 
     """ main loop """
     steps = 0
-    best_mean_return = -999999
-    tests_run = 0
-
     offline_steps = len(tds)
     num_workers = 0 if config.debug else 2
 
-    dl = DataLoader(tds, batch_sampler=awac.LinearInterpRandomSampler(tds, batch_size=config.batch_size),
+    ds = bf.ReplayBufferDataset(tds)
+    dl = DataLoader(ds, batch_sampler=awac.LinearInterpRandomSampler(tds, batch_size=config.batch_size),
                     num_workers=num_workers)
-
-    # dl = DataLoader(tds, batch_size=config.batch_size, batch_sampler=RandomSampler(tds, replacement=False),
-    #                 num_workers=num_workers)
 
     wandb.run.summary['offline_steps'] = offline_steps
     on_policy = False
+    tests_run = 0
     print(f'OFF POLICY FOR {len(tds)} steps')
 
-    for global_step, (s, a, s_p, r, d, _) in enumerate(driver.step_environment(train_env, policy)):
+    for global_step, transition in enumerate(driver.step_environment(train_env, policy)):
         wandb_env.global_step = global_step
         if global_step > config.max_steps:
             print(f'Ending after {global_step} steps')
             quit()
 
         if global_step > offline_steps:
-            tds.append((s, a, s_p, r, d))
+            tds.append(*transition)
             if not on_policy:
                 print('on policy NOW')
                 on_policy = True
@@ -210,12 +201,13 @@ if __name__ == '__main__':
             continue
         else:
             awac.train_discrete(dl, awac_net, q_optim, policy_optim, lam=config.lam,
-                            device=config.device, debug=config.debug, measure_kl=True, global_step=global_step)
+                                device=config.device, debug=config.debug, measure_kl=True, global_step=global_step,
+                                precision=config.precision)
             steps = 0
 
         """ test  """
         if global_step > config.test_steps * (tests_run + 1):
             tests_run += 1
-            evaluator.evaluate(policy, config.run_dir, sample_n=config.test_samples, capture=config.test_capture,
+            evaluator.evaluate(test_env, policy, config.run_dir, sample_n=config.test_samples, capture=config.test_capture,
                                params={'awac_net': awac_net, 'q_optim': q_optim, 'policy_optim': policy_optim},
                                global_step=global_step)

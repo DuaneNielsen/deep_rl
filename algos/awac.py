@@ -15,7 +15,7 @@ timing = []
 
 
 def train_discrete(dl, a2c_net, critic_optim, actor_optim, discount=0.95, lam=0.3, device='cpu',
-               debug=False, measure_kl=False, global_step=None):
+               debug=False, measure_kl=False, global_step=None, precision='float'):
     """
 
     AWAC
@@ -32,11 +32,11 @@ def train_discrete(dl, a2c_net, critic_optim, actor_optim, discount=0.95, lam=0.
         init = time.time()
 
     for s, a, s_p, r, d in dl:
-        state = s.to(device)
+        state = s.type(precision).to(device)
         action = a.to(device)
-        state_p = s_p.to(device)
-        reward = r.to(device)
-        done = d.to(device)
+        state_p = s_p.type(precision).to(device)
+        reward = r.type(precision).to(device).unsqueeze(1)
+        done = (1.0 * ~d.to(device)).unsqueeze(1)
 
         if debug:
             loaded = time.time()

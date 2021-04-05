@@ -3,7 +3,7 @@ import torch.nn as nn
 import driver
 import gym
 import env
-import buffer as bf
+import legacy.buffer as bf
 from gymviz import Plot
 import random
 import numpy as np

@@ -73,7 +73,7 @@ def td_targets(bootstrap_value, rewards, done, discount):
     return v_targets
 
 
-def train_a2c(dl, a2c_net, optim, discount=0.95, clip=0.2, batch_size=64, device='cpu', dtype=torch.float):
+def train_a2c(dl, a2c_net, optim, discount=0.95, clip=0.2, batch_size=64, device='cpu', precision=torch.float):
     """
 
     Advantage Actor Critic
@@ -85,16 +85,16 @@ def train_a2c(dl, a2c_net, optim, discount=0.95, clip=0.2, batch_size=64, device
         discount: discount factor, default 0.95
         batch_size: batch size
         device: device to train on
-        dtype: all floats will be cast to dtype
+        precision: all floats will be cast to dtype
 
     """
 
     """ loads 1 batch and runs a single training step """
     for s, a, s_p, r, d in dl:
-        state = s.type(dtype).to(device)
-        action = a.type(dtype).to(device).squeeze()
-        state_p = s_p.type(dtype).to(device)
-        r = r.type(dtype).to(device).unsqueeze(1)
+        state = s.type(precision).to(device)
+        action = a.type(precision).to(device).squeeze()
+        state_p = s_p.type(precision).to(device)
+        r = r.type(precision).to(device).unsqueeze(1)
         d = d.to(device).unsqueeze(1)
 
         optim.zero_grad()

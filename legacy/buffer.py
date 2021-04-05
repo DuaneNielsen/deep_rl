@@ -1,7 +1,7 @@
 from collections import namedtuple
+import gym
 import pickle
-import time
-from statistics import mean
+
 
 """
 buffer.py
@@ -34,11 +34,105 @@ Just wrap your environment to get a replay buffer.
 """
 
 
-FullTransition = namedtuple('FullTransition', ['s', 'a', 's_p', 'r', 'd', 'i'])
+class Enricher:
+    """
+    Base class used to enrich data collected during run
+    will be called after buffer operations are complete
+    multiple enrichers will be called in order they were attached
+    """
+
+    def reset(self, buffer, state):
+        """ Reset will be called when environment is reset
+
+        Args:
+            buffer: replay buffer
+            state: the state returned by the environment
+        """
+        pass
+
+    def step(self, buffer, action, state, reward, done, info):
+        """
+        step will be called when the environment step function is run
+
+        Args:
+            buffer: the replay buffer
+            action: action taken
+            state: resultant state after taking action
+            reward: resultant reward
+            done: true if this is last step in trajectory
+            info: info dict returned by environment store output in info if enriching the step output\
+            recording trajectory information can be stored in buffer.trajectory_info
+        """
+        pass
 
 
-class ReplayBuffer:
+class Returns(Enricher):
+    """
+    An enricher that calculates total returns
+
+    Args:
+        key: key to use to add the returns, default is 'g'
+
+    use the key value to retrieve the returns from ReplayBufferDataset
+
+    .. code-block :: python
+
+        buffer.enrich(Returns(key='returns'))
+        ds = ReplayBufferDataset(buffer, info_keys='returns')
+
+        s, a, s_p, r, d, R = next(ds)
+
+    """
+    def __init__(self, key='g'):
+        self.key = key
+
+    def step(self, buffer, action, state, reward, done, info):
+        """ computes return """
+        if done:
+            # terminal state returns are always 0
+            g = 0
+            for s, a, s_p, r, d, i in TrajectoryTransitionsReverse(buffer, buffer.trajectories[-1]):
+                g += r
+                i[self.key] = g
+
+
+class DiscountedReturns(Enricher):
+    """
+    Enriches the transitions with discounted returns
+    Returns are added to the info field
+    for transition (s, i, a, s_p, r, d, i_p), return = transition.i['g']
+    """
+
+    def __init__(self, key='g', discount=0.95):
+        self.key = key
+        self.discount = discount
+
+    def step(self, buffer, action, state, reward, done, info):
+        """ computes discounted return """
+        if done:
+            # terminal state returns are always 0
+            g = 0.0
+            # get the last trajectory and reverse iterate over transitions
+            for s, a, s_p, r, d, i in TrajectoryTransitionsReverse(buffer, buffer.trajectories[-1]):
+                g = r + g * self.discount
+                i[self.key] = g
+
+
+class DummyEnv(gym.Env):
     def __init__(self):
+        super().__init__()
+        self.observation_space = gym.spaces.Box(low=-1.0, high=2.0, shape=(1,), dtype=float)
+        self.action_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(1,), dtype=float)
+
+    def reset(self):
+        pass
+
+    def step(self, action):
+        pass
+
+
+class ReplayBuffer(gym.Wrapper):
+    def __init__(self, env=None):
         """
         Replay buffer
 
@@ -56,16 +150,32 @@ class ReplayBuffer:
                             return:  The return (total reward) for the trajectory
                             len:  The length of the trajectory
         """
+        env = DummyEnv() if env is None else env
+        super().__init__(env)
         self.buffer = []
         self.trajectories = []
         self.trajectory_info = []
         self.transitions = []
         self.traj_start = 0
         self._enrich = []
-        self.new_trajectory_starting = True
         self.eps_reward = 0
         self.eps_len = 0
         self.record = True
+
+    def enrich(self, enricher):
+        """
+        Append an enricher to enrich the data collected by the buffer
+        Args:
+            enricher: object that implements buffer.Enricher
+
+        For example, to enrich the buffer with discounted returns...
+
+        .. code-block:: python
+
+            buffer.enrich(buffer.DiscountedReturns(discount=0.9))
+
+        """
+        self._enrich.append(enricher)
 
     def clear(self):
         """ clears the buffer """
@@ -83,43 +193,49 @@ class ReplayBuffer:
         """
         return self.traj_start == len(self.buffer)
 
-    def append(self, s, a, s_p, r, d, i):
-        if self.new_trajectory_starting:  # first transition of trajectory
-            self.new_trajectory_starting = False
+    def reset(self):
+        """  Wraps the gym reset method """
+        state = self.env.reset()
+
+        if self.record:
+            self.buffer.append((None, state, 0.0, False, {}))
+            self.transitions.append(len(self.buffer) - 1)
             self.eps_reward = 0
             self.eps_len = 0
-            self.buffer.append((None, s, 0.0, False, {}))
-            self.transitions.append(len(self.buffer) - 1)
 
-        self.buffer.append((a, s_p, r, d, i))
-        self.eps_reward += r
-        self.eps_len += 1
+            for enricher in self._enrich:
+                enricher.reset(self, state)
+        return state
 
-        if d:
-            """ terminal state, trajectory is complete """
-            self.trajectories.append((self.traj_start, len(self.buffer)))
-            self.traj_start = len(self.buffer)
-            self.trajectory_info.append({'return': self.eps_reward, 'len': self.eps_len})
-            self.new_trajectory_starting = True
-        else:
-            """ if not terminal, then by definition, this will be a transition """
-            self.transitions.append(len(self.buffer) - 1)
+    def step(self, action):
+        """  Wraps the gym step method """
+        state, reward, done, info = self.env.step(action)
+
+        if self.record:
+            self.buffer.append((action, state, reward, done, info))
+            self.eps_reward += reward
+            self.eps_len += 1
+
+            if done:
+                """ terminal state, trajectory is complete """
+                self.trajectories.append((self.traj_start, len(self.buffer)))
+                self.traj_start = len(self.buffer)
+                self.trajectory_info.append({'return': self.eps_reward, 'len': self.eps_len})
+            else:
+                """ if not terminal, then by definition, this will be a transition """
+                self.transitions.append(len(self.buffer) - 1)
+
+            for enricher in self._enrich:
+                enricher.step(self, action, state, reward, done, info)
+
+        return state, reward, done, info
 
     def __getitem__(self, item):
         item = self.transitions[item]
         _, s, _, _, i = self.buffer[item]
         a, s_p, r, d, i_p = self.buffer[item + 1]
-        return FullTransition(s, a, s_p, r, d, i_p)
-
-    def __len__(self):
-        if len(self.buffer) == 0:
-            return 0
-        _, _, _, done, _ = self.buffer[-1]
-        """ if the final state is not done, then we are still writing """
-        if not done:
-            """ so we can't use the transition at the end yet"""
-            return len(self.transitions) - 1
-        return len(self.transitions)
+        Transition = namedtuple('Transition', ['s', 'a', 's_p', 'r', 'd'])
+        return Transition(s, a, s_p, r, d)
 
     def append_buffer(self, buffer):
         for trajectory in buffer.trajectories:
@@ -136,6 +252,18 @@ class ReplayBuffer:
                 self.eps_len += 1
             self.trajectories.append((self.traj_start, len(self.buffer)))
             self.trajectory_info.append({'return': self.eps_reward, 'len': self.eps_len})
+
+    def __len__(self):
+        if len(self.buffer) == 0:
+            return 0
+        _, _, _, done, _ = self.buffer[-1]
+        """ if the final state is not done, then we are still writing """
+        if not done:
+            """ so we can't use the transition at the end yet"""
+            return len(self.transitions) - 1
+        return len(self.transitions)
+
+
 
 
 class ReplayBufferDataset:
@@ -172,14 +300,15 @@ class ReplayBufferDataset:
             fields += [key]
             transition += [i[key]]
 
-        #Transition = namedtuple('Transition', fields) # local named tuple cannot be picked.
+        Transition = namedtuple('Transition', fields)
 
-        return tuple(transition)
+        return Transition(*transition)
 
     def __len__(self):
         return len(self.buffer)
 
 
+FullTransition = namedtuple('FullTransition', ['s', 'a', 's_p', 'r', 'd', 'i'])
 
 
 class TrajectoryTransitions:
@@ -243,6 +372,18 @@ class TrajectoryTransitionsReverse:
         return self
 
 
+def wrap(env):
+    """
+    convenience method for wrapping a gym environment
+
+    .. code-block:: python
+
+        env, buffer = buffer.wrap(env)
+    """
+    buffer = ReplayBuffer(env)
+    return buffer, buffer
+
+
 def save(buffer, filepath):
     file = open(filepath, mode='wb')
     pickle.dump(buffer, file)
@@ -254,60 +395,3 @@ def load(filepath):
     load_buff = pickle.load(file)
     file.close()
     return load_buff
-
-
-def step_environment(env, policy, render=False, timing=False, **kwargs):
-    """
-    Transition generator, advances a single transition each iteration
-
-    Args:
-        env: gym environment to step
-        policy: policy to use, policy(state) -> action
-        render: calls env render function if True
-        timing: prints timing info to stdout if True
-        kwargs: will be passed to the policy
-    """
-    step_time, render_time, policy_time = [], [], []
-    step_t, start_t, policy_t, render_t = 0, 0, 0, 0
-    steps = 0
-    done = True
-    state = None
-
-    while True:
-
-        if timing:
-            start_t = time.time()
-
-        if done:
-            state, state_info = env.reset(), {}
-            if render:
-                env.render()
-        action = policy(state, **kwargs)
-        if timing:
-            policy_t = time.time()
-
-        state_p, reward, done, info = env.step(action)
-
-        if timing:
-            step_t = time.time()
-
-        if render:
-            env.render()
-
-        if timing:
-            render_t = time.time()
-
-        yield FullTransition(state, action, state_p, reward, done, info)
-
-        state = state_p
-        done = done
-        steps += 1
-
-        if timing:
-            policy_time += [policy_t - start_t]
-            step_time += [step_t - policy_t]
-            render_time += [render_t - step_t]
-
-            if steps % 100 == 0:
-                print(f'policy_time {mean(policy_time)}, step_time {mean(step_time)}, render_time {mean(render_time)}')
-                step_time, render_time, policy_time = [], [], []
