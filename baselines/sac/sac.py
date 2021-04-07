@@ -4,6 +4,7 @@ from torch.utils.data import DataLoader, RandomSampler
 
 import gym
 import env
+import env.wrappers as wrappers
 from gymviz import Plot
 import numpy as np
 
@@ -42,6 +43,8 @@ if __name__ == '__main__':
     """ environment """
     parser.add_argument('--env_name', type=str, default='LunarLanderContinuous-v2')
     parser.add_argument('--env_render', action='store_true', default=False)
+    parser.add_argument('--env_reward_scale', type=float, default=1.0)
+    parser.add_argument('--env_reward_bias', type=float, default=0.0)
 
     """ hyper-parameters """
     parser.add_argument('--optim_lr', type=float, default=1e-4)
@@ -63,6 +66,7 @@ if __name__ == '__main__':
     """ environment """
     def make_env():
         env = gym.make(config.env_name)
+        env = wrappers.RescaleReward(env, config.env_reward_scale, config.env_reward_bias)
         if config.seed is not None:
             env.seed(config.seed)
             env.action_space.seed(config.seed)

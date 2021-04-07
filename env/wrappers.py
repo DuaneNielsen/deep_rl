@@ -625,3 +625,13 @@ class Gradient(gym.Wrapper):
         self.prev = state
 
         return np.concatenate((state, grad), axis=2), reward, done, info
+
+
+class RescaleReward(gym.wrappers.TransformReward):
+    def __init__(self, env, scale, bias):
+        self.scale = scale
+        self.bias = bias
+        super().__init__(env, self.rescale_reward)
+
+    def rescale_reward(self, reward):
+        return reward * self.scale - self.bias
