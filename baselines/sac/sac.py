@@ -33,6 +33,7 @@ if __name__ == '__main__':
     parser.add_argument('--max_steps', type=int, default=100000)
     parser.add_argument('--test_steps', type=int, default=10000)
     parser.add_argument('--test_episodes', type=int, default=16)
+    parser.add_argument('--test_capture', action='store_true', default=False)
 
     """ resume settings """
     parser.add_argument('--demo', action='store_true', default=False)
@@ -174,7 +175,7 @@ if __name__ == '__main__':
 
         """ test """
         if evaluator.evaluate_now(config.test_steps):
-            evaluator.evaluate(test_env, policy, run_dir=config.run_dir,
+            evaluator.evaluate(test_env, policy, run_dir=config.run_dir, capture=config.test_capture,
                                params={'q': q_net, 'q_optim': q_optim, 'policy': policy_net, 'policy_optim': policy_optim})
 
         if step > config.max_steps:
