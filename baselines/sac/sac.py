@@ -44,7 +44,7 @@ if __name__ == '__main__':
     parser.add_argument('--env_render', action='store_true', default=False)
 
     """ hyper-parameters """
-    parser.add_argument('--optim_lr', type=float, default=1e-3)
+    parser.add_argument('--optim_lr', type=float, default=1e-4)
     parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--discount', type=float, default=0.99)
     parser.add_argument('--polyak', type=float, default=0.995)
