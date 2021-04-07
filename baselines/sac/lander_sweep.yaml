@@ -1,0 +1,30 @@
+command:
+- ${env}
+- ${interpreter}
+- ${program}
+- ${args}
+method: bayes
+metric:
+  goal: maximize
+  name: last_mean_return
+parameters:
+  env_name:
+    value: LunarLanderContinuous-v2
+  seed:
+    value: 0
+  max_steps:
+    value: 50000
+  test_steps:
+    value: 10000
+  test_episodes:
+    value: 32
+  batch_size:
+    value: 8
+  hidden_dim:
+    value: 128
+  optim_lr:
+    value: 1e-4
+early_terminate:
+  type: hyperband
+  min_iter: 1
+program: sac.py

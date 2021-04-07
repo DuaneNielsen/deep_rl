@@ -7,14 +7,13 @@ import env
 from gymviz import Plot
 import numpy as np
 
-import buffer as bf
 from algos import sac
 from distributions import ScaledTanhTransformedGaussian
 from config import exists_and_not_none, ArgumentParser, EvalAction
 import wandb
 import wandb_utils
 import checkpoint
-import baselines.helper as helper
+
 
 if __name__ == '__main__':
 
@@ -32,8 +31,8 @@ if __name__ == '__main__':
 
     """ main loop control """
     parser.add_argument('--max_steps', type=int, default=100000)
-    parser.add_argument('--test_steps', type=int, default=30000)
-    parser.add_argument('--test_episodes', type=int, default=10)
+    parser.add_argument('--test_steps', type=int, default=10000)
+    parser.add_argument('--test_episodes', type=int, default=16)
 
     """ resume settings """
     parser.add_argument('--demo', action='store_true', default=False)
@@ -68,17 +67,15 @@ if __name__ == '__main__':
             env.action_space.seed(config.seed)
         return env
 
-
     """ training env with replay buffer """
     train_env = make_env()
-    train_env = wandb_utils.LogRewards(train_env)
     if config.debug:
-        train_env = Plot(train_env, episodes_per_point=5, title=f'Train ppo-a2c-{config.env_name}')
+        train_env = Plot(train_env, episodes_per_point=5, title=f'Train sac-{config.env_name}')
 
     """ test env """
     test_env = make_env()
     if config.debug:
-        test_env = Plot(test_env, episodes_per_point=1, title=f'Test ppo-a2c-{config.env_name}')
+        test_env = Plot(test_env, episodes_per_point=1, title=f'Test sac-{config.env_name}')
 
 
     class SoftMLP(nn.Module):
@@ -152,16 +149,15 @@ if __name__ == '__main__':
             assert ~torch.isnan(a).any()
             return a.numpy()
 
-
     """ demo  """
-    helper.demo(config.demo, env, policy)
+    wandb_utils.demo(config.demo, env, policy)
 
     """ train loop """
-    evaluator = helper.Evaluator()
+    evaluator = wandb_utils.Evaluator()
     buffer = []
     dl = None
 
-    for global_step, (s, a, s_p, r, d, i) in enumerate(bf.step_environment(train_env, policy)):
+    for step, (s, a, s_p, r, d, i) in enumerate(wandb_utils.step_environment(train_env, policy)):
 
         buffer.append((s, a, s_p, r, d))
 
@@ -177,9 +173,9 @@ if __name__ == '__main__':
                   device=config.device, precision=config.precision)
 
         """ test """
-        if evaluator.evaluate_now(global_step, config.test_steps):
-            evaluator.evaluate(test_env, policy, run_dir=config.run_dir, global_step=global_step,
+        if evaluator.evaluate_now(config.test_steps):
+            evaluator.evaluate(test_env, policy, run_dir=config.run_dir,
                                params={'q': q_net, 'q_optim': q_optim, 'policy': policy_net, 'policy_optim': policy_optim})
 
-        if global_step > config.max_steps:
+        if step > config.max_steps:
             break

@@ -311,3 +311,6 @@ def step_environment(env, policy, render=False, timing=False, **kwargs):
             if steps % 100 == 0:
                 print(f'policy_time {mean(policy_time)}, step_time {mean(step_time)}, render_time {mean(render_time)}')
                 step_time, render_time, policy_time = [], [], []
+
+
+
