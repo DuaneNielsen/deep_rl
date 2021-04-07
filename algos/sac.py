@@ -19,7 +19,7 @@ def train(dl, q, policy, q_optim, policy_optim,
         with torch.no_grad():
             a_p_dist = policy(s_p)
             a_p = a_p_dist.rsample()
-            y = r + d * discount * (q(s_p, a_p) - alpha * a_p_dist.log_prob(a_p))
+            y = r + d * discount * (q(s_p, a_p) - alpha * a_p_dist.log_prob(a_p).sum(1, keepdim=True))
 
         ql = mse_loss(q(s, a), y)
 
@@ -29,7 +29,7 @@ def train(dl, q, policy, q_optim, policy_optim,
 
         a_dist = policy(s)
         a_ = a_dist.rsample()
-        pl = - torch.mean(q(s, a_) - alpha * a_dist.log_prob(a_))
+        pl = - torch.mean(q(s, a_) - alpha * a_dist.log_prob(a_).sum(1, keepdim=True))
 
         policy_optim.zero_grad()
         pl.backward()

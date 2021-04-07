@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader, RandomSampler
 import gym
 import env
 from gymviz import Plot
+import numpy as np
 
 import buffer as bf
 from algos import sac
@@ -39,7 +40,7 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--load', type=str, default=None)
 
     """ environment """
-    parser.add_argument('--env_name', type=str, default='CartPoleContinuous-v1')
+    parser.add_argument('--env_name', type=str, default='LunarLanderContinuous-v2')
     parser.add_argument('--env_render', action='store_true', default=False)
 
     """ hyper-parameters """
@@ -60,8 +61,6 @@ if __name__ == '__main__':
     wandb.init(project=f"sac-{config.env_name}", config=config)
 
     """ environment """
-
-
     def make_env():
         env = gym.make(config.env_name)
         if config.seed is not None:
@@ -125,8 +124,8 @@ if __name__ == '__main__':
         actions=test_env.action_space.shape[0],
         hidden_dims=config.hidden_dim).to(config.device)
 
-    assert test_env.action_space.low == test_env.action_space.low[0], "action spaces do not have the same min"
-    assert test_env.action_space.high == test_env.action_space.high[0], "action spaces do not have the same max"
+    assert np.all(test_env.action_space.low == test_env.action_space.low[0]), "action spaces do not have the same min"
+    assert np.all(test_env.action_space.high == test_env.action_space.high[0]), "action spaces do not have the same max"
     assert len(test_env.observation_space.shape) == 1, "only 1-D observation spaces are supported"
 
     policy_net = Policy(
@@ -150,7 +149,7 @@ if __name__ == '__main__':
             state = torch.from_numpy(state).float()
             action = policy_net(state)
             a = action.rsample()
-            assert torch.isnan(a) == False
+            assert ~torch.isnan(a).any()
             return a.numpy()
 
 
@@ -180,7 +179,7 @@ if __name__ == '__main__':
         """ test """
         if evaluator.evaluate_now(global_step, config.test_steps):
             evaluator.evaluate(test_env, policy, run_dir=config.run_dir, global_step=global_step,
-                               params={'q': q_net, 'q_optim': q_optim, 'policy': policy, 'policy_optim': policy_optim})
+                               params={'q': q_net, 'q_optim': q_optim, 'policy': policy_net, 'policy_optim': policy_optim})
 
         if global_step > config.max_steps:
             break
