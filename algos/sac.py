@@ -58,13 +58,13 @@ def train_discrete(dl, q, target_q, policy, q_optim, policy_optim,
 
         ql = mse_loss(q(s)[torch.arange(N), a].unsqueeze(1), y)
 
-        a_dist = policy(s)
-        a_ = a_dist.rsample()
-        pl = - torch.mean(torch.sum(q(s).detach() * a_, dim=1, keepdim=True) - alpha * a_dist.log_prob(a_))
-
         q_optim.zero_grad()
         ql.backward()
         q_optim.step()
+
+        a_dist = policy(s)
+        a_ = a_dist.rsample()
+        pl = - torch.mean(torch.sum(q(s) * a_, dim=1, keepdim=True) - alpha * a_dist.log_prob(a_))
 
         policy_optim.zero_grad()
         pl.backward()

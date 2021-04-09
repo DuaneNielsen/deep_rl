@@ -159,6 +159,16 @@ if __name__ == '__main__':
             assert ~torch.isnan(a).any()
             return a.numpy()
 
+    """ policy to run on test environment """
+    def exploit_policy(state):
+        with torch.no_grad():
+            state = torch.from_numpy(state).float()
+            action = policy_net(state)
+            a = torch.argmax(action.probs)
+            assert ~torch.isnan(a).any()
+            return a.numpy()
+
+
     """ demo  """
     wandb_utils.demo(config.demo, env, policy)
 
@@ -184,7 +194,7 @@ if __name__ == '__main__':
 
         """ test """
         if evaluator.evaluate_now(config.test_steps):
-            evaluator.evaluate(test_env, policy, run_dir=config.run_dir, capture=config.test_capture,
+            evaluator.evaluate(test_env, exploit_policy, run_dir=config.run_dir, capture=config.test_capture,
                                params={'q': q_net, 'q_optim': q_optim, 'policy': policy_net, 'policy_optim': policy_optim})
 
         if step > config.max_steps:
