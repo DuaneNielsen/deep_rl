@@ -20,7 +20,7 @@ parameters:
   seed:
     value: 0
   max_steps:
-    value: 500000
+    value: 150000
   test_steps:
     value: 10000
   test_episodes:
@@ -30,7 +30,9 @@ parameters:
   hidden_dim:
     value: 64
   optim_lr:
-    value: 1e-4
+    distribution: log_uniform
+    max: -5
+    min: -10
 early_terminate:
   type: hyperband
   min_iter: 1

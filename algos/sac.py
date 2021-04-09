@@ -5,7 +5,7 @@ from torch.nn.functional import mse_loss
 # todo add double q network
 
 
-def train(dl, q, policy, q_optim, policy_optim,
+def train(dl, q, target_q, policy, q_optim, policy_optim,
           discount=0.99, polyak=0.095, alpha=0.2,
           device='cpu', precision=torch.float32):
 
@@ -19,7 +19,7 @@ def train(dl, q, policy, q_optim, policy_optim,
         with torch.no_grad():
             a_p_dist = policy(s_p)
             a_p = a_p_dist.rsample()
-            y = r + d * discount * (q(s_p, a_p) - alpha * a_p_dist.log_prob(a_p).sum(1, keepdim=True))
+            y = r + d * discount * (target_q(s_p, a_p) - alpha * a_p_dist.log_prob(a_p).sum(1, keepdim=True))
 
         ql = mse_loss(q(s, a), y)
 
@@ -35,8 +35,7 @@ def train(dl, q, policy, q_optim, policy_optim,
         pl.backward()
         policy_optim.step()
 
-        # todo add target q networks and polyak update
-        # if time_to_update_targets:
-        #     update target networks
+        for q_param, target_q_param in zip(q.parameters(), target_q.parameters()):
+            target_q_param.data.copy_(polyak * q_param.data + (1.0 - polyak) * target_q_param.data)
 
         break

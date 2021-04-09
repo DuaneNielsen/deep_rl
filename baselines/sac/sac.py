@@ -47,7 +47,7 @@ if __name__ == '__main__':
     parser.add_argument('--env_reward_bias', type=float, default=0.0)
 
     """ hyper-parameters """
-    parser.add_argument('--optim_lr', type=float, default=1e-4)
+    parser.add_argument('--optim_lr', type=float, default=1e-3)
     parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--discount', type=float, default=0.99)
     parser.add_argument('--polyak', type=float, default=0.995)
@@ -111,17 +111,34 @@ if __name__ == '__main__':
 
 
     class QNet(nn.Module):
-        def __init__(self, input_dims, hidden_dims, actions):
+        def __init__(self, input_dims, hidden_dims, actions, ensemble=2):
             super().__init__()
-            self.q = nn.Sequential(nn.Linear(input_dims + actions, hidden_dims), nn.SELU(inplace=True),
+            self.q = [nn.Sequential(nn.Linear(input_dims + actions, hidden_dims), nn.SELU(inplace=True),
                                    nn.Linear(hidden_dims, hidden_dims), nn.SELU(inplace=True),
-                                   nn.Linear(hidden_dims, 1))
+                                   nn.Linear(hidden_dims, 1)) for _ in range(ensemble)]
+
+        def parameters(self, recurse=True):
+            params = []
+            for q in self.q:
+                for param in q.parameters():
+                    params.append(param)
+            return params
 
         def forward(self, state, action):
             sa = torch.cat((state, action), dim=1)
-            return self.q(sa)
+            values = []
+            for q in self.q:
+                values += [q(sa)]
+            values = torch.stack(values, dim=-1)
+            min_q, _ = torch.min(values, dim=-1)
+            return min_q
 
     q_net = QNet(
+        input_dims=test_env.observation_space.shape[0],
+        actions=test_env.action_space.shape[0],
+        hidden_dims=config.hidden_dim).to(config.device)
+
+    target_q_net = QNet(
         input_dims=test_env.observation_space.shape[0],
         actions=test_env.action_space.shape[0],
         hidden_dims=config.hidden_dim).to(config.device)
@@ -173,7 +190,7 @@ if __name__ == '__main__':
             continue
 
         """ train online after batch steps saved"""
-        sac.train(dl, q_net, policy_net, q_optim, policy_optim,
+        sac.train(dl, q_net, target_q_net, policy_net, q_optim, policy_optim,
                   discount=config.discount, polyak=config.polyak, alpha=config.alpha,
                   device=config.device, precision=config.precision)
 
