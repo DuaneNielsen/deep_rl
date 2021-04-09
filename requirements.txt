@@ -1,0 +1,7 @@
+gym
+box2D-py
+torch
+wandb
+matplotlib
+pybullet
+-e git+https://github.com/benelot/pybullet-gym#egg=pybulletgym

@@ -7,6 +7,7 @@ import env
 import env.wrappers as wrappers
 from gymviz import Plot
 import numpy as np
+import pybulletgym
 
 from algos import sac
 from distributions import ScaledTanhTransformedGaussian
