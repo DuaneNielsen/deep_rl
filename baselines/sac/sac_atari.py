@@ -219,7 +219,6 @@ if __name__ == '__main__':
             state = torch.from_numpy(state).unsqueeze(0).to(config.device)
             logits = policy_net(state)
             assert ~torch.isnan(logits).any()
-            print(torch.exp(logits))
             a = Categorical(logits=logits).sample()
             return a.item()
 
