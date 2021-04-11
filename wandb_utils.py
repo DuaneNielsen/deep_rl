@@ -164,6 +164,9 @@ def episode(env, policy, render=False, delay=0.01, capture=False):
     length = 0
     vid_buffer = []
 
+    if render:
+        env.render()
+
     with torch.no_grad():
         state, reward, done, info = env.reset(), 0.0, False, {}
         action = policy(state)
@@ -263,6 +266,7 @@ class Evaluator:
         stdev_return = stdev(returns)
         wandb.run.summary["last_mean_return"] = mean_return
         wandb.run.summary["last_stdev_return"] = stdev_return
+        global_step += 2
 
         # checkpoint policy if mean return is better
         if mean_return > self.best_mean_return:
