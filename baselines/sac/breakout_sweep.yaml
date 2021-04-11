@@ -1,0 +1,36 @@
+command:
+- ${env}
+- ${interpreter}
+- ${program}
+- --silent
+- ${args}
+method: bayes
+metric:
+  goal: maximize
+  name: last_mean_return
+parameters:
+  env_name:
+    value: BreakoutDeterministic-v4
+  env_reward_scale:
+    value: 1.0
+  env_reward_bias:
+    value: 0.0
+  env_timelimit:
+    value: 3000
+  alpha:
+    value: 0.2
+  seed:
+    value: 0
+  max_steps:
+    value: 400000
+  test_steps:
+    value: 20000
+  test_samples:
+    value: 16
+  batch_size:
+    value: 32
+  hidden_dim:
+    value: 512
+  optim_lr:
+    value: 1e-4
+program: sac_atari.py
