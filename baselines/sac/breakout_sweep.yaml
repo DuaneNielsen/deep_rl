@@ -2,7 +2,6 @@ command:
 - ${env}
 - ${interpreter}
 - ${program}
-- --silent
 - ${args}
 method: bayes
 metric:
