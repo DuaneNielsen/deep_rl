@@ -15,6 +15,7 @@ import wandb_utils
 import checkpoint
 from gym.wrappers.transform_reward import TransformReward
 import capture
+import os
 
 
 def rescale_reward(reward):
@@ -66,6 +67,9 @@ if __name__ == '__main__':
     """ random seed """
     if config.seed is not None:
         torch.manual_seed(config.seed)
+
+    if 'DEVICE' in os.environ:
+        config.device = os.environ['DEVICE']
 
     wandb.init(project=f"sac-{config.env_name}", config=config)
 
