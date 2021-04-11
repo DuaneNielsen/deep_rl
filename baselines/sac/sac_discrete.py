@@ -100,9 +100,7 @@ if __name__ == '__main__':
             self.mlp = MLP(input_dims, hidden_dims, actions)
 
         def forward(self, state):
-            logits = self.mlp(state)
-            return RelaxedOneHotCategorical(logits=logits, temperature=torch.ones(1) * 1.0)
-
+            return torch.log_softmax(self.mlp(state), dim=-1)
 
     class QNet(nn.Module):
         def __init__(self, input_dims, hidden_dims, actions, ensemble=2):
@@ -154,19 +152,19 @@ if __name__ == '__main__':
     def policy(state):
         with torch.no_grad():
             state = torch.from_numpy(state).float()
-            action = policy_net(state)
-            a = torch.argmax(action.rsample())
+            action = torch.exp(policy_net(state))
+            a = torch.distributions.Categorical(probs=action).sample()
             assert ~torch.isnan(a).any()
-            return a.numpy()
+            return a.item()
 
     """ policy to run on test environment """
     def exploit_policy(state):
         with torch.no_grad():
             state = torch.from_numpy(state).float()
-            action = policy_net(state)
-            a = torch.argmax(action.probs)
+            action = torch.exp(policy_net(state))
+            a = torch.argmax(action)
             assert ~torch.isnan(a).any()
-            return a.numpy()
+            return a.item()
 
 
     """ demo  """
