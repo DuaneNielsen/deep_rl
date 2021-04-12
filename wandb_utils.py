@@ -16,6 +16,7 @@ class LogRewards(gym.Wrapper):
     Args:
         prefix: prefix to prepend to the metric names
     """
+
     def __init__(self, env, prefix=None):
         super().__init__(env)
         self.prev_reward = 0
@@ -28,7 +29,7 @@ class LogRewards(gym.Wrapper):
     def reset(self):
         """ wraps the env reset method """
         self.prev_reward = self.reward
-        self.prev_len= self.len
+        self.prev_len = self.len
         self.reward = 0
         self.len = 0
         return self.env.reset()
@@ -211,6 +212,7 @@ class Evaluator:
         seed: random seed
         plot: plot the episode returns if True
     """
+
     def __init__(self):
         self.best_mean_return = -999999999.0
         self.test_number = 0
@@ -264,20 +266,22 @@ class Evaluator:
 
         mean_return = mean(returns)
         stdev_return = stdev(returns)
-        wandb.run.summary["last_mean_return"] = mean_return
-        wandb.run.summary["last_stdev_return"] = stdev_return
-        global_step += 2
+        wandb.run.summary.update({"last_mean_return": mean_return,
+                                  "last_stdev_return": stdev_return})
+        global_step += 1
 
         # checkpoint policy if mean return is better
         if mean_return > self.best_mean_return:
             self.best_mean_return = mean_return
-            wandb.run.summary["best_mean_return"] = self.best_mean_return
-            wandb.run.summary["best_stdev_return"] = stdev_return
+            wandb.run.summary.update({"best_mean_return": self.best_mean_return,
+                                      "best_stdev_return": stdev_return})
+            global_step += 1
             checkpoint.save(run_dir, 'best', **params)
 
         if capture:
             write_mp4(f'{run_dir}/test_run_{self.test_number}.mp4', vidstream)
-            wandb.log({"video": wandb.Video(f'{run_dir}/test_run_{self.test_number}.mp4', fps=4, format="gif")})
+            wandb.log({"video": wandb.Video(f'{run_dir}/test_run_{self.test_number}.mp4', fps=4, format="gif")},
+                      step=global_step)
 
         end_t = time.time()
         total_t = end_t - start_t
@@ -289,4 +293,3 @@ class Evaluator:
         self.test_number += 1
 
         return mean_return, stdev_return
-

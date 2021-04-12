@@ -9,6 +9,7 @@ from gymviz import Plot
 
 from algos import sac
 from torch.distributions import Categorical
+from torch.optim.lr_scheduler import LambdaLR
 from config import exists_and_not_none, ArgumentParser, EvalAction
 import wandb
 import wandb_utils
@@ -16,6 +17,8 @@ import checkpoint
 from gym.wrappers.transform_reward import TransformReward
 import capture
 import os
+import warnings
+warnings.filterwarnings("ignore", message="Setting attributes on ParameterList is not supported.")
 
 
 def rescale_reward(reward):
@@ -38,6 +41,7 @@ if __name__ == '__main__':
 
     """ main loop control """
     parser.add_argument('--max_steps', type=int, default=150000)
+    parser.add_argument('--warmup', type=int, default=0)
     parser.add_argument('--test_steps', type=int, default=5000)
     parser.add_argument('--test_samples', type=int, default=5)
     parser.add_argument('--test_capture', action='store_true', default=True)
@@ -55,12 +59,12 @@ if __name__ == '__main__':
     parser.add_argument('--env_timelimit', type=int, default=3000)
 
     """ hyper-parameters """
-    parser.add_argument('--optim_lr', type=float, default=2e-4)
-    parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--optim_lr', type=float, default=2e-5)
+    parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--discount', type=float, default=0.99)
     parser.add_argument('--polyak', type=float, default=0.005)
     parser.add_argument('--alpha', type=float, default=0.2)
-    parser.add_argument('--hidden_dim', type=int, default=64)
+    parser.add_argument('--hidden_dim', type=int, default=512)
 
     config = parser.parse_args()
 
@@ -111,47 +115,71 @@ if __name__ == '__main__':
         def __init__(self, feature_size=512):
             super().__init__()
             self.conv1 = nn.Sequential(
-                nn.Conv2d(2, 16, kernel_size=3, stride=1, padding=1),
+                nn.Conv2d(2, 16, kernel_size=3, stride=1, padding=1, bias=False),
                 nn.SELU(inplace=True),
                 nn.MaxPool2d(kernel_size=2, stride=2))
             self.conv2 = nn.Sequential(
-                nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1),
+                nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1, bias=False),
                 nn.SELU(inplace=True),
                 nn.MaxPool2d(kernel_size=2, stride=2))
+            self.conv2[0].weight.data.mul_(2 ** -0.5)
             self.conv3 = nn.Sequential(
-                nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
+                nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1, bias=False),
                 nn.SELU(inplace=True),
                 nn.MaxPool2d(kernel_size=2, stride=2))
+            self.conv3[0].weight.data.mul_(3 ** -0.5)
             self.conv4 = nn.Sequential(
-                nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
+                nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1, bias=False),
                 nn.SELU(inplace=True),
                 nn.MaxPool2d(kernel_size=2, stride=2))
+            self.conv4[0].weight.data.mul_(4 ** -0.5)
             self.conv5 = nn.Sequential(
-                nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1),
+                nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1, bias=False),
                 nn.SELU(inplace=True),
                 nn.MaxPool2d(kernel_size=2, stride=2))
+            self.conv5[0].weight.data.mul_(5 ** -0.5)
             self.conv6 = nn.Sequential(
-                nn.Conv2d(256, feature_size, kernel_size=3, stride=1, padding=1),
+                nn.Conv2d(256, feature_size, kernel_size=3, stride=1, padding=1, bias=False),
                 nn.SELU(inplace=True),
                 nn.MaxPool2d(kernel_size=2, stride=2))
+            self.conv6[0].weight.data.mul_(6 ** -0.5)
+
+            self.bias = nn.ParameterList([nn.Parameter(torch.zeros(1)) for _ in range(5)])
 
         def forward(self, state):
             l1 = self.conv1(state.permute(0, 3, 1, 2))
-            l2 = self.conv2(l1)
-            l3 = self.conv3(l2)
-            l4 = self.conv4(l3)
-            l5 = self.conv5(l4)
-            l6 = self.conv6(l5)
+            l2 = self.conv2(l1) + self.bias[0]
+            l3 = self.conv3(l2) + self.bias[1]
+            l4 = self.conv4(l3) + self.bias[2]
+            l5 = self.conv5(l4) + self.bias[3]
+            l6 = self.conv6(l5) + self.bias[4]
             return l6.flatten(start_dim=1)
+
+    class MLP(nn.Module):
+        def __init__(self, feature_size, hidden_dims, actions):
+            super().__init__()
+            self.l1 = nn.Sequential(nn.Linear(feature_size, hidden_dims), nn.SELU(inplace=True))
+            self.l2 = nn.Sequential(nn.Linear(hidden_dims, hidden_dims), nn.SELU(inplace=True))
+            self.l3 = nn.Linear(hidden_dims, actions, bias=False)
+            self.l1[0].weight.data.mul_(7 ** -0.5)
+            self.l1[0].bias.data.mul_(7 ** -0.5)
+            self.l2[0].weight.data.mul_(8 ** -0.5)
+            self.l2[0].bias.data.mul_(8 ** -0.5)
+            self.l3.weight.data.zero_()
+            self.gain = nn.Parameter(torch.ones(1))
+            self.bias = nn.ParameterList([nn.Parameter(torch.zeros(1)) for _ in range(3)])
+
+        def forward(self, features):
+            hidden = self.l1(features) + self.bias[0]
+            hidden = self.l2(hidden) + self.bias[1]
+            return self.l3(hidden) * self.gain + self.bias[2]
 
     class Q(nn.Module):
         def __init__(self, feature_size, hidden_dims, actions):
             super().__init__()
             self.q = nn.Sequential(
                 AtariVision(feature_size),
-                nn.Linear(feature_size, hidden_dims), nn.SELU(inplace=True),
-                nn.Linear(hidden_dims, hidden_dims), nn.SELU(inplace=True),
-                nn.Linear(hidden_dims, actions))
+                MLP(feature_size=feature_size, hidden_dims=hidden_dims, actions=actions))
 
         def forward(self, state):
             return self.q(state)
@@ -162,12 +190,10 @@ if __name__ == '__main__':
             self.actions = actions
             self.policy = nn.Sequential(
                 AtariVision(feature_size),
-                nn.Linear(feature_size, hidden_dims), nn.SELU(inplace=True),
-                nn.Linear(hidden_dims, hidden_dims), nn.SELU(inplace=True),
-                nn.Linear(hidden_dims, actions))
+                MLP(feature_size=feature_size, hidden_dims=hidden_dims, actions=actions))
 
         def forward(self, state):
-            return torch.log_softmax(self.policy(state), dim=-1)
+            return torch.softmax(self.policy(state), dim=-1)
 
     class QNet(nn.Module):
         def __init__(self, hidden_dims, actions, ensemble=2):
@@ -212,6 +238,10 @@ if __name__ == '__main__':
 
     q_optim = torch.optim.Adam(q_net.parameters(), lr=config.optim_lr)
     policy_optim = torch.optim.Adam(policy_net.parameters(), lr=config.optim_lr)
+    wandb.watch(policy_net)
+    wandb.watch(q_net)
+    #q_scheduler = LambdaLR(q_optim, lambda step: 0.01 if step < config.warmup else 1.0)
+    #policy_scheduler = LambdaLR(policy_optim, lambda step: 0.01 if step < config.warmup else 1.0)
 
     """ load weights from file if required"""
     if exists_and_not_none(config, 'load'):
@@ -221,19 +251,22 @@ if __name__ == '__main__':
     def policy(state):
         with torch.no_grad():
             state = torch.from_numpy(state).unsqueeze(0).to(config.device)
-            logits = policy_net(state)
-            assert ~torch.isnan(logits).any()
-            a = Categorical(logits=logits).sample()
-            return a.item()
+            probs = policy_net(state)
+            assert ~torch.isnan(probs).any()
+            a_dist = Categorical(probs=probs)
+            wandb.log({'entropy': a_dist.entropy().item()}, step=wandb_utils.global_step)
+            value = q_net(state)
+            loss = probs * (config.alpha * torch.log(probs) - value)
+            #print(probs, a_dist.entropy().item(), loss, value)
+            return a_dist.sample().item()
 
     """ policy to run on test environment """
     def exploit_policy(state):
         with torch.no_grad():
             state = torch.from_numpy(state).unsqueeze(0).to(config.device)
-            logits = policy_net(state)
-            assert ~torch.isnan(logits).any()
-            action_probs = torch.exp(logits)
-            a = torch.argmax(action_probs)
+            dist = policy_net(state)
+            assert ~torch.isnan(dist).any()
+            a = torch.argmax(dist)
             return a.item()
 
 
@@ -252,13 +285,15 @@ if __name__ == '__main__':
         if dl is None:
             dl = DataLoader(buffer, batch_size=config.batch_size, sampler=RandomSampler(buffer, replacement=True))
 
-        if len(buffer) < config.batch_size:
+        if len(buffer) < config.batch_size or len(buffer) < config.warmup:
             continue
 
         """ train online after batch steps saved"""
         sac.train_discrete(dl, q_net, target_q_net, policy_net, q_optim, policy_optim,
                   discount=config.discount, polyak=config.polyak, alpha=config.alpha,
                   device=config.device, precision=config.precision)
+        #q_scheduler.step()
+        #policy_scheduler.step()
 
         """ test """
         if evaluator.evaluate_now(config.test_steps):

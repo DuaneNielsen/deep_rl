@@ -25,9 +25,9 @@ from statistics import mean
 import os
 import random
 
+
 def rescale_reward(reward):
     return reward * config.env_reward_scale - config.env_reward_bias
-
 
 
 if __name__ == '__main__':

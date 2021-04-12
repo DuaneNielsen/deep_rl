@@ -16,20 +16,22 @@ parameters:
     value: 0.0
   env_timelimit:
     value: 3000
+  warmup:
+    value: 400
   alpha:
     value: 0.2
   seed:
     value: 0
   max_steps:
-    value: 400000
+    value: 100000
   test_steps:
     value: 20000
   test_samples:
     value: 16
   batch_size:
-    value: 32
+    value: 8
   hidden_dim:
     value: 512
   optim_lr:
-    value: 1e-4
+    value: 2e-5
 program: sac_atari.py
