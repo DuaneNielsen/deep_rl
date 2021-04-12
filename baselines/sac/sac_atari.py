@@ -66,6 +66,7 @@ if __name__ == '__main__':
     parser.add_argument('--polyak', type=float, default=0.005)
     parser.add_argument('--alpha', type=float, default=0.2)
     parser.add_argument('--hidden_dim', type=int, default=512)
+    parser.add_argument('--replay_len', type=int, default=40000)
 
     config = parser.parse_args()
 
@@ -256,8 +257,8 @@ if __name__ == '__main__':
             assert ~torch.isnan(probs).any()
             a_dist = Categorical(probs=probs)
             wandb.log({'entropy': a_dist.entropy().item()}, step=wandb_utils.global_step)
-            value = q_net(state)
-            loss = probs * (config.alpha * torch.log(probs) - value)
+            #value = q_net(state)
+            #loss = probs * (config.alpha * torch.log(probs) - value)
             #print(probs, a_dist.entropy().item(), loss, value)
             return a_dist.sample().item()
 
@@ -276,7 +277,7 @@ if __name__ == '__main__':
 
     """ train loop """
     evaluator = wandb_utils.Evaluator()
-    buffer = deque(maxlen=40000)
+    buffer = deque(maxlen=config.replay_len)
     dl = None
 
     for step, (s, a, s_p, r, d, i) in enumerate(wandb_utils.step_environment(train_env, policy, render=config.env_render)):
