@@ -18,6 +18,7 @@ from gym.wrappers.transform_reward import TransformReward
 import capture
 import os
 import warnings
+from collections import deque
 warnings.filterwarnings("ignore", message="Setting attributes on ParameterList is not supported.")
 
 
@@ -275,7 +276,7 @@ if __name__ == '__main__':
 
     """ train loop """
     evaluator = wandb_utils.Evaluator()
-    buffer = []
+    buffer = deque(maxlen=40000)
     dl = None
 
     for step, (s, a, s_p, r, d, i) in enumerate(wandb_utils.step_environment(train_env, policy, render=config.env_render)):
