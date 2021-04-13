@@ -130,9 +130,7 @@ if __name__ == '__main__':
             values = []
             for q in self.q:
                 values += [q(sa)]
-            values = torch.stack(values, dim=-1)
-            min_q, _ = torch.min(values, dim=-1)
-            return min_q
+            return torch.stack(values, dim=-1)
 
     q_net = QNet(
         input_dims=test_env.observation_space.shape[0],

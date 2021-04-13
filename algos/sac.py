@@ -7,16 +7,17 @@ def train(dl, q, target_q, policy, q_optim, policy_optim,
           device='cpu', precision=torch.float32):
 
     for s, a, s_p, r, d in dl:
+        N = s.shape[0]
         s = s.type(precision).to(device)
         a = a.to(device)
         s_p = s_p.type(precision).to(device)
-        r = r.type(precision).to(device).unsqueeze(1)
-        d = (1.0 * ~d.to(device)).unsqueeze(1)
+        r = r.type(precision).to(device).reshape(N, 1, 1)
+        d = (1.0 * ~d.to(device)).reshape(N, 1, 1)
 
         with torch.no_grad():
             a_p_dist = policy(s_p)
             a_p = a_p_dist.rsample()
-            y = r + d * discount * (target_q(s_p, a_p) - alpha * a_p_dist.log_prob(a_p).sum(1, keepdim=True))
+            y = r + d * discount * (target_q(s_p, a_p) - alpha * a_p_dist.log_prob(a_p).sum(1, keepdim=True).unsqueeze(2))
 
         ql = mse_loss(q(s, a), y)
 
@@ -26,7 +27,8 @@ def train(dl, q, target_q, policy, q_optim, policy_optim,
 
         a_dist = policy(s)
         a_ = a_dist.rsample()
-        pl = - torch.mean(q(s, a_) - alpha * a_dist.log_prob(a_).sum(1, keepdim=True))
+        min_q, _ = torch.min(q(s, a_), dim=2)
+        pl = - torch.mean(min_q - alpha * a_dist.log_prob(a_).sum(1, keepdim=True))
 
         policy_optim.zero_grad()
         pl.backward()
