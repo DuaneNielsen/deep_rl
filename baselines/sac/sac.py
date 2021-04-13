@@ -52,6 +52,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--discount', type=float, default=0.99)
     parser.add_argument('--polyak', type=float, default=0.005)
+    parser.add_argument('--q_update_ratio', type=int, default=2)
     parser.add_argument('--alpha', type=float, default=0.2)
     parser.add_argument('--hidden_dim', type=int, default=16)
     parser.add_argument('--min_variance', type=float, default=0.01)
@@ -195,13 +196,13 @@ if __name__ == '__main__':
         if dl is None:
             dl = DataLoader(buffer, batch_size=config.batch_size, sampler=RandomSampler(buffer, replacement=True))
 
-        if len(buffer) < config.batch_size:
+        if len(buffer) < config.batch_size * config.q_update_ratio:
             continue
 
         """ train online after batch steps saved"""
         sac.train(dl, q_net, target_q_net, policy_net, q_optim, policy_optim,
-                  discount=config.discount, polyak=config.polyak, alpha=config.alpha,
-                  device=config.device, precision=config.precision)
+                  discount=config.discount, polyak=config.polyak, q_update_ratio=config.q_update_ratio,
+                  alpha=config.alpha, device=config.device, precision=config.precision)
 
         """ test """
         if evaluator.evaluate_now(config.test_steps):

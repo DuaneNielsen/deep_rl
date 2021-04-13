@@ -3,8 +3,10 @@ from torch.nn.functional import mse_loss
 
 
 def train(dl, q, target_q, policy, q_optim, policy_optim,
-          discount=0.99, polyak=0.095, alpha=0.2,
+          discount=0.99, polyak=0.095, q_update_ratio=2, alpha=0.2,
           device='cpu', precision=torch.float32):
+
+    q_update = 1
 
     for s, a, s_p, r, d in dl:
         N = s.shape[0]
@@ -24,6 +26,10 @@ def train(dl, q, target_q, policy, q_optim, policy_optim,
         q_optim.zero_grad()
         ql.backward()
         q_optim.step()
+
+        if q_update % q_update_ratio > 0:
+            q_update += 1
+            continue
 
         a_dist = policy(s)
         a_ = a_dist.rsample()
