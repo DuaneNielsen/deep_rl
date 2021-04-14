@@ -35,6 +35,7 @@ if __name__ == '__main__':
     parser.add_argument('--comment', type=str)
     parser.add_argument('--debug', action='store_true', default=False)
     parser.add_argument('--precision', type=str, action=EvalAction, default=torch.float32)
+    parser.add_argument('--worker_threads', type=int, default=2)
 
     """ reproducibility """
     parser.add_argument('--seed', type=int, default=None)
@@ -68,6 +69,7 @@ if __name__ == '__main__':
     parser.add_argument('--replay_len', type=int, default=1000000)
     parser.add_argument('--q_update_ratio', type=int, default=2)
 
+
     config = parser.parse_args()
 
     """ random seed """
@@ -77,11 +79,12 @@ if __name__ == '__main__':
     if 'DEVICE' in os.environ:
         config.device = os.environ['DEVICE']
 
+    if config.debug:
+        config.worker_threads=0
+
     wandb.init(project=f"sac-{config.env_name}", config=config)
 
     """ environment """
-
-
     def make_env():
         env = gym.make(config.env_name)
         env = wrappers.TimeLimit(env.unwrapped, max_episode_steps=config.env_timelimit)
@@ -295,7 +298,8 @@ if __name__ == '__main__':
         ds.append((s, a, s_p, r, d))
 
         if dl is None:
-            dl = DataLoader(ds, batch_size=config.batch_size, sampler=RandomSampler(ds, replacement=True))
+            dl = DataLoader(ds, batch_size=config.batch_size, sampler=RandomSampler(ds, replacement=True),
+                            num_workers=config.worker_threads)
 
         if len(ds) < config.batch_size * config.q_update_ratio or len(ds) < config.warmup:
             continue  # sample at least a couple full batches for the first update
