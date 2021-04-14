@@ -182,7 +182,7 @@ if __name__ == '__main__':
 
 
     """ demo  """
-    wandb_utils.demo(config.demo, env, policy)
+    wandb_utils.demo(config.demo, train_env, policy)
 
     """ train loop """
     evaluator = wandb_utils.Evaluator()
