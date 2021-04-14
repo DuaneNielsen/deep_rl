@@ -9,7 +9,6 @@ from gymviz import Plot
 
 from algos import sac
 from torch.distributions import Categorical
-from torch.optim.lr_scheduler import LambdaLR
 from config import exists_and_not_none, ArgumentParser, EvalAction
 import wandb
 import wandb_utils
@@ -18,7 +17,7 @@ from gym.wrappers.transform_reward import TransformReward
 import capture
 import os
 import warnings
-from collections import deque
+
 warnings.filterwarnings("ignore", message="Setting attributes on ParameterList is not supported.")
 
 
@@ -66,7 +65,8 @@ if __name__ == '__main__':
     parser.add_argument('--polyak', type=float, default=0.005)
     parser.add_argument('--alpha', type=float, default=0.2)
     parser.add_argument('--hidden_dim', type=int, default=512)
-    parser.add_argument('--replay_len', type=int, default=40000)
+    parser.add_argument('--replay_len', type=int, default=1000000)
+    parser.add_argument('--q_update_ratio', type=int, default=2)
 
     config = parser.parse_args()
 
@@ -80,6 +80,8 @@ if __name__ == '__main__':
     wandb.init(project=f"sac-{config.env_name}", config=config)
 
     """ environment """
+
+
     def make_env():
         env = gym.make(config.env_name)
         env = wrappers.TimeLimit(env.unwrapped, max_episode_steps=config.env_timelimit)
@@ -101,6 +103,7 @@ if __name__ == '__main__':
             env.seed(config.seed)
             env.action_space.seed(config.seed)
         return env
+
 
     """ training env with replay buffer """
     train_env = make_env()
@@ -157,6 +160,7 @@ if __name__ == '__main__':
             l6 = self.conv6(l5) + self.bias[4]
             return l6.flatten(start_dim=1)
 
+
     class MLP(nn.Module):
         def __init__(self, feature_size, hidden_dims, actions):
             super().__init__()
@@ -176,6 +180,7 @@ if __name__ == '__main__':
             hidden = self.l2(hidden) + self.bias[1]
             return self.l3(hidden) * self.gain + self.bias[2]
 
+
     class Q(nn.Module):
         def __init__(self, feature_size, hidden_dims, actions):
             super().__init__()
@@ -185,6 +190,7 @@ if __name__ == '__main__':
 
         def forward(self, state):
             return self.q(state)
+
 
     class Policy(nn.Module):
         def __init__(self, feature_size, hidden_dims, actions):
@@ -196,6 +202,7 @@ if __name__ == '__main__':
 
         def forward(self, state):
             return torch.softmax(self.policy(state), dim=-1)
+
 
     class QNet(nn.Module):
         def __init__(self, hidden_dims, actions, ensemble=2):
@@ -221,6 +228,7 @@ if __name__ == '__main__':
             min_q, _ = torch.min(values, dim=-1)
             return min_q
 
+
     assert isinstance(test_env.action_space, gym.spaces.Discrete), "action spaces is not discrete"
     assert len(test_env.observation_space.shape) == 3, "only image observation spaces are supported"
 
@@ -242,14 +250,15 @@ if __name__ == '__main__':
     policy_optim = torch.optim.Adam(policy_net.parameters(), lr=config.optim_lr)
     wandb.watch(policy_net)
     wandb.watch(q_net)
-    #q_scheduler = LambdaLR(q_optim, lambda step: 0.01 if step < config.warmup else 1.0)
-    #policy_scheduler = LambdaLR(policy_optim, lambda step: 0.01 if step < config.warmup else 1.0)
 
     """ load weights from file if required"""
     if exists_and_not_none(config, 'load'):
-        checkpoint.load(config.load, prefix='best', q=q_net, q_optim=q_optim, policy=policy_net, policy_optim=policy_optim)
+        checkpoint.load(config.load, prefix='best', q=q_net, q_optim=q_optim, policy=policy_net,
+                        policy_optim=policy_optim)
 
     """ policy to run on environment """
+
+
     def policy(state):
         with torch.no_grad():
             state = torch.from_numpy(state).unsqueeze(0).to(config.device)
@@ -257,12 +266,12 @@ if __name__ == '__main__':
             assert ~torch.isnan(probs).any()
             a_dist = Categorical(probs=probs)
             wandb.log({'entropy': a_dist.entropy().item()}, step=wandb_utils.global_step)
-            #value = q_net(state)
-            #loss = probs * (config.alpha * torch.log(probs) - value)
-            #print(probs, a_dist.entropy().item(), loss, value)
             return a_dist.sample().item()
 
+
     """ policy to run on test environment """
+
+
     def exploit_policy(state):
         with torch.no_grad():
             state = torch.from_numpy(state).unsqueeze(0).to(config.device)
@@ -277,30 +286,28 @@ if __name__ == '__main__':
 
     """ train loop """
     evaluator = wandb_utils.Evaluator()
-    buffer = deque(maxlen=config.replay_len)
+    ds = wandb_utils.StateBufferDataset(maxlen=config.replay_len, statebuffer=wandb_utils.ZCompressedBuffer())
     dl = None
 
-    for step, (s, a, s_p, r, d, i) in enumerate(wandb_utils.step_environment(train_env, policy, render=config.env_render)):
+    for step, (s, a, s_p, r, d, i) in enumerate(
+            wandb_utils.step_environment(train_env, policy, ds, render=config.env_render)):
 
-        buffer.append((s, a, s_p, r, d))
+        ds.append((s, a, s_p, r, d))
 
         if dl is None:
-            dl = DataLoader(buffer, batch_size=config.batch_size, sampler=RandomSampler(buffer, replacement=True))
+            dl = DataLoader(ds, batch_size=config.batch_size, sampler=RandomSampler(ds, replacement=True))
 
-        if len(buffer) < config.batch_size or len(buffer) < config.warmup:
-            continue
+        if len(ds) < config.batch_size * config.q_update_ratio or len(ds) < config.warmup:
+            continue  # sample at least a couple full batches for the first update
 
-        """ train online after batch steps saved"""
         sac.train_discrete(dl, q_net, target_q_net, policy_net, q_optim, policy_optim,
-                  discount=config.discount, polyak=config.polyak, alpha=config.alpha,
-                  device=config.device, precision=config.precision)
-        #q_scheduler.step()
-        #policy_scheduler.step()
+                           discount=config.discount, polyak=config.polyak, q_update_ratio=config.q_update_ratio,
+                           alpha=config.alpha, device=config.device, precision=config.precision)
 
-        """ test """
         if evaluator.evaluate_now(config.test_steps):
             evaluator.evaluate(test_env, exploit_policy, run_dir=config.run_dir, capture=config.test_capture,
-                               params={'q': q_net, 'q_optim': q_optim, 'policy': policy_net, 'policy_optim': policy_optim})
+                               params={'q': q_net, 'q_optim': q_optim, 'policy': policy_net,
+                                       'policy_optim': policy_optim})
 
         if step > config.max_steps:
             break

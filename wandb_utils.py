@@ -1,3 +1,6 @@
+import io
+from collections import deque
+
 import gym
 import wandb
 import torch
@@ -7,6 +10,7 @@ import checkpoint
 from pathlib import Path
 from torchvision.io import write_video
 import numpy as np
+import pickle
 
 
 class LogRewards(gym.Wrapper):
@@ -56,7 +60,7 @@ def nancheck(tensor, error):
 global_step = 0
 
 
-def step_environment(env, policy, render=False, timing=False, **kwargs):
+def step_environment(env, policy, ds, render=False, timing=False, **kwargs):
     """
     Transition generator, advances a single transition each iteration
 
@@ -68,13 +72,16 @@ def step_environment(env, policy, render=False, timing=False, **kwargs):
         kwargs: will be passed to the policy
     """
     global global_step
+    state_buffer = ds.statebuffer
     step_time, render_time, policy_time = [], [], []
     step_t, start_t, policy_t, render_t = 0, 0, 0, 0
     done = True
     state = None
+    state_ref = None
     epi_returns = 0
     epi_len = 0
     global_step = 0
+
 
     while True:
 
@@ -83,6 +90,7 @@ def step_environment(env, policy, render=False, timing=False, **kwargs):
 
         if done:
             state, state_info = env.reset(), {}
+            state_ref = state_buffer.append(state)
             wandb.log({'epi_returns': epi_returns, 'epi_len': epi_len}, step=global_step)
             epi_returns = 0
             epi_len = 0
@@ -95,6 +103,7 @@ def step_environment(env, policy, render=False, timing=False, **kwargs):
             policy_t = time.time()
 
         state_p, reward, done, info = env.step(action)
+        state_p_ref = state_buffer.append(state_p)
 
         if timing:
             step_t = time.time()
@@ -105,9 +114,10 @@ def step_environment(env, policy, render=False, timing=False, **kwargs):
         if timing:
             render_t = time.time()
 
-        yield state, action, state_p, reward, done, info
+        yield state_ref, action, state_p_ref, reward, done, info
 
         state = state_p
+        state_ref = state_p_ref
         done = done
         global_step += 1
         epi_len += 1
@@ -293,3 +303,89 @@ class Evaluator:
         self.test_number += 1
 
         return mean_return, stdev_return
+
+
+def save(buffer, filepath):
+    file = open(filepath, mode='wb')
+    pickle.dump(buffer, file)
+    file.close()
+
+
+def load(filepath):
+    file = open(filepath, 'rb')
+    load_buff = pickle.load(file)
+    file.close()
+    return load_buff
+
+
+class StateRef:
+    def __init__(self, buffer, ref):
+        self.buffer = buffer
+        self.ref = ref
+
+    def state(self):
+        return self.buffer[self.ref]
+
+
+class StateBuffer:
+    def __init__(self):
+        self.states = []
+
+    def append(self, item):
+        self.states.append(item)
+        return StateRef(self, len(self.states)-1)
+
+    def __getitem__(self, item):
+        return self.states[item]
+
+    def __len__(self):
+        return len(self.states)
+
+
+class EncodedStateBuffer:
+    def __init__(self, encode, decode):
+        self.states = []
+        self.encode = encode
+        self.decode = decode
+
+    def append(self, item):
+        self.states.append(self.encode(item))
+        return StateRef(self, len(self.states)-1)
+
+    def __getitem__(self, item):
+        return self.decode(self.states[item])
+
+    def __len__(self):
+        return len(self.states)
+
+
+def encode_z(A):
+    compressed_array = io.BytesIO()    # np.savez_compressed() requires a file-like object to write to
+    np.savez_compressed(compressed_array, A)
+    return compressed_array
+
+
+def decode_z(compressed_array):
+    compressed_array.seek(0)  # seek back to the beginning of the file-like object
+    return np.load(compressed_array)['arr_0']
+
+
+class ZCompressedBuffer(EncodedStateBuffer):
+    def __init__(self):
+        super().__init__(encode_z, decode_z)
+
+
+class StateBufferDataset:
+    def __init__(self, maxlen=None, statebuffer=None):
+        self.buffer = deque(maxlen=maxlen)
+        self.statebuffer = statebuffer if statebuffer is not None else StateBuffer()
+
+    def append(self, item):
+        self.buffer.append(item)
+
+    def __len__(self):
+        return len(self.buffer)
+
+    def __getitem__(self, item):
+        s, a, s_p, r, d = self.buffer[item]
+        return s.state(), a, s_p.state(), r, d

@@ -3,15 +3,13 @@ command:
 - ${interpreter}
 - ${program}
 - ${args}
-method: bayes
+method: grid
 metric:
   goal: maximize
   name: last_mean_return
 parameters:
   alpha:
-    distribution: uniform
-    max: 0.2
-    min: 0.0
+    value: 0.08123544426985525
   env_name:
     value: HopperPyBulletEnv-v0
   seed:
@@ -19,18 +17,25 @@ parameters:
   max_steps:
     value: 500000
   test_steps:
-    value: 50000
+    value: 20000
   test_episodes:
-    value: 8
+    value: 16
   batch_size:
-    value: 8
+    values:
+    - 8
+    - 128
+    - 1024
   hidden_dim:
     value: 64
   optim_lr:
-    distribution: log_uniform
-    max: -5
-    min: -10
-early_terminate:
-  type: hyperband
-  min_iter: 1
+    values:
+    - 0.0002749376893569692
+    - 0.0004
+    - 0.0008
+    - 0.0016
+  q_update_ratio:
+    values:
+      - 2
+      - 4
+      - 8
 program: sac.py
