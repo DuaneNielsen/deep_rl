@@ -3,15 +3,17 @@ command:
 - ${interpreter}
 - ${program}
 - ${args}
-method: grid
+method: bayes
 metric:
   goal: maximize
   name: last_mean_return
 parameters:
   alpha:
-    value: 0.08123544426985525
+    distribution: uniform
+    max: 0.2
+    min: 0.01
   env_name:
-    value: HopperPyBulletEnv-v0
+    value: HalfCheetahPyBulletEnv-v0
   seed:
     value: 0
   max_steps:
@@ -21,17 +23,11 @@ parameters:
   test_episodes:
     value: 16
   batch_size:
-    values:
-    - 128
+    value: 128
   hidden_dim:
-    value: 64
+    value: 128
   optim_lr:
-    values:
-    - 0.0004
-    - 0.0008
-    - 0.0016
+    value: 1e-4
   q_update_ratio:
-    values:
-      - 4
-      - 8
+    value: 4
 program: sac.py

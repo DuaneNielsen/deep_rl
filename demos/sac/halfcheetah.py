@@ -39,11 +39,10 @@ if __name__ == '__main__':
 
     """ resume settings """
     parser.add_argument('--demo', action='store_true', default=True)
-    #parser.add_argument('-l', '--load', type=str, default='runs/run_145')
-    parser.add_argument('-l', '--load', type=str, default='runs/run_186')
+    parser.add_argument('-l', '--load', type=str, default='runs/run_249')
 
     """ environment """
-    parser.add_argument('--env_name', type=str, default='HopperPyBulletEnv-v0')
+    parser.add_argument('--env_name', type=str, default='HalfCheetahPyBulletEnv-v0')
     parser.add_argument('--env_render', action='store_true', default=True)
     parser.add_argument('--env_reward_scale', type=float, default=1.0)
     parser.add_argument('--env_reward_bias', type=float, default=0.0)
@@ -54,7 +53,7 @@ if __name__ == '__main__':
     parser.add_argument('--discount', type=float, default=0.99)
     parser.add_argument('--polyak', type=float, default=0.005)
     parser.add_argument('--alpha', type=float, default=0.2)
-    parser.add_argument('--hidden_dim', type=int, default=64)
+    parser.add_argument('--hidden_dim', type=int, default=128)
     parser.add_argument('--min_variance', type=float, default=0.01)
 
     config = parser.parse_args()
