@@ -95,6 +95,8 @@ if __name__ == '__main__':
     episodes_captured = 0
     test_number = 1
     vidstream = []
+    top_buffer = rl.ReplayBuffer()
+    episode = []
 
     """ demo """
     with Progress() as progress:

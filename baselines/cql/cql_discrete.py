@@ -55,6 +55,7 @@ if __name__ == '__main__':
     parser.add_argument('--cql_alpha', type=float, default=1.0)
     parser.add_argument('--hidden_dim', type=int, default=16)
     parser.add_argument('--q_update_ratio', type=int, default=1)
+    parser.add_argument('--min_return', type=float, default=-999999)
 
     config = parser.parse_args()
 
@@ -175,6 +176,7 @@ if __name__ == '__main__':
 
     """ train loop """
     buffer = rl.load(config.load_buffer)
+    buffer = rl.TopTrajectoryDataset(buffer, min_return=config.min_return)
     dl = DataLoader(buffer, batch_size=config.batch_size, sampler=RandomSampler(buffer, replacement=True))
     test_number = 1
 

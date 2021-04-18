@@ -294,9 +294,14 @@ class ReplayBuffer:
     def __init__(self, maxlen=None, compression=None):
         self.buffer = deque(maxlen=maxlen)
         self.statebuffer = compression if compression is not None else StateBuffer()
+        self.episodes = []
+        self.epi_start = 0
 
     def append(self, s, a, s_p, r, d):
         self.buffer.append((s, a, s_p, r, d))
+        if d:
+            self.episodes.append((self.epi_start, len(self.buffer)))
+            self.epi_start = len(self.buffer)
 
     def __len__(self):
         return len(self.buffer)
@@ -304,3 +309,22 @@ class ReplayBuffer:
     def __getitem__(self, item):
         s, a, s_p, r, d = self.buffer[item]
         return s.state(), a, s_p.state(), r, d
+
+
+class TopTrajectoryDataset:
+    def __init__(self, replay_buffer, min_return):
+        self.replay_buffer = replay_buffer
+        self.index = []
+
+        for start, end in self.replay_buffer.episodes:
+            epi_return = 0
+            for i in range(start, end):
+                epi_return += self.replay_buffer[i][3]
+            if epi_return >= min_return:
+                self.index += list(range(start, end))
+
+    def __len__(self):
+        return len(self.index)
+
+    def __getitem__(self, item):
+        return self.replay_buffer[self.index[item]]
