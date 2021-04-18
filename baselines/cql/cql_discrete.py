@@ -10,6 +10,7 @@ from gymviz import Plot
 from algos import cql
 from config import exists_and_not_none, ArgumentParser, EvalAction
 import wandb
+import wandb_utils
 import checkpoint
 import rl
 import torch_utils
@@ -71,13 +72,9 @@ if __name__ == '__main__':
         if config.seed is not None:
             env.seed(config.seed)
             env.action_space.seed(config.seed)
+        if config.debug:
+            env = Plot(env, episodes_per_point=1, title=f'Test cql-{config.env_name}')
         return env
-
-    """ test env """
-    test_env = make_env()
-    if config.debug:
-        test_env = Plot(test_env, episodes_per_point=1, title=f'Test cql-{config.env_name}')
-
 
     class MLP(nn.Module):
         def __init__(self, input_dims, hidden_dims, out_dims):
@@ -124,6 +121,8 @@ if __name__ == '__main__':
             min_q, _ = torch.min(values, dim=-1)
             return min_q
 
+    """ test env """
+    test_env = make_env()
 
     assert isinstance(test_env.action_space, gym.spaces.Discrete), "action spaces is not discrete"
     assert len(test_env.observation_space.shape) == 1, "only 1-D observation spaces are supported"
@@ -199,17 +198,16 @@ if __name__ == '__main__':
             if 'video' in stats:
                 vid_filename = f'{config.run_dir}/test_run_{test_number}.mp4'
                 torch_utils.write_mp4(vid_filename, stats['video'])
-
-            log = {}
-            log["last_mean_return"] = stats["last_mean_return"]
-            log["last_stdev_return"] = stats["last_stdev_return"]
-            log["best_mean_return"] = stats["best_mean_return"]
-            log["best_stdev_return"] = stats["best_stdev_return"]
-            log["test_returns"] = wandb.Histogram(stats["test_returns"])
-            log["test_mean_return"] = stats["test_mean_return"]
-            log["test_wall_time"] = stats["test_wall_time"]
-            if vid_filename is not None:
-                log['video'] = wandb.Video(vid_filename, fps=4, format="gif")
-            wandb.log(log)
+            wandb_utils.log_test_stats(stats, vid_filename)
 
             test_number += 1
+
+    """ post summary of best policy for the run """
+    checkpoint.load(config.run_dir, prefix='best', q=q_net, q_optim=q_optim, policy=policy_net,
+                    policy_optim=policy_optim)
+    stats = rl.evaluate(test_env, exploit_policy, sample_n=config.test_episodes * 4, capture=True)
+    vid_filename = None
+    if 'video' in stats:
+        vid_filename = f'{config.run_dir}/best_policy.mp4'
+        torch_utils.write_mp4(vid_filename, stats['video'])
+    wandb_utils.log_summary_stats(stats, vid_filename)

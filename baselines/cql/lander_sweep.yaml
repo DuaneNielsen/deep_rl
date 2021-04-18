@@ -1,0 +1,35 @@
+command:
+- ${env}
+- ${interpreter}
+- ${program}
+- ${args}
+method: bayes
+metric:
+  goal: maximize
+  name: last_mean_return
+parameters:
+  policy_alpha:
+    distribution: uniform
+    max: 0.2
+    min: 0.0
+  cql_alpha:
+    distribution: uniform
+    max: 4.0
+    min: 0.0
+  env_name:
+    value: LunarLander-v2
+  load_buffer:
+    value: lander_58000.pkl
+  seed:
+    value: 0
+  max_steps:
+    value: 400000
+  test_steps:
+    value: 10000
+  test_episodes:
+    value: 16
+  batch_size:
+    value: 16
+  hidden_dim:
+    value: 16
+program: cql_discrete.py
