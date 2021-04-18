@@ -7,6 +7,7 @@ from gym.wrappers.transform_reward import TransformReward
 import torch_utils
 import wandb_utils
 import wandb
+from rich.progress import Progress
 
 
 def rescale_reward(reward):
@@ -21,6 +22,7 @@ if __name__ == '__main__':
     parser.add_argument('--env_reward_scale', type=float, default=1.0)
     parser.add_argument('--env_reward_bias', type=float, default=0.0)
     parser.add_argument('--episodes', type=int, default=10)
+    parser.add_argument('--video_episodes', type=int, default=10)
     parser.add_argument('--test_steps', type=int, default=5000)
     parser.add_argument('--test_episodes', type=int, default=16)
     parser.add_argument('--demo', action='store_true', default=False)
@@ -95,24 +97,30 @@ if __name__ == '__main__':
     vidstream = []
 
     """ demo """
-    for step, s, a, s_p, r, d, i, m in rl.step(env, exploit_policy, buffer, render=True):
-        if episodes_captured < config.episodes:
-            buffer.append(s, a, s_p, r, d)
-            vidstream.append(m['frame'])
-            episodes_captured += 1 if d else 0
-        else:
-            break
-        """ test """
-        if step > config.test_steps * test_number:
-            stats = rl.evaluate(test_env, exploit_policy, sample_n=config.test_episodes)
+    with Progress() as progress:
+        run = progress.add_task('Generating', total=config.episodes)
+        for step, s, a, s_p, r, d, i, m in rl.step(env, exploit_policy, buffer, render=True):
+            if episodes_captured < config.episodes:
+                buffer.append(s, a, s_p, r, d)
+                if episodes_captured < config.video_episodes:
+                    vidstream.append(m['frame'])
+                else:
+                    rl.global_render = False
+                episodes_captured += 1 if d else 0
+                progress.update(run, advance=1 if d else 0)
+            else:
+                break
+            """ test """
+            if step > config.test_steps * test_number:
+                stats = rl.evaluate(test_env, exploit_policy, sample_n=config.test_episodes)
 
-            vid_filename = None
-            if 'video' in stats:
-                vid_filename = f'{config.run_dir}/test_run_{test_number}.mp4'
-                torch_utils.write_mp4(vid_filename, stats['video'])
-            wandb_utils.log_test_stats(stats, vid_filename)
+                vid_filename = None
+                if 'video' in stats:
+                    vid_filename = f'{config.run_dir}/test_run_{test_number}.mp4'
+                    torch_utils.write_mp4(vid_filename, stats['video'])
+                wandb_utils.log_test_stats(stats, vid_filename)
 
-            test_number += 1
+                test_number += 1
 
     video_filename = f'./lander_{len(buffer)}.mp4'
     torch_utils.write_mp4(video_filename, vidstream)

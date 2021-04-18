@@ -8,6 +8,7 @@ import pickle
 global_step = 0
 global_best_mean_return = -999999999.0
 global_best_stdev_return = 0
+global_render = False
 
 
 def step(env, policy, buffer, render=False, timing=False, **kwargs):
@@ -17,11 +18,11 @@ def step(env, policy, buffer, render=False, timing=False, **kwargs):
     Args:
         env: gym environment to step
         policy: policy to use, policy(state) -> action
-        render: calls env render function if True
+        global_render: calls env render function if True
         timing: prints timing info to stdout if True
         kwargs: will be passed to the policy
     """
-    global global_step
+    global global_step, global_render
     state_buffer = buffer.statebuffer
     step_time, render_time, policy_time = [], [], []
     step_t, start_t, policy_t, render_t = 0, 0, 0, 0
@@ -31,6 +32,7 @@ def step(env, policy, buffer, render=False, timing=False, **kwargs):
     epi_returns = 0
     epi_len = 0
     global_step = 0
+    global_render = render
     meta = {}
 
     while True:
@@ -45,7 +47,7 @@ def step(env, policy, buffer, render=False, timing=False, **kwargs):
             meta['epi_len'] = epi_len
             epi_returns = 0
             epi_len = 0
-            if render:
+            if global_render:
                 env.render()
 
         action = policy(state, **kwargs)
@@ -59,7 +61,7 @@ def step(env, policy, buffer, render=False, timing=False, **kwargs):
         if timing:
             step_t = time.time()
 
-        if render:
+        if global_render:
             env.render()
             meta['frame'] = env.render('rgb_array')
 
