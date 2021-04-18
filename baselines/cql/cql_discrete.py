@@ -30,9 +30,9 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=None)
 
     """ main loop control """
-    parser.add_argument('--max_steps', type=int, default=100000)
-    parser.add_argument('--test_steps', type=int, default=1000)
-    parser.add_argument('--test_episodes', type=int, default=16)
+    parser.add_argument('--max_steps', type=int, default=1000000)
+    parser.add_argument('--test_steps', type=int, default=5000)
+    parser.add_argument('--test_episodes', type=int, default=4)
     parser.add_argument('--test_capture', action='store_true', default=False)
     parser.add_argument('--load_buffer', type=str)
 
@@ -48,12 +48,12 @@ if __name__ == '__main__':
 
     """ hyper-parameters """
     parser.add_argument('--optim_lr', type=float, default=1e-3)
-    parser.add_argument('--batch_size', type=int, default=8)
+    parser.add_argument('--batch_size', type=int, default=256)
     parser.add_argument('--discount', type=float, default=0.99)
     parser.add_argument('--polyak', type=float, default=0.005)
-    parser.add_argument('--alpha', type=float, default=0.2)
+    parser.add_argument('--alpha', type=float, default=0.05)
     parser.add_argument('--hidden_dim', type=int, default=16)
-    parser.add_argument('--min_variance', type=float, default=0.01)
+    parser.add_argument('--q_update_ratio', type=int, default=1)
 
     config = parser.parse_args()
 
@@ -104,6 +104,10 @@ if __name__ == '__main__':
             super().__init__()
             self.q = [MLP(input_dims, hidden_dims, actions) for _ in range(ensemble)]
 
+        def to(self, device):
+            self.q = [q.to(device) for q in self.q]
+            return self
+
         def parameters(self, recurse=True):
             params = []
             for q in self.q:
@@ -115,7 +119,7 @@ if __name__ == '__main__':
             values = []
             for q in self.q:
                 values += [q(state)]
-            values = torch.stack(values, dim=-1)
+            values =  torch.stack(values, dim=-1)
             min_q, _ = torch.min(values, dim=-1)
             return min_q
 
@@ -139,8 +143,8 @@ if __name__ == '__main__':
         hidden_dims=config.hidden_dim
     ).to(config.device)
 
-    q_optim = torch.optim.Adam(q_net.parameters(), lr=config.optim_lr)
-    policy_optim = torch.optim.Adam(policy_net.parameters(), lr=config.optim_lr)
+    q_optim = torch.optim.Adam(q_net.parameters(), lr=1e-4)
+    policy_optim = torch.optim.Adam(policy_net.parameters(), lr=3e-5)
 
     """ load weights from file if required"""
     if exists_and_not_none(config, 'load'):
@@ -168,7 +172,7 @@ if __name__ == '__main__':
             return a.item()
 
     """ demo  """
-    rl.demo(config.demo, env, policy)
+    rl.demo(config.demo, test_env, policy)
 
     """ train loop """
     buffer = rl.load(config.load_buffer)
@@ -178,7 +182,7 @@ if __name__ == '__main__':
     for step in track(range(config.max_steps), description='Training'):
 
         cql.train_discrete(dl, q_net, target_q_net, policy_net, q_optim, policy_optim,
-                           discount=config.discount, polyak=config.polyak, alpha=config.alpha,
+                           discount=config.discount, polyak=config.polyak, alpha=config.alpha, q_update_ratio=config.q_update_ratio,
                            device=config.device, precision=config.precision)
 
         """ test """
