@@ -17,6 +17,7 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=None)
     parser.add_argument('--env_reward_scale', type=float, default=1.0)
     parser.add_argument('--env_reward_bias', type=float, default=0.0)
+    parser.add_argument('--episodes', type=int, default=10)
     parser.add_argument('--demo', action='store_true', default=False)
     config = parser.parse_args()
 
@@ -81,12 +82,11 @@ if __name__ == '__main__':
         action = torch.argmax(q_net(state), dim=1)
         return action.item()
 
-    episodes = 500
     episodes_captured = 0
 
     """ demo """
     for step, s, a, s_p, r, d, i, m in rl.step(env, exploit_policy, buffer, render=config.demo):
-        if episodes_captured < episodes:
+        if episodes_captured < config.episodes:
             buffer.append(s, a, s_p, r, d)
             episodes_captured += 1 if d else 0
         else:
