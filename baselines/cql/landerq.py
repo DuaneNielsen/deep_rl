@@ -4,6 +4,9 @@ import gym
 from argparse import ArgumentParser
 import rl
 from gym.wrappers.transform_reward import TransformReward
+import torch_utils
+import wandb_utils
+import wandb
 
 
 def rescale_reward(reward):
@@ -18,8 +21,12 @@ if __name__ == '__main__':
     parser.add_argument('--env_reward_scale', type=float, default=1.0)
     parser.add_argument('--env_reward_bias', type=float, default=0.0)
     parser.add_argument('--episodes', type=int, default=10)
+    parser.add_argument('--test_steps', type=int, default=5000)
+    parser.add_argument('--test_episodes', type=int, default=16)
     parser.add_argument('--demo', action='store_true', default=False)
     config = parser.parse_args()
+
+    wandb.init(project=f"cql-LunarLander-v2", config=config, tags=['logging_policy'])
 
     """ Environment """
     def make_env():
@@ -32,6 +39,7 @@ if __name__ == '__main__':
         return env
 
     env = make_env()
+    test_env = make_env()
     buffer = rl.ReplayBuffer()
 
     """ random seed """
@@ -83,14 +91,34 @@ if __name__ == '__main__':
         return action.item()
 
     episodes_captured = 0
+    test_number = 1
+    vidstream = []
 
     """ demo """
-    for step, s, a, s_p, r, d, i, m in rl.step(env, exploit_policy, buffer, render=config.demo):
+    for step, s, a, s_p, r, d, i, m in rl.step(env, exploit_policy, buffer, render=True):
         if episodes_captured < config.episodes:
             buffer.append(s, a, s_p, r, d)
+            vidstream.append(m['frame'])
             episodes_captured += 1 if d else 0
         else:
             break
+        """ test """
+        if step > config.test_steps * test_number:
+            stats = rl.evaluate(test_env, exploit_policy, sample_n=config.test_episodes)
+
+            vid_filename = None
+            if 'video' in stats:
+                vid_filename = f'{config.run_dir}/test_run_{test_number}.mp4'
+                torch_utils.write_mp4(vid_filename, stats['video'])
+            wandb_utils.log_test_stats(stats, vid_filename)
+
+            test_number += 1
+
+    video_filename = f'./lander_{len(buffer)}.mp4'
+    torch_utils.write_mp4(video_filename, vidstream)
+    wandb.log({'video': wandb.Video(video_filename, fps=4, format="mp4")})
 
     if not config.demo:
-        rl.save(buffer, f'./lander_{len(buffer)}.pkl')
+        filename = f'./lander_{len(buffer)}.pkl'
+        rl.save(buffer, filename)
+        wandb.run.tags = [*wandb.run.tags, filename]

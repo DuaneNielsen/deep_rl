@@ -61,6 +61,7 @@ def step(env, policy, buffer, render=False, timing=False, **kwargs):
 
         if render:
             env.render()
+            meta['frame'] = env.render('rgb_array')
 
         if timing:
             render_t = time.time()

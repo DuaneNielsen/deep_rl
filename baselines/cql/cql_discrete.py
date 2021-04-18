@@ -11,7 +11,6 @@ from algos import cql
 from config import exists_and_not_none, ArgumentParser, EvalAction
 import wandb
 import wandb_utils
-import checkpoint
 import rl
 import torch_utils
 from rich.progress import track
@@ -148,7 +147,7 @@ if __name__ == '__main__':
 
     """ load weights from file if required"""
     if exists_and_not_none(config, 'load'):
-        checkpoint.load(config.load, prefix='best', q=q_net, q_optim=q_optim, policy=policy_net,
+        torch_utils.load_checkpoint(config.load, prefix='best', q=q_net, q_optim=q_optim, policy=policy_net,
                         policy_optim=policy_optim)
 
 
@@ -203,7 +202,7 @@ if __name__ == '__main__':
             test_number += 1
 
     """ post summary of best policy for the run """
-    checkpoint.load(config.run_dir, prefix='best', q=q_net, q_optim=q_optim, policy=policy_net,
+    torch_utils.load_checkpoint(config.run_dir, prefix='best', q=q_net, q_optim=q_optim, policy=policy_net,
                     policy_optim=policy_optim)
     stats = rl.evaluate(test_env, exploit_policy, sample_n=config.test_episodes * 4, capture=True)
     vid_filename = None
