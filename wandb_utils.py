@@ -148,7 +148,7 @@ def step_environment(env, policy, ds, render=False, timing=False, **kwargs):
 
 def _render_env(env, render, delay):
     if render:
-        env.render()
+        env.render('human')
         time.sleep(delay)
 
 
