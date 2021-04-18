@@ -30,9 +30,9 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=None)
 
     """ main loop control """
-    parser.add_argument('--max_steps', type=int, default=1000000)
-    parser.add_argument('--test_steps', type=int, default=5000)
-    parser.add_argument('--test_episodes', type=int, default=4)
+    parser.add_argument('--max_steps', type=int, default=100000)
+    parser.add_argument('--test_steps', type=int, default=2000)
+    parser.add_argument('--test_episodes', type=int, default=8)
     parser.add_argument('--test_capture', action='store_true', default=False)
     parser.add_argument('--load_buffer', type=str)
 
@@ -51,7 +51,8 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=256)
     parser.add_argument('--discount', type=float, default=0.99)
     parser.add_argument('--polyak', type=float, default=0.005)
-    parser.add_argument('--alpha', type=float, default=0.05)
+    parser.add_argument('--policy_alpha', type=float, default=0.05)
+    parser.add_argument('--cql_alpha', type=float, default=1.0)
     parser.add_argument('--hidden_dim', type=int, default=16)
     parser.add_argument('--q_update_ratio', type=int, default=1)
 
@@ -182,7 +183,8 @@ if __name__ == '__main__':
     for step in track(range(config.max_steps), description='Training'):
 
         cql.train_discrete(dl, q_net, target_q_net, policy_net, q_optim, policy_optim,
-                           discount=config.discount, polyak=config.polyak, alpha=config.alpha, q_update_ratio=config.q_update_ratio,
+                           discount=config.discount, polyak=config.polyak, policy_alpha=config.policy_alpha,
+                           cql_alpha=config.cql_alpha, q_update_ratio=config.q_update_ratio,
                            device=config.device, precision=config.precision)
 
         """ test """

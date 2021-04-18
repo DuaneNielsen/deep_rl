@@ -47,7 +47,7 @@ def train(dl, q, target_q, policy, q_optim, policy_optim,
 
 
 def train_discrete(dl, q, target_q, policy, q_optim, policy_optim,
-          discount=0.99, polyak=0.095, q_update_ratio=2, alpha=0.2,
+          discount=0.99, polyak=0.095, q_update_ratio=2, policy_alpha=0.2, cql_alpha=1.0,
           device='cpu', precision=torch.float32):
     """
 
@@ -81,14 +81,14 @@ def train_discrete(dl, q, target_q, policy, q_optim, policy_optim,
 
         with torch.no_grad():
             a_p_dist = policy(s_p)
-            v_sp = torch.sum(a_p_dist * (q(s_p) - alpha * torch.log(a_p_dist)), dim=-1, keepdim=True)
+            v_sp = torch.sum(a_p_dist * q(s_p), dim=-1, keepdim=True)
             y = r + d * discount * v_sp
 
         v = q(s)
         q_pred = v[torch.arange(N), a].unsqueeze(1)
         cql = torch.logsumexp(v, dim=1, keepdim=True) - q_pred
 
-        ql = mse_loss(q_pred, y) + cql.mean()
+        ql = mse_loss(q_pred, y) + cql_alpha * cql.mean()
 
         q_optim.zero_grad()
         ql.backward()
@@ -100,7 +100,7 @@ def train_discrete(dl, q, target_q, policy, q_optim, policy_optim,
 
         """ soft policy update """
         a_dist = policy(s)
-        pl = torch.mean(a_dist * (alpha * torch.log(a_dist) - q(s)))
+        pl = torch.mean(a_dist * (policy_alpha * torch.log(a_dist) - q(s)))
 
         policy_optim.zero_grad()
         pl.backward()
