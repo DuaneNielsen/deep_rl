@@ -155,14 +155,16 @@ def demo(demo, env, policy):
             episode(env, policy, render=True)
 
 
-def evaluate(env, policy, sample_n=10, render=False, capture=False):
+def evaluate(env, policy, sample_n=10, vid_sample_n=0):
     """
     Evaluate the policy and save if improved
 
     Args:
+        env: gym env to avaluate on
         policy: policy(state) -> action to evaluate
-        run_dir: directory to save parameters to
-        params: dict of parameters to write..
+        sample_n: number of episodes to sample
+        capture: capture video
+        vid_sample_n: number of episodes to capture video for
 
         .. code-block:: python
           policy_net = nn.Linear(4, 1)
@@ -186,11 +188,11 @@ def evaluate(env, policy, sample_n=10, render=False, capture=False):
     returns = []
     vidstream = []
 
-    for _ in range(sample_n):
-        retn, length, video = episode(env, policy, render=render, capture=capture)
+    for n in range(sample_n):
+        capture = n < vid_sample_n
+        retn, length, video = episode(env, policy, capture=capture)
         returns.append(retn)
-        if capture:
-            vidstream.extend(video)
+        vidstream.extend(video)
 
     mean_return = mean(returns)
     stdev_return = stdev(returns)
@@ -206,7 +208,7 @@ def evaluate(env, policy, sample_n=10, render=False, capture=False):
     else:
         stats["best"] = False
 
-    if capture:
+    if len(vidstream) > 0:
         stats["video"] = vidstream
 
     stats["last_mean_return"] = mean_return

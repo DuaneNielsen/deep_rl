@@ -180,8 +180,6 @@ class ReplayBufferDataset:
         return len(self.buffer)
 
 
-
-
 class TrajectoryTransitions:
     """
     Iterates over a trajectory in the buffer, from start to end, given a start:end tuple

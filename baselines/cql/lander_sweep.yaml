@@ -16,6 +16,8 @@ parameters:
     distribution: uniform
     max: 4.0
     min: 0.0
+  summary_video_episodes:
+    value: 3
   env_name:
     value: LunarLander-v2
   load_buffer:

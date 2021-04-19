@@ -33,8 +33,8 @@ if __name__ == '__main__':
     parser.add_argument('--max_steps', type=int, default=100000)
     parser.add_argument('--test_steps', type=int, default=2000)
     parser.add_argument('--test_episodes', type=int, default=8)
-    parser.add_argument('--test_capture', action='store_true', default=False)
     parser.add_argument('--load_buffer', type=str)
+    parser.add_argument('--summary_video_episodes', type=int, default=0)
 
     """ resume settings """
     parser.add_argument('--demo', action='store_true', default=False)
@@ -189,7 +189,7 @@ if __name__ == '__main__':
 
         """ test """
         if step > config.test_steps * test_number:
-            stats = rl.evaluate(test_env, exploit_policy, sample_n=config.test_episodes, capture=config.test_capture)
+            stats = rl.evaluate(test_env, exploit_policy, sample_n=config.test_episodes)
 
             if stats['best']:
                 torch_utils.save_checkpoint(config.run_dir, 'best', q=q_net, q_optim=q_optim, policy=policy_net,
@@ -206,7 +206,8 @@ if __name__ == '__main__':
     """ post summary of best policy for the run """
     torch_utils.load_checkpoint(config.run_dir, prefix='best', q=q_net, q_optim=q_optim, policy=policy_net,
                     policy_optim=policy_optim)
-    stats = rl.evaluate(test_env, exploit_policy, sample_n=config.test_episodes * 4, capture=True)
+    stats = rl.evaluate(test_env, exploit_policy, sample_n=config.test_episodes,
+                        vid_sample_n=config.summary_video_episodes)
     vid_filename = None
     if 'video' in stats:
         vid_filename = f'{config.run_dir}/best_policy.mp4'
