@@ -4,17 +4,14 @@ import torch.nn as nn
 import gym
 import env
 
-import driver
 from gymviz import Plot
 
-import buffer as bf
 from algos import ppo
 from distributions import ScaledTanhTransformedGaussian
 from config import exists_and_not_none, ArgumentParser
-import wandb
-import wandb_utils
+import rl
 import checkpoint
-import baselines.helper as helper
+
 
 if __name__ == '__main__':
 
@@ -40,10 +37,9 @@ if __name__ == '__main__':
         return env
 
     """ test env """
-    test_env = make_env()
+    env = make_env()
     if config.plot:
-        test_env = Plot(test_env, episodes_per_point=1, title=f'ppo-a2c-Pendulum-v0')
-    evaluator = helper.Evaluator(test_env)
+        env = Plot(env, episodes_per_point=1, title=f'ppo-a2c-Pendulum-v0')
 
     """ network """
     class A2CNet(nn.Module):
@@ -69,10 +65,10 @@ if __name__ == '__main__':
             return value, a_dist
 
     a2c_net = A2CNet(
-        input_dims=test_env.observation_space.shape[0],
+        input_dims=env.observation_space.shape[0],
         hidden_dims=16,
-        min=test_env.action_space.low[0],
-        max=test_env.action_space.high[0])
+        min=env.action_space.low[0],
+        max=env.action_space.high[0])
 
     a2c_net = ppo.PPOWrapModel(a2c_net)
 
@@ -80,11 +76,12 @@ if __name__ == '__main__':
 
     """ policy to run on environment """
     def policy(state):
-        state = torch.from_numpy(state).float()
-        value, action = a2c_net(state)
-        a = action.rsample()
-        assert torch.isnan(a) == False
-        return a.numpy()
+        with torch.no_grad():
+            state = torch.from_numpy(state).float()
+            value, action = a2c_net(state)
+            a = action.rsample()
+            assert torch.isnan(a) == False
+            return a.numpy()
 
     """ demo  """
-    evaluator.demo(True, policy)
+    rl.demo(True, env, policy)
