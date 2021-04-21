@@ -118,8 +118,11 @@ def episode(env, policy, render=False, delay=0.01, capture=False):
     length = 0
     vid_buffer = []
 
-    if render:
-        env.render()
+    try:
+        if render:
+            env.render()
+    except AttributeError:
+        pass  # some environments do not like rendering before reset, but some require it
 
     state, reward, done, info = env.reset(), 0.0, False, {}
     action = policy(state)
