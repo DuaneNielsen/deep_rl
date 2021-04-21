@@ -7,7 +7,7 @@ import env
 import driver
 from gymviz import Plot
 
-import buffer as bf
+import legacy.buffer as bf
 from algos import a2c
 from distributions import ScaledTanhTransformedGaussian
 from config import exists_and_not_none, ArgumentParser
@@ -16,6 +16,7 @@ import wandb_utils
 import checkpoint
 import baselines.helper as helper
 from gym.wrappers.transform_reward import TransformReward
+import rl
 
 def rescale_reward(reward):
     return reward * config.env_reward_scale - config.env_reward_bias
@@ -83,7 +84,7 @@ if __name__ == '__main__':
     test_env = make_env()
     if not config.silent:
         test_env = Plot(test_env, episodes_per_point=1, title=f'Test a2c-{config.env_name}')
-    evaluator = helper.Evaluator(test_env)
+    evaluator = helper.Evaluator()
 
     """ network """
     class A2CNet(nn.Module):
@@ -115,9 +116,11 @@ if __name__ == '__main__':
         max=test_env.action_space.high[0])
     optim = torch.optim.Adam(a2c_net.parameters(), lr=config.optim_lr)
 
+    net_and_optim = {'a2c_net': a2c_net, 'optim': optim}
+
     """ load weights from file if required"""
     if exists_and_not_none(config, 'load'):
-        checkpoint.load(config.load, prefix='best', a2c_net=a2c_net, optim=optim)
+        checkpoint.load(config.load, prefix='best', **net_and_optim)
 
     """ policy to run on environment """
     def policy(state):
@@ -128,12 +131,12 @@ if __name__ == '__main__':
         return a.numpy()
 
     """ demo  """
-    evaluator.demo(config.demo, policy)
+    rl.demo(config.demo, test_env, policy)
 
     """ main loop """
     steps = 0
     best_mean_return = -999999
-    tests_run = 0
+    test_num = 1
 
     for total_steps, _ in enumerate(driver.step_environment(train_env, policy)):
         steps += 1
@@ -148,6 +151,6 @@ if __name__ == '__main__':
             steps = 0
 
         """ test  """
-        if total_steps > config.test_steps * tests_run:
-            tests_run += 1
-            evaluator.evaluate(policy, config.run_dir, {'a2c_net': a2c_net, 'optim': optim})
+        if total_steps > config.test_steps * test_num:
+            evaluator.evaluate(test_env, policy, config.run_dir, params=net_and_optim)
+            test_num += 1
