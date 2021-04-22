@@ -176,7 +176,6 @@ if __name__ == '__main__':
 
     """ train loop """
     buffer = rl.load(config.load_buffer)
-    buffer = rl.TopTrajectoryDataset(buffer, min_return=config.min_return)
     dl = DataLoader(buffer, batch_size=config.batch_size, sampler=RandomSampler(buffer, replacement=True))
     test_number = 1
 
