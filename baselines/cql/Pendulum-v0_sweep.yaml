@@ -19,9 +19,9 @@ parameters:
   summary_video_episodes:
     value: 3
   env_name:
-    value: LunarLander-v2
+    value: Pendulum-v0
   load_buffer:
-    value: lander_57746.pkl
+    value: /home/duane/wandb/deep_rl/demos/ppo/Pendulum-v0_19803.pkl
   seed:
     value: 0
   max_steps:
@@ -34,4 +34,4 @@ parameters:
     value: 16
   hidden_dim:
     value: 16
-program: cql_discrete.py
+program: cql_continuous.py

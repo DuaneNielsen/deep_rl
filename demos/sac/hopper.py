@@ -1,21 +1,21 @@
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, RandomSampler
+from torch.utils.data import DataLoader
 
 import gym
-import env
 import env.wrappers as wrappers
 from gymviz import Plot
 import numpy as np
 import pybulletgym
 
-from algos import sac
 from distributions import ScaledTanhTransformedGaussian
 from config import exists_and_not_none, ArgumentParser, EvalAction
 import wandb
 import wandb_utils
 import checkpoint
-
+import rl
+import torch_utils
+from rich.progress import Progress
 
 if __name__ == '__main__':
 
@@ -36,6 +36,8 @@ if __name__ == '__main__':
     parser.add_argument('--test_steps', type=int, default=10000)
     parser.add_argument('--test_episodes', type=int, default=16)
     parser.add_argument('--test_capture', action='store_true', default=False)
+    parser.add_argument('--log_episodes', type=int, default=0)
+    parser.add_argument('--video_episodes', type=int, default=5)
 
     """ resume settings """
     parser.add_argument('--demo', action='store_true', default=True)
@@ -59,11 +61,11 @@ if __name__ == '__main__':
 
     config = parser.parse_args()
 
+    config.demo = config.log_episodes == 0
+
     """ random seed """
     if config.seed is not None:
         torch.manual_seed(config.seed)
-
-    wandb.init(project=f"sac-{config.env_name}", config=config)
 
     """ environment """
     def make_env():
@@ -75,14 +77,9 @@ if __name__ == '__main__':
         return env
 
     """ training env with replay buffer """
-    train_env = make_env()
+    env = make_env()
     if config.debug:
-        train_env = Plot(train_env, episodes_per_point=5, title=f'Train sac-{config.env_name}')
-
-    """ test env """
-    test_env = make_env()
-    if config.debug:
-        test_env = Plot(test_env, episodes_per_point=1, title=f'Test sac-{config.env_name}')
+        env = Plot(env, episodes_per_point=5, title=f'Demo-{config.env_name}')
 
 
     class SoftMLP(nn.Module):
@@ -136,25 +133,25 @@ if __name__ == '__main__':
             return min_q
 
     q_net = QNet(
-        input_dims=test_env.observation_space.shape[0],
-        actions=test_env.action_space.shape[0],
+        input_dims=env.observation_space.shape[0],
+        actions=env.action_space.shape[0],
         hidden_dims=config.hidden_dim).to(config.device)
 
     target_q_net = QNet(
-        input_dims=test_env.observation_space.shape[0],
-        actions=test_env.action_space.shape[0],
+        input_dims=env.observation_space.shape[0],
+        actions=env.action_space.shape[0],
         hidden_dims=config.hidden_dim).to(config.device)
 
-    assert np.all(test_env.action_space.low == test_env.action_space.low[0]), "action spaces do not have the same min"
-    assert np.all(test_env.action_space.high == test_env.action_space.high[0]), "action spaces do not have the same max"
-    assert len(test_env.observation_space.shape) == 1, "only 1-D observation spaces are supported"
+    assert np.all(env.action_space.low == env.action_space.low[0]), "action spaces do not have the same min"
+    assert np.all(env.action_space.high == env.action_space.high[0]), "action spaces do not have the same max"
+    assert len(env.observation_space.shape) == 1, "only 1-D observation spaces are supported"
 
     policy_net = Policy(
-        input_dims=test_env.observation_space.shape[0],
-        actions=test_env.action_space.shape[0],
+        input_dims=env.observation_space.shape[0],
+        actions=env.action_space.shape[0],
         hidden_dims=config.hidden_dim,
-        min_action=test_env.action_space.low[0].item(),
-        max_action=test_env.action_space.high[0].item()
+        min_action=env.action_space.low[0].item(),
+        max_action=env.action_space.high[0].item()
     ).to(config.device)
 
     q_optim = torch.optim.Adam(q_net.parameters(), lr=config.optim_lr)
@@ -184,32 +181,44 @@ if __name__ == '__main__':
 
 
     """ demo  """
-    wandb_utils.demo(config.demo, test_env, policy)
+    wandb_utils.demo(config.demo, env, policy)
 
-    """ train loop """
-    evaluator = wandb_utils.Evaluator()
-    buffer = []
-    dl = None
+    """ logging loop """
+    wandb.init(project=f"cql-{config.env_name}", config=config)
+    buffer = rl.ReplayBuffer()
+    dl = DataLoader(buffer, batch_size=config.batch_size, sampler=torch_utils.RandomSampler(buffer, replacement=True))
 
-    for step, (s, a, s_p, r, d, i) in enumerate(wandb_utils.step_environment(train_env, policy)):
+    episodes_captured = 0
+    vidstream = []
+    test_number = 1
 
-        buffer.append((s, a, s_p, r, d))
+    with Progress() as progress:
+        run = progress.add_task('Generating', total=config.log_episodes)
+        for step, s, a, s_p, r, d, i, m in rl.step(env, policy, buffer, render=True):
 
-        if dl is None:
-            dl = DataLoader(buffer, batch_size=config.batch_size, sampler=RandomSampler(buffer, replacement=True))
+            if episodes_captured < config.log_episodes:
+                buffer.append(s, a, s_p, r, d)
+                if episodes_captured < config.video_episodes:
+                    vidstream.append(m['frame'])
+                else:
+                    rl.global_render = False
+                episodes_captured += 1 if d else 0
+                progress.update(run, advance=1 if d else 0)
+            else:
+                break
 
-        if len(buffer) < config.batch_size:
-            continue
+            """ test """
+            if step > config.test_steps * test_number:
+                stats = rl.evaluate(env, policy, sample_n=config.test_episodes)
+                wandb_utils.log_test_stats(stats)
+                test_number += 1
 
-        """ train online after batch steps saved"""
-        sac.train(dl, q_net, target_q_net, policy_net, q_optim, policy_optim,
-                  discount=config.discount, polyak=config.polyak, alpha=config.alpha,
-                  device=config.device, precision=config.precision)
+    """ log transitions """
+    filename = f'./{config.env_name}_{len(buffer)}.pkl'
+    rl.save(buffer, filename)
+    wandb.run.tags = [*wandb.run.tags, filename]
 
-        """ test """
-        if evaluator.evaluate_now(config.test_steps):
-            evaluator.evaluate(test_env, exploit_policy, run_dir=config.run_dir, capture=config.test_capture,
-                               params={'q': q_net, 'q_optim': q_optim, 'policy': policy_net, 'policy_optim': policy_optim})
-
-        if step > config.max_steps:
-            break
+    """ log video """
+    video_filename = f'./{config.env_name}_{len(buffer)}.mp4'
+    torch_utils.write_mp4(video_filename, vidstream)
+    wandb.log({'video': wandb.Video(video_filename, fps=4, format="mp4")})
