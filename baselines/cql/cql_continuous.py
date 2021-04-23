@@ -130,6 +130,10 @@ if __name__ == '__main__':
                                     nn.Linear(hidden_dims, hidden_dims), nn.SELU(inplace=True),
                                     nn.Linear(hidden_dims, 1)) for _ in range(ensemble)]
 
+        def to(self, device):
+            self.q = [q.to(device) for q in self.q]
+            return self
+
         def parameters(self, recurse=True):
             params = []
             for q in self.q:

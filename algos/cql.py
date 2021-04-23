@@ -27,7 +27,7 @@ def train_continuous(dl, q, target_q, policy, q_optim, policy_optim,
             y = r + d * discount * target_q(s_p, a_p)
 
             a_sample = []
-            a_sample += [torch.empty(sample_actions, N, A).uniform_(amin, amax)]
+            a_sample += [torch.empty(sample_actions, N, A, device=device).uniform_(amin, amax)]
             a_sample += [a_dist.rsample((sample_actions, ))]
             a_sample += [a_p_dist.rsample((sample_actions, ))]
             a_sample = torch.stack(a_sample, dim=0).reshape(sample_actions * 3 * N, A)
@@ -37,8 +37,7 @@ def train_continuous(dl, q, target_q, policy, q_optim, policy_optim,
         q_replay = q(s, a)
         cql_loss = torch.logsumexp(q_sample, dim=0) - q_replay.detach()
 
-        qloss = torch.mean((q(s, a) - y) ** 2 / 2 + cql_loss)
-        #qloss = torch.mean((q(s, a) - y) ** 2 / 2)
+        qloss = torch.mean((q(s, a) - y) ** 2 / 2 + cql_alpha * cql_loss)
 
         q_optim.zero_grad()
         qloss.backward()
