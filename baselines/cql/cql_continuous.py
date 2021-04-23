@@ -41,6 +41,7 @@ if __name__ == '__main__':
     parser.add_argument('--test_episodes', type=int, default=16)
     parser.add_argument('--test_capture', action='store_true', default=False)
     parser.add_argument('--load_buffer', type=str)
+    parser.add_argument('--summary_video_episodes', type=int, default=3)
 
     """ resume settings """
     parser.add_argument('--demo', action='store_true', default=False)
@@ -185,28 +186,17 @@ if __name__ == '__main__':
         checkpoint.load(config.load, prefix='best', **networks_and_optimizers)
 
 
-    def policy(state):
-        """ policy to run on environment """
-        with torch.no_grad():
-            state = torch.from_numpy(state).float()
-            action = policy_net(state)
-            a = action.rsample()
-            assert ~torch.isnan(a).any()
-            return a.numpy()
-
-
     def exploit_policy(state):
         """ policy to test """
         with torch.no_grad():
-            state = torch.from_numpy(state).float()
+            state = torch.from_numpy(state).float().to(config.device)
             action = policy_net(state)
             a = action.mean
             assert ~torch.isnan(a).any()
-            return a.numpy()
-
+            return a.cpu().numpy()
 
     """ demo  """
-    wandb_utils.demo(config.demo, train_env, policy)
+    wandb_utils.demo(config.demo, train_env, exploit_policy)
 
     """ train loop """
     test_number = 1
@@ -239,7 +229,7 @@ if __name__ == '__main__':
             test_number += 1
 
     """ post summary of best policy for the run """
-    torch_utils.load_checkpoint(config.run_dir, **networks_and_optimizers)
+    torch_utils.load_checkpoint(config.run_dir, prefix='best', **networks_and_optimizers)
     stats = rl.evaluate(test_env, exploit_policy, sample_n=config.test_episodes,
                         vid_sample_n=config.summary_video_episodes)
     vid_filename = None
