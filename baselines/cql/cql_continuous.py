@@ -60,11 +60,11 @@ if __name__ == '__main__':
     parser.add_argument('--polyak', type=float, default=0.005)
     parser.add_argument('--q_update_ratio', type=int, default=2)
     parser.add_argument('--policy_alpha', type=float, default=0.2)
+    parser.add_argument('--cql_alpha', type=float, default=3.0)
     parser.add_argument('--hidden_dim', type=int, default=16)
     parser.add_argument('--cql_samples', type=int, default=8)
     parser.add_argument('--min_variance', type=float, default=0.05)
     parser.add_argument('--q_ensembles', type=int, default=2)
-    parser.add_argument('--lagrange_threshold', type=float, default=0.0)
 
     config = parser.parse_args()
 
@@ -177,11 +177,8 @@ if __name__ == '__main__':
         max_action=max_action,
     ).to(config.device)
 
-    cql_alpha_log = torch.zeros(1, requires_grad=True)
-
-    q_optim = torch.optim.Adam(q_net.parameters(), lr=1e-4)
-    policy_optim = torch.optim.Adam(policy_net.parameters(), lr=3e-5)
-    cql_alpha_optim = torch.optim.Adam([cql_alpha_log], lr=1e-4)
+    q_optim = torch.optim.Adam(q_net.parameters(), lr=config.optim_lr)
+    policy_optim = torch.optim.Adam(policy_net.parameters(), lr=config.optim_lr)
     networks_and_optimizers = {'q': q_net, 'q_optim': q_optim, 'policy': policy_net, 'policy_optim': policy_optim}
 
     """ load weights from file if required"""
@@ -206,14 +203,15 @@ if __name__ == '__main__':
     buffer = rl.load(config.load_buffer)
     dl = DataLoader(buffer, batch_size=config.batch_size, sampler=torch_utils.RandomSampler(buffer, replacement=True))
 
-    for step in track(range(config.max_steps), description='Training'):
+    for step in track(range(config.max_steps)):
 
         """ train online after batch steps saved"""
-        cql.train_continuous(dl, q_net, target_q_net, policy_net, q_optim, policy_optim, cql_alpha_log, cql_alpha_optim,
-                             sample_actions=config.cql_samples, amin=min_action, amax=max_action,
+        cql.train_continuous(dl, q_net, target_q_net, policy_net, q_optim, policy_optim,
                              discount=config.discount, polyak=config.polyak, q_update_ratio=config.q_update_ratio,
-                             policy_alpha=config.policy_alpha, lagrange_threshold=config.lagrange_threshold,
-                             device=config.device, precision=config.precision)
+                             sample_actions=config.cql_samples, amin=min_action,
+                             amax=max_action, cql_alpha=config.cql_alpha, policy_alpha=config.policy_alpha,
+                             device=config.device,
+                             precision=config.precision)
 
         """ test """
         if step > config.test_steps * test_number:
