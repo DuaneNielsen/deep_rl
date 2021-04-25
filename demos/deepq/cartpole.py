@@ -1,12 +1,11 @@
 import torch
 from torch import nn
 import gym
-import driver
 from gymviz import Plot
 from argparse import ArgumentParser
 import checkpoint
-import baselines.helper as helper
-
+import rl
+from demos import logging
 
 if __name__ == '__main__':
 
@@ -19,6 +18,14 @@ if __name__ == '__main__':
 
     """ vizualization """
     parser.add_argument('--plot_episodes_per_point', type=int, default=32)
+
+    """ logging """
+    parser.add_argument('--project', type=str)
+    parser.add_argument('--log_episodes', type=int, default=0)
+    parser.add_argument('--test_steps', type=int, default=1000)
+    parser.add_argument('--video_episodes', type=int, default=3)
+    parser.add_argument('--test_episodes', type=int, default=16)
+    parser.add_argument('--env_name', type=str, default='CartPole-v1')
 
     config = parser.parse_args()
 
@@ -36,7 +43,6 @@ if __name__ == '__main__':
     test_env = make_env()
     if not config.silent:
         test_env = Plot(test_env, episodes_per_point=1, title=f'Test deepq-{config.env_name}')
-    evaluator = helper.Evaluator(test_env)
 
     """ random seed """
     if config.seed is not None:
@@ -69,5 +75,7 @@ if __name__ == '__main__':
 
 
     """ demo  """
-    while True:
-        driver.episode(test_env, exploit_policy, render=True)
+    rl.demo(config.log_episodes == 0, test_env, exploit_policy)
+
+    logging.log(config, env, exploit_policy, config.project, config.env_name, config.log_episodes,
+                config.test_steps, config.video_episodes, config.test_episodes)
