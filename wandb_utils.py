@@ -391,8 +391,9 @@ class StateBufferDataset:
         return s.state(), a, s_p.state(), r, d
 
 
-def log_test_stats(stats, video_filename=None, **kwargs):
-    log = {}
+def log_test_stats(stats, test_number, log=None, video_filename=None, **kwargs):
+    log = {} if log is None else log
+    log['test_number'] = test_number
     log["last_mean_return"] = stats["last_mean_return"]
     log["last_stdev_return"] = stats["last_stdev_return"]
     log["best_mean_return"] = stats["best_mean_return"]
@@ -404,7 +405,7 @@ def log_test_stats(stats, video_filename=None, **kwargs):
         log[key] = value
     if video_filename is not None:
         log['video'] = wandb.Video(video_filename, fps=4, format="mp4")
-    wandb.log(log)
+    return log
 
 
 def log_summary_stats(stats, video_filename=None, **kwargs):
