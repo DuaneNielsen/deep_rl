@@ -37,7 +37,7 @@ def train_continuous(dl, q, target_q, policy, q_optim, policy_optim,
         q_replay = q(s, a)
         cql_loss = torch.logsumexp(q_sample, dim=0) - q_replay.detach()
 
-        td_loss = (q(s, a) - y) ** 2 / 2
+        td_loss = (q_replay - y) ** 2 / 2
         qloss = torch.mean(td_loss + cql_alpha * cql_loss)
 
         q_optim.zero_grad()
