@@ -37,7 +37,8 @@ def train_continuous(dl, q, target_q, policy, q_optim, policy_optim,
         q_replay = q(s, a)
         cql_loss = torch.logsumexp(q_sample, dim=0) - q_replay.detach()
 
-        qloss = torch.mean((q(s, a) - y) ** 2 / 2 + cql_alpha * cql_loss)
+        td_loss = (q(s, a) - y) ** 2 / 2
+        qloss = torch.mean(td_loss + cql_alpha * cql_loss)
 
         q_optim.zero_grad()
         qloss.backward()
@@ -60,6 +61,13 @@ def train_continuous(dl, q, target_q, policy, q_optim, policy_optim,
             target_q_param.data.copy_(polyak * q_param.data + (1.0 - polyak) * target_q_param.data)
 
         break
+
+    return {
+        'cql_loss': torch.mean(cql_loss).item(),
+        'q_loss': qloss.item(),
+        'td_loss': torch.mean(td_loss).item(),
+        'policy_loss': pl.item()
+    }
 
 
 def train_discrete(dl, q, target_q, policy, q_optim, policy_optim,

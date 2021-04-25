@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader, RandomSampler
 from rich.progress import track
 
 import gym
-import env
+import env as local_env
 import d4rl
 import pybulletgym
 import env.wrappers as wrappers
@@ -31,6 +31,7 @@ if __name__ == '__main__':
     parser.add_argument('--comment', type=str)
     parser.add_argument('--debug', action='store_true', default=False)
     parser.add_argument('--precision', type=str, action=EvalAction, default=torch.float32)
+    parser.add_argument('--tags', type=str, nargs='+', default=[])
 
     """ reproducibility """
     parser.add_argument('--seed', type=int, default=None)
@@ -72,24 +73,19 @@ if __name__ == '__main__':
     if config.seed is not None:
         torch.manual_seed(config.seed)
 
-    wandb.init(project=f"cql-{config.env_name}", config=config)
+    if config.debug:
+        config.tags.append('debug')
 
-    """ environment """
-
+    wandb.init(project=f"cql-{config.env_name}", config=config, tags=config.tags)
 
     def make_env():
+        """ environment """
         env = gym.make(config.env_name)
         env = wrappers.RescaleReward(env, config.env_reward_scale, config.env_reward_bias)
         if config.seed is not None:
             env.seed(config.seed)
             env.action_space.seed(config.seed)
         return env
-
-
-    """ training env with replay buffer """
-    train_env = make_env()
-    if config.debug:
-        train_env = Plot(train_env, episodes_per_point=5, title=f'Train cql-{config.env_name}')
 
     """ test env """
     test_env = make_env()
@@ -196,7 +192,7 @@ if __name__ == '__main__':
             return a.cpu().numpy()
 
     """ demo  """
-    wandb_utils.demo(config.demo, train_env, exploit_policy)
+    wandb_utils.demo(config.demo, test_env, exploit_policy)
 
     """ train loop """
     test_number = 1
@@ -206,7 +202,7 @@ if __name__ == '__main__':
     for step in track(range(config.max_steps)):
 
         """ train online after batch steps saved"""
-        cql.train_continuous(dl, q_net, target_q_net, policy_net, q_optim, policy_optim,
+        log = cql.train_continuous(dl, q_net, target_q_net, policy_net, q_optim, policy_optim,
                              discount=config.discount, polyak=config.polyak, q_update_ratio=config.q_update_ratio,
                              sample_actions=config.cql_samples, amin=min_action,
                              amax=max_action, cql_alpha=config.cql_alpha, policy_alpha=config.policy_alpha,
@@ -224,9 +220,10 @@ if __name__ == '__main__':
             if 'video' in stats:
                 vid_filename = f'{config.run_dir}/test_run_{test_number}.mp4'
                 torch_utils.write_mp4(vid_filename, stats['video'])
-            wandb_utils.log_test_stats(stats, vid_filename)
-
+            log = wandb_utils.log_test_stats(stats, test_number, log, vid_filename)
             test_number += 1
+
+        wandb.log(log)
 
     """ post summary of best policy for the run """
     torch_utils.load_checkpoint(config.run_dir, prefix='best', **networks_and_optimizers)
