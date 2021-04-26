@@ -1,0 +1,47 @@
+command:
+- ${env}
+- ${interpreter}
+- ${program}
+- ${args}
+method: bayes
+metric:
+  goal: maximize
+  name: best_mean_return
+parameters:
+  project:
+    value: cql-dr4l-mazes
+  policy_alpha:
+    value: 0.05
+  cql_alpha:
+    distribution: uniform
+    max: 5.0
+    min: 0.5
+  summary_video_episodes:
+    value: 3
+  env_name:
+    values:
+      - maze2d-umaze-v1
+      - maze2d-medium-v1
+      - maze2d-large-v1
+      - maze2d-eval-umaze-v1
+      - maze2d-eval-medium-v1
+      - maze2d-eval-large-v1
+      - maze2d-umaze-dense-v1
+      - maze2d-medium-dense-v1
+      - maze2d-large-dense-v1
+      - maze2d-eval-umaze-dense-v1
+      - maze2d-eval-medium-dense-v1
+      - maze2d-eval-large-dense-v1
+  seed:
+    value: 0
+  max_steps:
+    value: 400000
+  test_steps:
+    value: 10000
+  test_episodes:
+    value: 16
+  batch_size:
+    value: 16
+  hidden_dim:
+    value: 64
+program: cql_continuous.py

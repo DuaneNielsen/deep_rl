@@ -198,7 +198,7 @@ if __name__ == '__main__':
             if 'video' in stats:
                 vid_filename = f'{config.run_dir}/test_run_{test_number}.mp4'
                 torch_utils.write_mp4(vid_filename, stats['video'])
-            wandb_utils.log_test_stats(stats, vid_filename)
+            test_log = wandb_utils.log_test_stats(stats, vid_filename)
 
             test_number += 1
 

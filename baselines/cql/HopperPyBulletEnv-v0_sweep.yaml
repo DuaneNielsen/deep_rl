@@ -21,7 +21,7 @@ parameters:
   env_name:
     value: HopperPyBulletEnv-v0
   load_buffer:
-    value: /home/duane/wandb/deep_rl/demos/ppo/HopperPyBulletEnv-v0_19803.pkl
+    value: /home/duane/wandb/deep_rl/demos/sac/HopperPyBulletEnv-v0_116591.pkl
   seed:
     value: 0
   max_steps:
@@ -33,5 +33,5 @@ parameters:
   batch_size:
     value: 16
   hidden_dim:
-    value: 16
+    value: 64
 program: cql_continuous.py

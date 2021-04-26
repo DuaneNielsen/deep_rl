@@ -12,9 +12,9 @@ parameters:
     distribution: uniform
     max: 0.2
     min: 0.0
-  cql_alpha:
+  lagrange_threshold:
     distribution: uniform
-    max: 4.0
+    max: 5.0
     min: 0.0
   summary_video_episodes:
     value: 3
