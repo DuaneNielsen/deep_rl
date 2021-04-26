@@ -391,8 +391,8 @@ class StateBufferDataset:
         return s.state(), a, s_p.state(), r, d
 
 
-def log_test_stats(stats, test_number, log=None, video_filename=None, **kwargs):
-    log = {} if log is None else log
+def log_test_stats(stats, test_number, video_filename=None, **kwargs):
+    log = {}
     log['test_number'] = test_number
     log["last_mean_return"] = stats["last_mean_return"]
     log["last_stdev_return"] = stats["last_stdev_return"]
