@@ -196,12 +196,12 @@ if __name__ == '__main__':
         max_action=max_action,
     ).to(config.device)
 
-    if config.lars is None:
-        q_optim = torch.optim.Adam(q_net.parameters(), lr=config.q_lr)
-        policy_optim = torch.optim.Adam(policy_net.parameters(), lr=config.policy_lr)
-    else:
+    if config.lars:
         q_optim = LARS(torch.optim.SGD(q_net.parameters(), lr=config.q_lr))
         policy_optim = LARS(torch.optim.SGD(policy_net.parameters(), lr=config.policy_lr))
+    else:
+        q_optim = torch.optim.Adam(q_net.parameters(), lr=config.q_lr)
+        policy_optim = torch.optim.Adam(policy_net.parameters(), lr=config.policy_lr)
 
     warmup = lambda epoch: max(1.0, epoch / config.warmup)
     q_scheduler = torch.optim.lr_scheduler.LambdaLR(q_optim, lr_lambda=warmup)

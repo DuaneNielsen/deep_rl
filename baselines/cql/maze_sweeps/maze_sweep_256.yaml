@@ -3,7 +3,6 @@ command:
 - ${interpreter}
 - ${program}
 - ${args}
-- --lars
 method: bayes
 metric:
   goal: maximize
