@@ -21,6 +21,7 @@ import checkpoint
 import rl
 import torch_utils
 from torchlars import LARS
+import os
 
 
 if __name__ == '__main__':
@@ -73,6 +74,9 @@ if __name__ == '__main__':
     parser.add_argument('--q_ensembles', type=int, default=2)
 
     config = parser.parse_args()
+
+    if 'DEVICE' in os.environ:
+        config.device = os.environ['DEVICE']
 
     """ random seed """
     if config.seed is not None:

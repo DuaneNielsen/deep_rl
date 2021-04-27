@@ -4,7 +4,7 @@ command:
 - ${program}
 - ${args}
 - --lars
-method: grid
+method: bayes
 metric:
   goal: maximize
   name: best_mean_return
@@ -14,7 +14,7 @@ parameters:
   policy_alpha:
     value: 0.05
   cql_alpha:
-    value: 3.0
+    value: 1.0
   summary_video_episodes:
     value: 5
   env_name:
@@ -33,17 +33,13 @@ parameters:
       - 256
       - 1024
   q_lr:
-    values:
-      - 0.5e-3
-      - 1e-3
-      - 2e-3
+    distribution: log_uniform
+    max: -4.605
+    min: -9.210
   policy_lr:
-    values:
-      - 2e-4
-      - 5e-4
-      - 1e-3
+    distribution: log_uniform
+    max: -5.298
+    min: -9.903
   hidden_dim:
     value: 64
-  device:
-    value: 'cuda:0'
 program: cql_d4rl.py
