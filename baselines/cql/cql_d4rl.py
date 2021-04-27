@@ -60,10 +60,10 @@ if __name__ == '__main__':
 
     """ hyper-parameters """
     parser.add_argument('--warmup', type=int, default=1)
+    parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--q_lr', type=float, default=1e-4)
     parser.add_argument('--policy_lr', type=float, default=2e-5)
     parser.add_argument('--lars', action='store_true', default=False)
-    parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--discount', type=float, default=0.99)
     parser.add_argument('--polyak', type=float, default=0.005)
     parser.add_argument('--q_update_ratio', type=int, default=2)
@@ -75,6 +75,8 @@ if __name__ == '__main__':
     parser.add_argument('--q_ensembles', type=int, default=2)
 
     config = parser.parse_args()
+
+    config.policy_lr = config.q_lr / 4.0
 
     if 'DEVICE' in os.environ:
         config.device = os.environ['DEVICE']
