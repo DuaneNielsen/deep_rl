@@ -200,7 +200,7 @@ if __name__ == '__main__':
         q_optim = torch.optim.Adam(q_net.parameters(), lr=config.q_lr)
         policy_optim = torch.optim.Adam(policy_net.parameters(), lr=config.policy_lr)
     else:
-        q_optim = LARS(torch.optim.SGD(policy_net.parameters(), lr=config.policy_lr))
+        q_optim = LARS(torch.optim.SGD(q_net.parameters(), lr=config.q_lr))
         policy_optim = LARS(torch.optim.SGD(policy_net.parameters(), lr=config.policy_lr))
 
     warmup = lambda epoch: max(1.0, epoch / config.warmup)
