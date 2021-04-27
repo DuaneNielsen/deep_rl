@@ -20,6 +20,7 @@ import wandb_utils
 import checkpoint
 import rl
 import torch_utils
+from torchlars import LARS
 
 
 if __name__ == '__main__':
@@ -57,7 +58,9 @@ if __name__ == '__main__':
     parser.add_argument('--env_reward_bias', type=float, default=0.0)
 
     """ hyper-parameters """
-    #parser.add_argument('--optim_lr', type=float, default=1e-3)
+    parser.add_argument('--q_lr', type=float, default=1e-4)
+    parser.add_argument('--policy_lr', type=float, default=2e-5)
+    parser.add_argument('--lars', action='store_true', default=False)
     parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--discount', type=float, default=0.99)
     parser.add_argument('--polyak', type=float, default=0.005)
@@ -176,8 +179,12 @@ if __name__ == '__main__':
         max_action=max_action,
     ).to(config.device)
 
-    q_optim = torch.optim.Adam(q_net.parameters(), lr=1e-4)
-    policy_optim = torch.optim.Adam(policy_net.parameters(), lr=4e-5)
+    q_optim = torch.optim.Adam(q_net.parameters(), lr=config.q_lr)
+    policy_optim = torch.optim.Adam(policy_net.parameters(), lr=config.policy_lr)
+    if config.lars is not None:
+        q_optim = LARS(q_optim)
+        policy_optim = LARS(policy_optim)
+
     networks_and_optimizers = {'q': q_net, 'q_optim': q_optim, 'policy': policy_net, 'policy_optim': policy_optim}
 
     """ load weights from file if required"""
