@@ -59,6 +59,7 @@ if __name__ == '__main__':
     parser.add_argument('--env_reward_bias', type=float, default=0.0)
 
     """ hyper-parameters """
+    parser.add_argument('--warmup', type=int, default=1)
     parser.add_argument('--q_lr', type=float, default=1e-4)
     parser.add_argument('--policy_lr', type=float, default=2e-5)
     parser.add_argument('--lars', action='store_true', default=False)
@@ -130,12 +131,24 @@ if __name__ == '__main__':
             return ScaledTanhTransformedGaussian(mu, scale, min=self.min, max=self.max)
 
 
+    class MLP(nn.Module):
+        def __init__(self, input_dims, hidden_dims, output_dims):
+            super().__init__()
+            self.l1 = nn.Linear(input_dims, hidden_dims)
+            self.l1_norm = nn.Parameter(torch.ones(1, requires_grad=True))
+            self.l2 = nn.Linear(hidden_dims, hidden_dims)
+            self.l2_norm = nn.Parameter(torch.ones(1, requires_grad=True))
+            self.l3 = nn.Linear(hidden_dims, output_dims)
+
+        def forward(self, x):
+            hidden = torch.selu(self.l1(x) * self.l1_norm)
+            hidden = torch.selu(self.l2(hidden) * self.l2_norm)
+            return self.l3(hidden)
+
     class QNet(nn.Module):
         def __init__(self, input_dims, hidden_dims, actions, ensemble=2):
             super().__init__()
-            self.q = [nn.Sequential(nn.Linear(input_dims + actions, hidden_dims), nn.SELU(inplace=True),
-                                    nn.Linear(hidden_dims, hidden_dims), nn.SELU(inplace=True),
-                                    nn.Linear(hidden_dims, 1)) for _ in range(ensemble)]
+            self.q = [MLP(input_dims + actions, hidden_dims, 1) for _ in range(ensemble)]
 
         def to(self, device):
             self.q = [q.to(device) for q in self.q]
@@ -183,11 +196,16 @@ if __name__ == '__main__':
         max_action=max_action,
     ).to(config.device)
 
-    q_optim = torch.optim.Adam(q_net.parameters(), lr=config.q_lr)
-    policy_optim = torch.optim.Adam(policy_net.parameters(), lr=config.policy_lr)
-    if config.lars is not None:
-        q_optim = LARS(q_optim)
-        policy_optim = LARS(policy_optim)
+    if config.lars is None:
+        q_optim = torch.optim.Adam(q_net.parameters(), lr=config.q_lr)
+        policy_optim = torch.optim.Adam(policy_net.parameters(), lr=config.policy_lr)
+    else:
+        q_optim = LARS(torch.optim.SGD(policy_net.parameters(), lr=config.policy_lr))
+        policy_optim = LARS(torch.optim.SGD(policy_net.parameters(), lr=config.policy_lr))
+
+    warmup = lambda epoch: max(1.0, epoch / config.warmup)
+    q_scheduler = torch.optim.lr_scheduler.LambdaLR(q_optim, lr_lambda=warmup)
+    policy_scheduler = torch.optim.lr_scheduler.LambdaLR(policy_optim, lr_lambda=warmup)
 
     networks_and_optimizers = {'q': q_net, 'q_optim': q_optim, 'policy': policy_net, 'policy_optim': policy_optim}
 
@@ -225,6 +243,10 @@ if __name__ == '__main__':
                              amax=max_action, cql_alpha=config.cql_alpha, policy_alpha=config.policy_alpha,
                              device=config.device,
                              precision=config.precision)
+
+        q_scheduler.step()
+        policy_scheduler.step()
+
         if config.debug:
             log = log.new_child(train_log)
 

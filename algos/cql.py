@@ -19,9 +19,8 @@ def train_continuous(dl, q, target_q, policy, q_optim, policy_optim,
         r = r.type(precision).to(device).reshape(N, 1, 1)
         d = (1.0 * ~d.to(device)).reshape(N, 1, 1)
 
-        a_dist = policy(s)
-
         with torch.no_grad():
+            a_dist = policy(s)
             a_p_dist = policy(s_p)
             a_p = a_p_dist.rsample()
             y = r + d * discount * target_q(s_p, a_p)
@@ -48,6 +47,7 @@ def train_continuous(dl, q, target_q, policy, q_optim, policy_optim,
             q_update += 1
             continue
 
+        a_dist = policy(s)
         a_ = a_dist.rsample()
         min_q, _ = torch.min(q(s, a_), dim=2)  # investigate why running gradients through here is critical
         pl = - torch.mean(min_q - policy_alpha * a_dist.log_prob(a_).sum(1, keepdim=True))

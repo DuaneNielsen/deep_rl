@@ -22,11 +22,11 @@ parameters:
   seed:
     value: 0
   max_steps:
-    value: 40000
+    value: 80000
   test_steps:
-    value: 1000
+    value: 2000
   test_episodes:
-    value: 64
+    value: 32
   batch_size:
     values:
       - 64
@@ -40,6 +40,10 @@ parameters:
     distribution: log_uniform
     max: -5.298
     min: -9.903
+  polyak:
+    distribution: log_uniform
+    max: -1.600
+    min: -6.298
   hidden_dim:
     value: 64
 program: cql_d4rl.py
