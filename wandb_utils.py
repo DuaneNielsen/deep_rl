@@ -394,13 +394,12 @@ class StateBufferDataset:
 def log_test_stats(stats, test_number, video_filename=None, **kwargs):
     log = {}
     log['test_number'] = test_number
-    log["last_mean_return"] = stats["last_mean_return"]
-    log["last_stdev_return"] = stats["last_stdev_return"]
+    log["test_mean_return"] = stats["last_mean_return"]
+    log["test_stdev_return"] = stats["last_stdev_return"]
+    log["test_returns"] = wandb.Histogram(stats["test_returns"])
+    log["test_wall_time"] = stats["test_wall_time"]
     log["best_mean_return"] = stats["best_mean_return"]
     log["best_stdev_return"] = stats["best_stdev_return"]
-    log["test_returns"] = wandb.Histogram(stats["test_returns"])
-    log["test_mean_return"] = stats["test_mean_return"]
-    log["test_wall_time"] = stats["test_wall_time"]
     for key, value in kwargs.items():
         log[key] = value
     if video_filename is not None:
@@ -409,8 +408,9 @@ def log_test_stats(stats, test_number, video_filename=None, **kwargs):
 
 
 def log_summary_stats(stats, video_filename=None, **kwargs):
-    wandb.run.summary["summary_best_mean_return"] = stats["best_mean_return"]
-    wandb.run.summary["summary_best_mean_return"] = stats["best_mean_return"]
+    wandb.summary["summary_returns"] = wandb.Histogram(stats["test_returns"])
+    wandb.run.summary["summary_best_mean_return"] = stats["test_mean_return"]
+    wandb.run.summary["summary_best_mean_stdev"] = stats["test_mean_stdev"]
     for key, value in kwargs.items():
         wandb.run.summary[key] = value
     if video_filename is not None:
