@@ -409,8 +409,8 @@ def log_test_stats(stats, test_number, video_filename=None, **kwargs):
 
 def log_summary_stats(stats, video_filename=None, **kwargs):
     wandb.summary["summary_returns"] = wandb.Histogram(stats["test_returns"])
-    wandb.run.summary["summary_best_mean_return"] = stats["test_mean_return"]
-    wandb.run.summary["summary_best_mean_stdev"] = stats["test_mean_stdev"]
+    wandb.run.summary["summary_best_mean_return"] = stats["last_mean_return"]
+    wandb.run.summary["summary_best_mean_stdev"] = stats["last_mean_stdev"]
     for key, value in kwargs.items():
         wandb.run.summary[key] = value
     if video_filename is not None:
