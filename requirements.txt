@@ -6,3 +6,6 @@ matplotlib
 pybullet
 -e git+https://github.com/benelot/pybullet-gym#egg=pybulletgym
 rich
+moviepy
+imageio
+d4rl

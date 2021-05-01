@@ -4,6 +4,7 @@ from torchvision.io import write_video
 import numpy as np
 from torch.utils.data import Sampler
 from typing import Optional, Sized
+from logger import logger
 
 
 def save_checkpoint(directory, prefix=None, **kwargs):
@@ -128,3 +129,13 @@ class RandomSampler(Sampler[int]):
 
     def __len__(self):
         return self.num_samples
+
+
+def log_torch_video(logger):
+    for key, value in logger.log.items():
+        if 'video' in key:
+            vid_filename = f'{logger.run_dir}/{key}.mp4'
+            write_mp4(vid_filename, logger.log[key])
+
+
+logger.writers.append(log_torch_video)

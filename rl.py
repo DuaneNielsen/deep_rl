@@ -4,11 +4,13 @@ import time
 from statistics import mean, stdev
 import numpy as np
 import pickle
+from logger import logger
 
 global_step = 0
 global_best_mean_return = -999999999.0
 global_best_stdev_return = 0
 global_render = False
+global_test_number = 1
 
 
 def step(env, policy, buffer, render=False, timing=False, **kwargs):
@@ -183,9 +185,8 @@ def evaluate(env, policy, sample_n=10, vid_sample_n=0):
 
     """
 
-    global global_best_mean_return, global_best_stdev_return
+    global global_best_mean_return, global_best_stdev_return, global_test_number
 
-    stats = {}
     start_t = time.time()
 
     returns = []
@@ -203,26 +204,24 @@ def evaluate(env, policy, sample_n=10, vid_sample_n=0):
     end_t = time.time()
     total_t = end_t - start_t
 
-    # checkpoint policy if mean return is better
     if mean_return > global_best_mean_return:
         global_best_mean_return = mean_return
         global_best_stdev_return = stdev_return
-        stats["best"] = True
+        improved = True
     else:
-        stats["best"] = False
+        improved = False
 
     if len(vidstream) > 0:
-        stats["video"] = vidstream
+        logger.log[f"video_{global_test_number}"] = np.stack(vidstream)
 
-    stats["last_mean_return"] = mean_return
-    stats["last_stdev_return"] = stdev_return
-    stats["best_mean_return"] = global_best_mean_return
-    stats["best_stdev_return"] = global_best_stdev_return
-    stats["test_returns"] = returns
-    stats["test_mean_return"] = mean_return
-    stats["test_wall_time"] = total_t
+    logger.log["eval_mean_return"] = mean_return
+    logger.log["eval_stdev_return"] = stdev_return
+    logger.log["eval_returns_histogram"] = returns
+    logger.log["eval_wall_time"] = total_t
+    logger.log["best_mean_return"] = global_best_mean_return
+    logger.log["best_stdev_return"] = global_best_stdev_return
 
-    return stats
+    return improved
 
 
 def save(buffer, filepath):

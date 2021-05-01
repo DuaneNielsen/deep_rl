@@ -11,7 +11,9 @@ from pathlib import Path
 from torchvision.io import write_video
 import numpy as np
 import pickle
-
+from collections import OrderedDict
+from numbers import Number
+from logger import logger
 
 class LogRewards(gym.Wrapper):
     """
@@ -400,18 +402,36 @@ def log_test_stats(stats, test_number, video_filename=None, **kwargs):
     log["test_wall_time"] = stats["test_wall_time"]
     log["best_mean_return"] = stats["best_mean_return"]
     log["best_stdev_return"] = stats["best_stdev_return"]
-    for key, value in kwargs.items():
-        log[key] = value
+    for key, value in stats.items():
+        if 'histogram' in key:
+            log[key] = wandb.Histogram(value)
+        else:
+            log[key] = value
     if video_filename is not None:
         log['video'] = wandb.Video(video_filename, fps=4, format="mp4")
     return log
 
 
 def log_summary_stats(stats, video_filename=None, **kwargs):
-    wandb.summary["summary_returns"] = wandb.Histogram(stats["test_returns"])
+    wandb.run.summary["summary_returns"] = wandb.Histogram(stats["test_returns"])
     wandb.run.summary["summary_best_mean_return"] = stats["last_mean_return"]
     wandb.run.summary["summary_best_mean_stdev"] = stats["last_mean_stdev"]
     for key, value in kwargs.items():
         wandb.run.summary[key] = value
     if video_filename is not None:
         wandb.log({'video': wandb.Video(video_filename, fps=4, format="mp4")})
+
+
+def write_log_to_wandb(logger):
+    wandb_log = {}
+    for key, value in logger.log.items():
+        if 'histogram' in key:
+            wandb_log[key] = wandb.Histogram(value)
+        elif 'video' in key:
+            wandb_log['video'] = wandb.Video(value, fps=4, format="mp4")
+        else:
+            wandb_log[key] = value
+    wandb.log(wandb_log)
+
+
+logger.writers.append(write_log_to_wandb)

@@ -1,11 +1,12 @@
 import torch
 from torch.nn.functional import mse_loss
+from logger import logger
 
 
 def train_continuous(dl, q, target_q, policy, q_optim, policy_optim,
                      sample_actions=8, amin=-1.0, amax=1.0,
                      discount=0.99, polyak=0.095, q_update_ratio=2, policy_alpha=0.2, cql_alpha=1.0,
-                     device='cpu', precision=torch.float32
+                     device='cpu', precision=torch.float32, log=False
                      ):
     q_update = 1
 
@@ -32,6 +33,8 @@ def train_continuous(dl, q, target_q, policy, q_optim, policy_optim,
             a_sample = torch.stack(a_sample, dim=0).reshape(sample_actions * 3 * N, A)
             s_sample = s.view(1, N, S)[torch.zeros(sample_actions * 3, dtype=torch.long), :, :].reshape(sample_actions * 3 * N, S)
 
+        # the reference implementation includes q_replay in the logsumexp term
+        # and does not detach gradients from the in-distribution action term
         q_sample = q(s_sample, a_sample).reshape(sample_actions * 3, N, 1, -1)
         q_replay = q(s, a)
         cql_loss = torch.logsumexp(q_sample, dim=0) - q_replay.detach()
@@ -49,25 +52,51 @@ def train_continuous(dl, q, target_q, policy, q_optim, policy_optim,
 
         a_dist = policy(s)
         a_ = a_dist.rsample()
-        min_q, _ = torch.min(q(s, a_), dim=2)  # investigate why running gradients through here is critical
-        pl = - torch.mean(min_q - policy_alpha * a_dist.log_prob(a_).sum(1, keepdim=True))
+        min_q, _ = torch.min(q(s, a_), dim=2)
+        log_pi = a_dist.log_prob(a_).sum(1, keepdim=True)
+        policy_loss = - torch.mean(min_q - policy_alpha * log_pi)
 
         policy_optim.zero_grad()
-        pl.backward()
+        policy_loss.backward()
         policy_optim.step()
         q_optim.zero_grad()
 
         for q_param, target_q_param in zip(q.parameters(), target_q.parameters()):
             target_q_param.data.copy_(polyak * q_param.data + (1.0 - polyak) * target_q_param.data)
 
-        break
+        def stats_dict(name, tensor):
+            st = {}
+            st[name + ' mean'] = tensor.mean().item()
+            st[name + ' std'] = tensor.std().item()
+            st[name + ' min'] = tensor.max().item()
+            st[name + ' max'] = tensor.min().item()
+            st[name + ' histogram'] = tensor.detach().cpu().numpy()
+            return st
 
-    return {
-        'cql_loss': torch.mean(cql_loss).item(),
-        'q_loss': qloss.item(),
-        'td_loss': torch.mean(td_loss).item(),
-        'policy_loss': pl.item()
-    }
+        if log:
+
+            logger.log.update(stats_dict('Log Pi', log_pi))
+            logger.log['Policy loss'] = policy_loss.item()
+            logger.log['Q loss'] = qloss.item()
+
+            logger.log.update(stats_dict('Q1 Predictions', q_replay[..., 0]))
+            logger.log.update(stats_dict('Q2 Predictions', q_replay[..., 1]))
+            logger.log.update(stats_dict('Q1 Targets', y[..., 0]))
+            logger.log.update(stats_dict('Q2 Targets', y[..., 1]))
+            logger.log['QF1 loss'] = td_loss[..., 0].mean().item()
+            logger.log['min QF1 loss'] = cql_loss[..., 0].mean().item()
+            logger.log['QF2 loss'] = td_loss[..., 1].mean().item()
+            logger.log['min QF2 loss'] = cql_loss[..., 1].mean().item()
+            logger.log['Std QF1 values'] = q_sample[..., 0].std().item()
+            logger.log['Std QF2 values'] = q_sample[..., 1].std().item()
+            logger.log.update(stats_dict('QF1 in-dist values', q_sample[sample_actions:sample_actions * 2, ..., 0]))
+            logger.log.update(stats_dict('QF2 in-dist values', q_sample[sample_actions:sample_actions * 2, ..., 1]))
+            logger.log.update(stats_dict('QF1 random values', q_sample[0:sample_actions, ..., 0]))
+            logger.log.update(stats_dict('QF2 random values', q_sample[0:sample_actions, ..., 1]))
+            logger.log.update(stats_dict('QF1 next_actions values', q_sample[sample_actions*2:sample_actions*3, ..., 0]))
+            logger.log.update(stats_dict('QF2 next_actions values', q_sample[sample_actions*2:sample_actions*3, ..., 1]))
+
+        break
 
 
 def train_discrete(dl, q, target_q, policy, q_optim, policy_optim,

@@ -22,6 +22,7 @@ import rl
 import torch_utils
 from torchlars import LARS
 import os
+import logger
 
 
 if __name__ == '__main__':
@@ -88,8 +89,10 @@ if __name__ == '__main__':
     if config.debug:
         config.tags.append('debug')
 
-    project = f"cql-{config.env_name}" if config.project is None else config.project
+    project = f"cql-v0.1-{config.env_name}" if config.project is None else config.project
     wandb.init(project=project, config=config, tags=config.tags)
+    logger.init(run_dir=config.run_dir)
+
 
     def make_env():
         """ environment """
@@ -99,6 +102,7 @@ if __name__ == '__main__':
             env.seed(config.seed)
             env.action_space.seed(config.seed)
         return env
+
 
     """ test env """
     test_env = make_env()
@@ -146,6 +150,7 @@ if __name__ == '__main__':
             hidden = torch.selu(self.l1(x) * self.l1_norm)
             hidden = torch.selu(self.l2(hidden) * self.l2_norm)
             return self.l3(hidden)
+
 
     class QNet(nn.Module):
         def __init__(self, input_dims, hidden_dims, actions, ensemble=2):
@@ -225,6 +230,7 @@ if __name__ == '__main__':
             assert ~torch.isnan(a).any()
             return a.cpu().numpy()
 
+
     """ demo  """
     wandb_utils.demo(config.demo, test_env, exploit_policy)
 
@@ -236,45 +242,26 @@ if __name__ == '__main__':
 
     for step in track(range(config.max_steps)):
 
-        log = ChainMap()
-
-        """ train online after batch steps saved"""
-        train_log = cql.train_continuous(dl, q_net, target_q_net, policy_net, q_optim, policy_optim,
+        cql.train_continuous(dl, q_net, target_q_net, policy_net, q_optim, policy_optim,
                              discount=config.discount, polyak=config.polyak, q_update_ratio=config.q_update_ratio,
                              sample_actions=config.cql_samples, amin=min_action,
                              amax=max_action, cql_alpha=config.cql_alpha, policy_alpha=config.policy_alpha,
-                             device=config.device,
-                             precision=config.precision)
-
+                             device=config.device, precision=config.precision,
+                             log=step > config.test_steps * test_number)
         q_scheduler.step()
         policy_scheduler.step()
 
-        if config.debug:
-            log = log.new_child(train_log)
-
         """ test """
         if step > config.test_steps * test_number:
-            stats = rl.evaluate(test_env, exploit_policy, sample_n=config.test_episodes)
+            improved = rl.evaluate(test_env, exploit_policy, sample_n=config.test_episodes)
 
-            if stats['best']:
+            if improved:
                 torch_utils.save_checkpoint(config.run_dir, 'best', **networks_and_optimizers)
-
-            vid_filename = None
-            if 'video' in stats:
-                vid_filename = f'{config.run_dir}/test_run_{test_number}.mp4'
-                torch_utils.write_mp4(vid_filename, stats['video'])
-            test_log = wandb_utils.log_test_stats(stats, test_number, vid_filename)
-            log = log.new_child(test_log)
             test_number += 1
 
-        wandb.log(log)
+        logger.write()
 
     """ post summary of best policy for the run """
     torch_utils.load_checkpoint(config.run_dir, prefix='best', **networks_and_optimizers)
-    stats = rl.evaluate(test_env, exploit_policy, sample_n=config.test_episodes,
-                        vid_sample_n=config.summary_video_episodes)
-    vid_filename = None
-    if 'video' in stats:
-        vid_filename = f'{config.run_dir}/best_policy.mp4'
-        torch_utils.write_mp4(vid_filename, stats['video'])
-    wandb_utils.log_summary_stats(stats, vid_filename)
+    rl.evaluate(test_env, exploit_policy, sample_n=config.test_episodes, vid_sample_n=config.summary_video_episodes)
+    logger.write()
