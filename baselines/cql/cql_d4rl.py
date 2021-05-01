@@ -115,9 +115,12 @@ if __name__ == '__main__':
             super().__init__()
             self.hidden = nn.Sequential(nn.Linear(input_dims, hidden_dims), nn.SELU(inplace=True),
                                         nn.Linear(hidden_dims, hidden_dims), nn.SELU(inplace=True))
-            self.mu = nn.Linear(hidden_dims, out_dims, bias=False)
-            self.scale = nn.Linear(hidden_dims, out_dims, bias=False)
+            self.mu = nn.Linear(hidden_dims, out_dims)
+            self.scale = nn.Linear(hidden_dims, out_dims)
             self.mu.weight.data.zero_()
+            self.mu.bias.data.zero_()
+            self.scale.weight.data.uniform_(-0.001, 0.001)
+            self.scale.bias.data.uniform_(-0.001, 0.001)
 
         def forward(self, state):
             hidden = self.hidden(state)
