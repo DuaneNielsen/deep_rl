@@ -215,7 +215,7 @@ if __name__ == '__main__':
         q_optim = torch.optim.Adam(q_net.parameters(), lr=config.q_lr)
         policy_optim = torch.optim.Adam(policy_net.parameters(), lr=config.policy_lr)
 
-    warmup = lambda epoch: max(1.0, epoch / config.warmup)
+    warmup = lambda epoch: min(1.0, epoch / config.warmup)
     q_scheduler = torch.optim.lr_scheduler.LambdaLR(q_optim, lr_lambda=warmup)
     policy_scheduler = torch.optim.lr_scheduler.LambdaLR(policy_optim, lr_lambda=warmup)
 
