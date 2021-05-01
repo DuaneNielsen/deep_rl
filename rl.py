@@ -5,6 +5,8 @@ from statistics import mean, stdev
 import numpy as np
 import pickle
 from logger import logger
+import warnings
+
 
 global_step = 0
 global_best_mean_return = -999999999.0
@@ -212,7 +214,10 @@ def evaluate(env, policy, sample_n=10, vid_sample_n=0):
         improved = False
 
     if len(vidstream) > 0:
-        logger.log[f"video_{global_test_number}"] = np.stack(vidstream)
+        vidstream = np.stack(vidstream)
+        if not (vidstream.shape[3] == 3 or vidstream.shape[3] == 1):
+            warnings.warn(f'Vidstream shape is {vidstream.shape} but T, H, W, C format was expected')
+        logger.log[f"video_{global_test_number}"] = vidstream
 
     logger.log["eval_mean_return"] = mean_return
     logger.log["eval_stdev_return"] = stdev_return

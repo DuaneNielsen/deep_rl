@@ -76,8 +76,10 @@ def train_continuous(dl, q, target_q, policy, q_optim, policy_optim,
 
         if log:
 
-            logger.log.update(stats_dict('trainer-Log Pi', log_pi))
-            logger.log['trainer-Policy loss'] = policy_loss.item()
+            logger.log['trainer-Policy Loss'] = policy_loss.item()
+            logger.log.update(stats_dict('trainer-Log Pis', log_pi))
+            logger.log.update(stats_dict('trainer-Policy mu', a_dist.mu))
+            logger.log.update(stats_dict('trainer-Policy log std', torch.log(a_dist.scale)))
 
             logger.log['trainer-Q loss'] = qloss.item()
             logger.log.update(stats_dict('trainer-Q1 Predictions', q_replay[..., 0]))
@@ -96,6 +98,9 @@ def train_continuous(dl, q, target_q, policy, q_optim, policy_optim,
             logger.log.update(stats_dict('trainer-QF2 random values', q_sample[0:sample_actions, ..., 1]))
             logger.log.update(stats_dict('trainer-QF1 next_actions values', q_sample[sample_actions*2:sample_actions*3, ..., 0]))
             logger.log.update(stats_dict('trainer-QF2 next_actions values', q_sample[sample_actions*2:sample_actions*3, ..., 1]))
+
+            logger.log.update(stats_dict('trainer-actions', a))
+            logger.log.update(stats_dict('trainer-rewards', r))
 
         break
 
