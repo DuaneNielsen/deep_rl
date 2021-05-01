@@ -242,24 +242,25 @@ if __name__ == '__main__':
 
     for step in track(range(config.max_steps)):
 
+        eval = step > config.test_steps * test_number
+
         cql.train_continuous(dl, q_net, target_q_net, policy_net, q_optim, policy_optim,
                              discount=config.discount, polyak=config.polyak, q_update_ratio=config.q_update_ratio,
                              sample_actions=config.cql_samples, amin=min_action,
                              amax=max_action, cql_alpha=config.cql_alpha, policy_alpha=config.policy_alpha,
-                             device=config.device, precision=config.precision,
-                             log=step > config.test_steps * test_number)
+                             device=config.device, precision=config.precision, log=eval)
         q_scheduler.step()
         policy_scheduler.step()
 
         """ test """
-        if step > config.test_steps * test_number:
+        if eval:
             improved = rl.evaluate(test_env, exploit_policy, sample_n=config.test_episodes)
 
             if improved:
                 torch_utils.save_checkpoint(config.run_dir, 'best', **networks_and_optimizers)
             test_number += 1
 
-        logger.write()
+            logger.write()
 
     """ post summary of best policy for the run """
     torch_utils.load_checkpoint(config.run_dir, prefix='best', **networks_and_optimizers)
