@@ -254,6 +254,7 @@ if __name__ == '__main__':
                              sample_actions=config.cql_samples, amin=min_action,
                              amax=max_action, cql_alpha=config.cql_alpha, policy_alpha=config.policy_alpha,
                              device=config.device, precision=config.precision, log=eval)
+        logger.log({'warmup': warmup(step)})
         q_scheduler.step()
         policy_scheduler.step()
 
