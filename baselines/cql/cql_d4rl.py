@@ -115,8 +115,9 @@ if __name__ == '__main__':
             super().__init__()
             self.hidden = nn.Sequential(nn.Linear(input_dims, hidden_dims), nn.SELU(inplace=True),
                                         nn.Linear(hidden_dims, hidden_dims), nn.SELU(inplace=True))
-            self.mu = nn.Linear(hidden_dims, out_dims)
-            self.scale = nn.Linear(hidden_dims, out_dims)
+            self.mu = nn.Linear(hidden_dims, out_dims, bias=False)
+            self.scale = nn.Linear(hidden_dims, out_dims, bias=False)
+            self.mu.weight.data.zero_()
 
         def forward(self, state):
             hidden = self.hidden(state)
@@ -144,7 +145,8 @@ if __name__ == '__main__':
             self.l1_norm = nn.Parameter(torch.ones(1, requires_grad=True))
             self.l2 = nn.Linear(hidden_dims, hidden_dims)
             self.l2_norm = nn.Parameter(torch.ones(1, requires_grad=True))
-            self.l3 = nn.Linear(hidden_dims, output_dims)
+            self.l3 = nn.Linear(hidden_dims, output_dims, bias=False)
+            self.l3.weight.data.zero_()
 
         def forward(self, x):
             hidden = torch.selu(self.l1(x) * self.l1_norm)
