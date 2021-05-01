@@ -7,8 +7,8 @@ def stats_dict(name, tensor):
     st = {}
     st[name + ' Mean'] = tensor.mean().item()
     st[name + ' Std'] = tensor.std().item()
-    st[name + ' Min'] = tensor.max().item()
-    st[name + ' Max'] = tensor.min().item()
+    st[name + ' Max'] = tensor.max().item()
+    st[name + ' Min'] = tensor.min().item()
     st[name + ' histogram'] = tensor.detach().cpu().numpy()
     return st
 
