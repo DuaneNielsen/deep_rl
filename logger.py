@@ -17,5 +17,9 @@ def init(run_dir):
     logger.run_dir = run_dir
 
 
+def log(log_dict):
+    logger.log.update(log_dict)
+
+
 def write():
     logger.write()
