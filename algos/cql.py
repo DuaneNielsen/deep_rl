@@ -104,6 +104,9 @@ def train_continuous(dl, q, target_q, policy, q_optim, policy_optim,
                 tensor_stats('trainer-QF1 next_actions values', q_sample[sample_actions * 2:sample_actions * 3, ..., 0]))
             logger.log.update(
                 tensor_stats('trainer-QF2 next_actions values', q_sample[sample_actions * 2:sample_actions * 3, ..., 1]))
+            logger.log.update(tensor_stats('trainer-QF next_actions entropy', log_probs_sample[sample_actions*2:sample_actions*3]))
+            logger.log.update(tensor_stats('trainer-QF in_distribution entropy',
+                                           log_probs_sample[sample_actions * 1:sample_actions * 2]))
 
             logger.log.update(tensor_stats('trainer-actions', a))
             logger.log.update(tensor_stats('trainer-rewards', r))
