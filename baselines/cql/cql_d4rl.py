@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, RandomSampler, TensorDataset
-from rich.progress import track
+from rich.progress import Progress
 from collections import ChainMap
 
 import gym
@@ -247,30 +247,38 @@ if __name__ == '__main__':
     buffer = TensorDataset(*[torch.from_numpy(numpy_array) for key, numpy_array in data.items()])
     dl = DataLoader(buffer, batch_size=config.batch_size, sampler=torch_utils.RandomSampler(buffer, replacement=True))
 
-    for step in track(range(config.max_steps)):
+    with Progress() as progress:
 
-        eval = step > config.test_steps * test_number
+        t_train = progress.add_task('[red] steps ...', total=config.max_steps)
+        t_eval = progress.add_task('[magenta] evals ...', total=config.max_steps//config.test_steps)
 
-        policy_alpha = math.pow(1.0 - config.policy_alpha_decay, step)
+        for step in range(1, config.max_steps + 1):
 
-        cql.train_continuous(dl, q_net, target_q_net, policy_net, q_optim, policy_optim,
-                             discount=config.discount, polyak=config.polyak, q_update_ratio=config.q_update_ratio,
-                             sample_actions=config.cql_samples, amin=min_action,
-                             amax=max_action, cql_alpha=config.cql_alpha, policy_alpha=policy_alpha,
-                             device=config.device, precision=config.precision, log=eval)
-        q_scheduler.step()
-        policy_scheduler.step()
+            eval = step >= config.test_steps * test_number
 
-        """ test """
-        if eval:
-            improved = rl.evaluate(test_env, exploit_policy, sample_n=config.test_episodes)
+            policy_alpha = math.pow(1.0 - config.policy_alpha_decay, step)
 
-            if improved:
-                torch_utils.save_checkpoint(config.run_dir, 'best', **networks_and_optimizers)
-            test_number += 1
+            cql.train_continuous(dl, q_net, target_q_net, policy_net, q_optim, policy_optim,
+                                 discount=config.discount, polyak=config.polyak, q_update_ratio=config.q_update_ratio,
+                                 sample_actions=config.cql_samples, amin=min_action,
+                                 amax=max_action, cql_alpha=config.cql_alpha, policy_alpha=policy_alpha,
+                                 device=config.device, precision=config.precision, log=eval)
+            q_scheduler.step()
+            policy_scheduler.step()
 
-            logs.log({'warmup': warmup(step), 'trainer-Alpha': policy_alpha})
-            logs.write()
+            """ test """
+            if eval:
+                improved = rl.evaluate(test_env, exploit_policy, sample_n=config.test_episodes)
+
+                if improved:
+                    torch_utils.save_checkpoint(config.run_dir, 'best', **networks_and_optimizers)
+                test_number += 1
+
+                logs.log({'warmup': warmup(step), 'trainer-Alpha': policy_alpha})
+                logs.write()
+                progress.update(t_eval, advance=1)
+
+            progress.update(t_train, advance=1)
 
     """ post summary of best policy for the run """
     torch_utils.load_checkpoint(config.run_dir, prefix='best', **networks_and_optimizers)
