@@ -4,7 +4,7 @@ from torchvision.io import write_video
 import numpy as np
 from torch.utils.data import Sampler
 from typing import Optional, Sized
-from logger import logger
+from logs import logger
 
 
 def save_checkpoint(directory, prefix=None, **kwargs):

@@ -11,7 +11,10 @@ parameters:
   project:
     value: cql-dr4l-mazes
   policy_alpha:
-    value: 0.0
+    distribution: uniform
+    max: 0.3
+    min: 0.0
+    q: 0.05
   cql_alpha:
     value: 1.0
   summary_video_episodes:
@@ -31,11 +34,12 @@ parameters:
   warmup:
     value: 1000
   q_lr:
-    distribution: log_uniform
-    max: -5.605
-    min: -12.210
-  policy_lr:
-    value: 0.0006174
+    value: 1e-4
+#    distribution: log_uniform
+#    max: -5.605
+#    min: -12.210
+#  policy_lr:
+#    value: 0.0006174
   polyak:
     value: 0.001
   hidden_dim:

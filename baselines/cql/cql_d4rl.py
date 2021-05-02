@@ -23,7 +23,7 @@ import rl
 import torch_utils
 from torchlars import LARS
 import os
-import logger
+import logs
 
 
 if __name__ == '__main__':
@@ -93,7 +93,7 @@ if __name__ == '__main__':
 
     project = f"cql-v0.1-{config.env_name}" if config.project is None else config.project
     wandb.init(project=project, config=config, tags=config.tags)
-    logger.init(run_dir=config.run_dir)
+    logs.init(run_dir=config.run_dir)
 
 
     def make_env():
@@ -269,10 +269,10 @@ if __name__ == '__main__':
                 torch_utils.save_checkpoint(config.run_dir, 'best', **networks_and_optimizers)
             test_number += 1
 
-            logger.log({'warmup': warmup(step), 'trainer-Alpha': policy_alpha})
-            logger.write()
+            logs.log({'warmup': warmup(step), 'trainer-Alpha': policy_alpha})
+            logs.write()
 
     """ post summary of best policy for the run """
     torch_utils.load_checkpoint(config.run_dir, prefix='best', **networks_and_optimizers)
     rl.evaluate(test_env, exploit_policy, sample_n=config.test_episodes, vid_sample_n=config.summary_video_episodes)
-    logger.write()
+    logs.write()

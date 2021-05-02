@@ -1,16 +1,6 @@
 import torch
 from torch.nn.functional import mse_loss
-from logger import logger
-
-
-def stats_dict(name, tensor):
-    st = {}
-    st[name + ' Mean'] = tensor.mean().item()
-    st[name + ' Std'] = tensor.std().item()
-    st[name + ' Max'] = tensor.max().item()
-    st[name + ' Min'] = tensor.min().item()
-    st[name + ' histogram'] = tensor.detach().cpu().numpy()
-    return st
+from logs import logger, tensor_stats
 
 
 def train_continuous(dl, q, target_q, policy, q_optim, policy_optim,
@@ -90,29 +80,33 @@ def train_continuous(dl, q, target_q, policy, q_optim, policy_optim,
         if log:
 
             logger.log['trainer-Policy Loss'] = policy_loss.item()
-            logger.log.update(stats_dict('trainer-Log Pis', log_pi))
-            logger.log.update(stats_dict('trainer-Policy mu', a_dist.mu))
-            logger.log.update(stats_dict('trainer-Policy log std', torch.log(a_dist.scale)))
+            logger.log.update(tensor_stats('trainer-Log Pis', log_pi))
+            logger.log.update(tensor_stats('trainer-Policy mu', a_dist.mu))
+            logger.log.update(tensor_stats('trainer-Policy log std', torch.log(a_dist.scale)))
 
             logger.log['trainer-Q loss'] = qloss.item()
-            logger.log.update(stats_dict('trainer-Q1 Predictions', q_replay[..., 0]))
-            logger.log.update(stats_dict('trainer-Q2 Predictions', q_replay[..., 1]))
-            logger.log.update(stats_dict('trainer-Q Targets', y))
+            logger.log.update(tensor_stats('trainer-Q1 Predictions', q_replay[..., 0]))
+            logger.log.update(tensor_stats('trainer-Q2 Predictions', q_replay[..., 1]))
+            logger.log.update(tensor_stats('trainer-Q Targets', y))
             logger.log['trainer-QF1 Loss'] = td_loss[..., 0].mean().item()
             logger.log['trainer-min QF1 Loss'] = cql_loss[..., 0].mean().item()
             logger.log['trainer-QF2 Loss'] = td_loss[..., 1].mean().item()
             logger.log['trainer-min QF2 Loss'] = cql_loss[..., 1].mean().item()
             logger.log['trainer-Std QF1 values'] = q_sample[..., 0].std().item()
             logger.log['trainer-Std QF2 values'] = q_sample[..., 1].std().item()
-            logger.log.update(stats_dict('trainer-QF1 in-distribution values', q_sample[sample_actions:sample_actions * 2, ..., 0]))
-            logger.log.update(stats_dict('trainer-QF2 in-distribution values', q_sample[sample_actions:sample_actions * 2, ..., 1]))
-            logger.log.update(stats_dict('trainer-QF1 random values', q_sample[0:sample_actions, ..., 0]))
-            logger.log.update(stats_dict('trainer-QF2 random values', q_sample[0:sample_actions, ..., 1]))
-            logger.log.update(stats_dict('trainer-QF1 next_actions values', q_sample[sample_actions*2:sample_actions*3, ..., 0]))
-            logger.log.update(stats_dict('trainer-QF2 next_actions values', q_sample[sample_actions*2:sample_actions*3, ..., 1]))
+            logger.log.update(
+                tensor_stats('trainer-QF1 in-distribution values', q_sample[sample_actions:sample_actions * 2, ..., 0]))
+            logger.log.update(
+                tensor_stats('trainer-QF2 in-distribution values', q_sample[sample_actions:sample_actions * 2, ..., 1]))
+            logger.log.update(tensor_stats('trainer-QF1 random values', q_sample[0:sample_actions, ..., 0]))
+            logger.log.update(tensor_stats('trainer-QF2 random values', q_sample[0:sample_actions, ..., 1]))
+            logger.log.update(
+                tensor_stats('trainer-QF1 next_actions values', q_sample[sample_actions * 2:sample_actions * 3, ..., 0]))
+            logger.log.update(
+                tensor_stats('trainer-QF2 next_actions values', q_sample[sample_actions * 2:sample_actions * 3, ..., 1]))
 
-            logger.log.update(stats_dict('trainer-actions', a))
-            logger.log.update(stats_dict('trainer-rewards', r))
+            logger.log.update(tensor_stats('trainer-actions', a))
+            logger.log.update(tensor_stats('trainer-rewards', r))
 
         break
 

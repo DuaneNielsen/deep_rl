@@ -4,13 +4,12 @@ import time
 from statistics import mean, stdev
 import numpy as np
 import pickle
-from logger import logger
 import warnings
-
+from logs import logger, list_stats
 
 global_step = 0
 global_best_mean_return = -999999999.0
-global_best_stdev_return = 0
+global_best_return_stats = {}
 global_render = False
 global_test_number = 1
 
@@ -187,10 +186,11 @@ def evaluate(env, policy, sample_n=10, vid_sample_n=0):
 
     """
 
-    global global_best_mean_return, global_best_stdev_return, global_test_number
+    global global_best_mean_return, global_best_return_stats, global_test_number
 
     start_t = time.time()
 
+    lengths = []
     returns = []
     vidstream = []
 
@@ -198,17 +198,20 @@ def evaluate(env, policy, sample_n=10, vid_sample_n=0):
         capture = n < vid_sample_n
         retn, length, video = episode(env, policy, capture=capture)
         returns.append(retn)
+        lengths.append(length)
         vidstream.extend(video)
 
-    mean_return = mean(returns)
-    stdev_return = stdev(returns)
+    return_stats = list_stats("eval-return", returns)
 
     end_t = time.time()
     total_t = end_t - start_t
 
-    if mean_return > global_best_mean_return:
-        global_best_mean_return = mean_return
-        global_best_stdev_return = stdev_return
+    """ if policy improved save it's stats"""
+    if return_stats['eval-return Mean'] > global_best_mean_return:
+        global_best_mean_return = return_stats['eval-return Mean']
+        for key, value in return_stats.items():
+            key = key.replace('eval-return', 'eval-best-return')
+            global_best_return_stats[key] = value
         improved = True
     else:
         improved = False
@@ -219,12 +222,10 @@ def evaluate(env, policy, sample_n=10, vid_sample_n=0):
             warnings.warn(f'Vidstream shape is {vidstream.shape} but T, H, W, C format was expected')
         logger.log[f"video_{global_test_number}"] = vidstream
 
-    logger.log["eval_mean_return"] = mean_return
-    logger.log["eval_stdev_return"] = stdev_return
-    logger.log["eval_returns_histogram"] = returns
-    logger.log["eval_wall_time"] = total_t
-    logger.log["best_mean_return"] = global_best_mean_return
-    logger.log["best_stdev_return"] = global_best_stdev_return
+    logger.log.update(return_stats)
+    logger.log.update(global_best_return_stats)
+    logger.log.update(list_stats("eval-lengths", lengths))
+    logger.log["eval-wall_time"] = total_t
 
     return improved
 
@@ -257,7 +258,7 @@ class StateBuffer:
 
     def append(self, item):
         self.states.append(item)
-        return StateRef(self, len(self.states)-1)
+        return StateRef(self, len(self.states) - 1)
 
     def __getitem__(self, item):
         return self.states[item]
@@ -274,7 +275,7 @@ class EncodedStateBuffer:
 
     def append(self, item):
         self.states.append(self.encode(item))
-        return StateRef(self, len(self.states)-1)
+        return StateRef(self, len(self.states) - 1)
 
     def __getitem__(self, item):
         return self.decode(self.states[item])
@@ -284,7 +285,7 @@ class EncodedStateBuffer:
 
 
 def encode_z(A):
-    compressed_array = io.BytesIO()    # np.savez_compressed() requires a file-like object to write to
+    compressed_array = io.BytesIO()  # np.savez_compressed() requires a file-like object to write to
     np.savez_compressed(compressed_array, A)
     return compressed_array
 

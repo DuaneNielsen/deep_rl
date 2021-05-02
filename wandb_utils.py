@@ -13,7 +13,7 @@ import numpy as np
 import pickle
 from collections import OrderedDict
 from numbers import Number
-from logger import logger
+from logs import logger
 
 class LogRewards(gym.Wrapper):
     """
@@ -428,7 +428,7 @@ def write_log_to_wandb(logger):
         if 'histogram' in key:
             wandb_log[key] = wandb.Histogram(value)
         elif 'video' in key:
-            wandb_log['video'] = wandb.Video(np.transpose(value, (0, 3, 1, 2)), fps=4, format="mp4")
+            wandb_log['video'] = wandb.Video(np.transpose(value, (0, 3, 1, 2)), fps=12, format="mp4")
         else:
             wandb_log[key] = value
     wandb.log(wandb_log)
