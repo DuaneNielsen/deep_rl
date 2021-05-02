@@ -269,7 +269,7 @@ if __name__ == '__main__':
                 torch_utils.save_checkpoint(config.run_dir, 'best', **networks_and_optimizers)
             test_number += 1
 
-            logger.log({'warmup': warmup(step), 'Alpha': policy_alpha})
+            logger.log({'warmup': warmup(step), 'trainer-Alpha': policy_alpha})
             logger.write()
 
     """ post summary of best policy for the run """
