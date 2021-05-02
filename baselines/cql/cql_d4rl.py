@@ -129,7 +129,7 @@ if __name__ == '__main__':
             mu = self.mu(hidden)
             log_scale = self.scale(hidden)
             log_scale = torch.clamp(log_scale, 1e-5, 1e2)
-            scale = torch.exp(log_scale)
+            scale = torch.exp(log_scale) + config.min_variance
             return mu, scale
 
 
