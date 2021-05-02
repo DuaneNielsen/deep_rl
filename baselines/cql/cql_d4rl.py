@@ -123,7 +123,7 @@ if __name__ == '__main__':
             self.mu.weight.data.zero_()
             self.mu.bias.data.zero_()
             self.scale.weight.data.uniform_(-0.001, 0.001)
-            self.scale.bias.data.uniform_(-0.001, 0.001)
+            #self.scale.bias.data.uniform_(-0.001, 0.001)
 
         def forward(self, state):
             hidden = self.hidden(state)
