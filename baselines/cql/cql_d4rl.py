@@ -11,6 +11,7 @@ import pybulletgym
 import env.wrappers as wrappers
 from gymviz import Plot
 import numpy as np
+import math
 
 from algos import cql
 from distributions import ScaledTanhTransformedGaussian
@@ -68,7 +69,8 @@ if __name__ == '__main__':
     parser.add_argument('--discount', type=float, default=0.99)
     parser.add_argument('--polyak', type=float, default=0.005)
     parser.add_argument('--q_update_ratio', type=int, default=2)
-    parser.add_argument('--policy_alpha', type=float, default=0.2)
+    parser.add_argument('--policy_alpha', type=float, default=1.0)
+    parser.add_argument('--policy_alpha_decay', type=float, default=1e-4)
     parser.add_argument('--cql_alpha', type=float, default=3.0)
     parser.add_argument('--hidden_dim', type=int, default=16)
     parser.add_argument('--cql_samples', type=int, default=8)
@@ -249,12 +251,13 @@ if __name__ == '__main__':
 
         eval = step > config.test_steps * test_number
 
+        policy_alpha = math.pow(1.0 - config.policy_alpha_decay, step)
+
         cql.train_continuous(dl, q_net, target_q_net, policy_net, q_optim, policy_optim,
                              discount=config.discount, polyak=config.polyak, q_update_ratio=config.q_update_ratio,
                              sample_actions=config.cql_samples, amin=min_action,
-                             amax=max_action, cql_alpha=config.cql_alpha, policy_alpha=config.policy_alpha,
+                             amax=max_action, cql_alpha=config.cql_alpha, policy_alpha=policy_alpha,
                              device=config.device, precision=config.precision, log=eval)
-        logger.log({'warmup': warmup(step)})
         q_scheduler.step()
         policy_scheduler.step()
 
@@ -266,6 +269,7 @@ if __name__ == '__main__':
                 torch_utils.save_checkpoint(config.run_dir, 'best', **networks_and_optimizers)
             test_number += 1
 
+            logger.log({'warmup': warmup(step), 'Alpha': policy_alpha})
             logger.write()
 
     """ post summary of best policy for the run """
