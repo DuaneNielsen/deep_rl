@@ -71,6 +71,7 @@ if __name__ == '__main__':
     parser.add_argument('--q_update_ratio', type=int, default=2)
     parser.add_argument('--policy_alpha', type=float, default=1.0)
     parser.add_argument('--policy_alpha_decay', type=float, default=1e-4)
+    parser.add_argument('--policy_alpha_min', type=float, default=0.05)
     parser.add_argument('--cql_alpha', type=float, default=3.0)
     parser.add_argument('--hidden_dim', type=int, default=16)
     parser.add_argument('--cql_samples', type=int, default=8)
@@ -258,7 +259,7 @@ if __name__ == '__main__':
 
             eval = step >= config.test_steps * test_number
 
-            policy_alpha = math.pow(1.0 - config.policy_alpha_decay, step)
+            policy_alpha = (1.0 - config.policy_alpha_decay) ** step * (1.0 - config.policy_alpha_min) + config.policy_alpha_min
 
             cql.train_continuous(dl, q_net, target_q_net, policy_net, q_optim, policy_optim,
                                  discount=config.discount, polyak=config.polyak, q_update_ratio=config.q_update_ratio,
