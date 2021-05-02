@@ -16,7 +16,7 @@ def stats_dict(name, tensor):
 def train_continuous(dl, q, target_q, policy, q_optim, policy_optim,
                      sample_actions=8, amin=-1.0, amax=1.0,
                      discount=0.99, polyak=0.095, q_update_ratio=2, policy_alpha=0.2, cql_alpha=1.0,
-                     device='cpu', precision=torch.float32, log=False
+                     device='cpu', precision=torch.float32, log=False, importance_sample=True,
                      ):
     q_update = 1
 
@@ -37,17 +37,30 @@ def train_continuous(dl, q, target_q, policy, q_optim, policy_optim,
             y = r + d * discount * target_q(s_p, a_p)
 
             a_sample = []
+            log_probs_sample = []
+
             a_sample += [torch.empty(sample_actions, N, A, device=device).uniform_(amin, amax)]
-            a_sample += [a_dist.rsample((sample_actions, ))]
-            a_sample += [a_p_dist.rsample((sample_actions, ))]
+            log_probs_sample += [torch.log(torch.empty(sample_actions, N, A, device=device).fill_(0.5))]
+
+            sample = a_dist.rsample((sample_actions,))
+            a_sample += [sample]
+            log_probs_sample += [a_dist.log_prob(sample)]
+
+            sample = a_p_dist.rsample((sample_actions,))
+            a_sample += [sample]
+            log_probs_sample += [a_p_dist.log_prob(sample)]
+
             a_sample = torch.stack(a_sample, dim=0).reshape(sample_actions * 3 * N, A)
+            log_probs_sample = torch.stack(log_probs_sample, dim=0).reshape(sample_actions * 3, N, A, 1)
+            log_probs_sample = torch.sum(log_probs_sample, dim=2, keepdim=True)
             s_sample = s.view(1, N, S)[torch.zeros(sample_actions * 3, dtype=torch.long), :, :].reshape(sample_actions * 3 * N, S)
 
         # the reference implementation includes q_replay in the logsumexp term
         # and does not detach gradients from the in-distribution action term
         q_sample = q(s_sample, a_sample).reshape(sample_actions * 3, N, 1, -1)
+
         q_replay = q(s, a)
-        cql_loss = torch.logsumexp(q_sample, dim=0) - q_replay
+        cql_loss = torch.logsumexp(q_sample - log_probs_sample.detach(), dim=0) - q_replay
 
         td_loss = (q_replay - y) ** 2 / 2
         qloss = torch.mean(td_loss + cql_alpha * cql_loss)
