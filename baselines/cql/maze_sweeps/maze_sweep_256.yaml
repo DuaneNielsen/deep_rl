@@ -6,18 +6,20 @@ command:
 method: bayes
 metric:
   goal: maximize
-  name: summary_best_mean_return
+  name: 'eval-best-return Mean'
 parameters:
   project:
-    value: cql-v0.1-maze2d-medium-v1
+    value: cql-maze2d-medium-v1
   policy_alpha_decay:
-    value: 2e-5
+    value: 3e-5
   policy_alpha_min:
-    distrubtion: uniform
-    max: 0.4
+    distribution: uniform
+    max: 0.2
     min: 0.05
   cql_alpha:
-    value: 5.0
+    distribution: uniform
+    max: 20.0
+    min: 0.0
   summary_video_episodes:
     value: 5
   env_name:
@@ -25,7 +27,7 @@ parameters:
   seed:
     value: 0
   max_steps:
-    value: 100000
+    value: 120000
   test_steps:
     value: 2000
   test_episodes:
@@ -35,7 +37,7 @@ parameters:
   warmup:
     value: 1000
   q_lr:
-    value: 5e-4
+    value: 1e-4
 #    distribution: log_uniform
 #    max: -5.605
 #    min: -12.210

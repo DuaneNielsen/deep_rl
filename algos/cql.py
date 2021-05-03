@@ -43,7 +43,8 @@ def train_continuous(dl, q, target_q, policy, q_optim, policy_optim,
             a_sample = torch.stack(a_sample, dim=0).reshape(sample_actions * 3 * N, A)
             log_probs_sample = torch.stack(log_probs_sample, dim=0).reshape(sample_actions * 3, N, A, 1)
             log_probs_sample = torch.sum(log_probs_sample, dim=2, keepdim=True)
-            log_probs_sample = log_probs_sample.clamp_(-1e3, 1e2)
+            probs = torch.exp(log_probs_sample)
+            log_probs_sample = torch.log(probs / probs.std())
             s_sample = s.view(1, N, S)[torch.zeros(sample_actions * 3, dtype=torch.long), :, :].reshape(sample_actions * 3 * N, S)
 
         # the reference implementation includes q_replay in the logsumexp term
