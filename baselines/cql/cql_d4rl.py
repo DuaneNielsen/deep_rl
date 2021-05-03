@@ -80,7 +80,7 @@ if __name__ == '__main__':
 
     config = parser.parse_args()
 
-    config.policy_lr = config.q_lr / 4.0
+    #config.policy_lr = config.q_lr / 4.0
 
     if 'DEVICE' in os.environ:
         config.device = os.environ['DEVICE']

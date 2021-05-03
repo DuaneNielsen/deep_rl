@@ -9,14 +9,15 @@ metric:
   name: summary_best_mean_return
 parameters:
   project:
-    value: cql-dr4l-mazes
-  policy_alpha:
-    distribution: uniform
-    max: 0.3
-    min: 0.0
-    q: 0.05
+    value: cql-v0.1-maze2d-medium-v1
+  policy_alpha_decay:
+    value: 2e-5
+  policy_alpha_min:
+    distrubtion: uniform
+    max: 0.4
+    min: 0.05
   cql_alpha:
-    value: 1.0
+    value: 5.0
   summary_video_episodes:
     value: 5
   env_name:
@@ -24,24 +25,24 @@ parameters:
   seed:
     value: 0
   max_steps:
-    value: 40000
+    value: 100000
   test_steps:
     value: 2000
   test_episodes:
-    value: 32
+    value: 16
   batch_size:
-    value: 8
+    value: 256
   warmup:
     value: 1000
   q_lr:
-    value: 1e-4
+    value: 5e-4
 #    distribution: log_uniform
 #    max: -5.605
 #    min: -12.210
-#  policy_lr:
-#    value: 0.0006174
-  polyak:
-    value: 0.001
+  min_variance:
+    value: 0.05
+  policy_lr:
+    value: 2e-5
   hidden_dim:
-    value: 32
+    value: 64
 program: cql_d4rl.py
