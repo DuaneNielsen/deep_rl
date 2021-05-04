@@ -75,7 +75,8 @@ if __name__ == '__main__':
     parser.add_argument('--cql_alpha', type=float, default=3.0)
     parser.add_argument('--hidden_dim', type=int, default=16)
     parser.add_argument('--cql_samples', type=int, default=8)
-    parser.add_argument('--min_variance', type=float, default=0.05)
+    parser.add_argument('--max_variance', type=float, default=2.0)
+    parser.add_argument('--min_variance', type=float, default=1e-5)
     parser.add_argument('--q_ensembles', type=int, default=2)
 
     config = parser.parse_args()
@@ -129,8 +130,8 @@ if __name__ == '__main__':
             hidden = self.hidden(state)
             mu = self.mu(hidden)
             log_scale = self.scale(hidden)
-            log_scale = torch.clamp(log_scale, 1e-5, 1e2)
-            scale = torch.exp(log_scale) + config.min_variance
+            log_scale = torch.clamp(log_scale, config.min_variance, config.max_variance)
+            scale = torch.exp(log_scale)
             return mu, scale
 
 
