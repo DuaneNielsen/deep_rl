@@ -67,7 +67,8 @@ def train_continuous(dl, q, target_q, policy, q_optim, policy_optim,
         a_ = a_dist.rsample()
         min_q, _ = torch.min(q(s, a_), dim=2)
         log_pi = a_dist.log_prob(a_).sum(1, keepdim=True)
-        policy_loss = - torch.mean(min_q - policy_alpha * log_pi)
+        policy_variance_loss = torch.relu(torch.log(a_dist.scale) - 2.0)
+        policy_loss = - torch.mean(min_q - policy_alpha * log_pi - policy_variance_loss)
 
         policy_optim.zero_grad()
         policy_loss.backward()
@@ -81,8 +82,10 @@ def train_continuous(dl, q, target_q, policy, q_optim, policy_optim,
 
             logger.log['trainer-Policy Loss'] = policy_loss.item()
             logger.log.update(tensor_stats('trainer-Log Pis', log_pi))
+            logger.log.update(tensor_stats('trainer-Policy variance loss', policy_variance_loss))
             logger.log.update(tensor_stats('trainer-Policy mu', a_dist.mu))
             logger.log.update(tensor_stats('trainer-Policy log std', torch.log(a_dist.scale)))
+
 
             logger.log['trainer-Q loss'] = qloss.item()
             logger.log.update(tensor_stats('trainer-Q1 Predictions', q_replay[..., 0]))
