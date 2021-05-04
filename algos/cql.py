@@ -67,7 +67,7 @@ def train_continuous(dl, q, target_q, policy, q_optim, policy_optim,
         a_ = a_dist.rsample()
         min_q, _ = torch.min(q(s, a_), dim=2)
         log_pi = a_dist.log_prob(a_).sum(1, keepdim=True)
-        policy_variance_loss = torch.relu(torch.log(a_dist.scale) - 2.0)
+        policy_variance_loss = torch.relu(torch.log(a_dist.scale) - 2.0) + torch.relu(-torch.log(a_dist.scale) - 3.0)
         policy_loss = - torch.mean(min_q - policy_alpha * log_pi - policy_variance_loss)
 
         policy_optim.zero_grad()
