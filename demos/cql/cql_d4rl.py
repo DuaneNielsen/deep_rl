@@ -51,7 +51,7 @@ if __name__ == '__main__':
 
     """ resume settings """
     parser.add_argument('--demo', action='store_true', default=True)
-    parser.add_argument('-l', '--load', type=str, default='runs/run_626')
+    parser.add_argument('-l', '--load', type=str, default='runs/run_770')
 
     """ environment """
     parser.add_argument('--env_name', type=str, default='maze2d-medium-v1')
