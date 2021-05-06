@@ -51,10 +51,10 @@ if __name__ == '__main__':
 
     """ resume settings """
     parser.add_argument('--demo', action='store_true', default=True)
-    parser.add_argument('-l', '--load', type=str, default='runs/run_770')
+    parser.add_argument('-l', '--load', type=str, default='maze2d-large/run_954')
 
     """ environment """
-    parser.add_argument('--env_name', type=str, default='maze2d-medium-v1')
+    parser.add_argument('--env_name', type=str, default='maze2d-large-v1')
     parser.add_argument('--env_render', action='store_true', default=False)
     parser.add_argument('--env_reward_scale', type=float, default=1.0)
     parser.add_argument('--env_reward_bias', type=float, default=0.0)
@@ -227,6 +227,13 @@ if __name__ == '__main__':
     if exists_and_not_none(config, 'load'):
         checkpoint.load(config.load, prefix='best', **networks_and_optimizers)
 
+    def policy(state):
+        with torch.no_grad():
+            state = torch.as_tensor(state, device=config.device, dtype=config.precision).unsqueeze(0)
+            action = policy_net(state)
+            a = action.rsample()
+            assert ~torch.isnan(a).any()
+            return a.cpu().numpy()
 
     def exploit_policy(state):
         """ policy to test """
