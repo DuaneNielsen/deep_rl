@@ -3,31 +3,39 @@ command:
 - ${interpreter}
 - ${program}
 - ${args}
-method: bayes
+method: grid
 metric:
   goal: maximize
   name: 'eval-best-return Mean'
 parameters:
-  project:
-    value: cql-maze2d-medium-v1
+  importance_sample:
+    values:
+      - True
+      - False
+  policy_variance_loss:
+    values:
+      - True
+      - False
   policy_alpha_decay:
     value: 3e-5
   policy_alpha_min:
-    distribution: uniform
-    max: 0.2
-    min: 0.05
+    value: 0.2
   cql_alpha:
-    distribution: uniform
-    max: 20.0
-    min: 0.0
+    value: 3.0
   summary_video_episodes:
     value: 5
   env_name:
     value: maze2d-medium-v1
   seed:
-    value: 0
+    values:
+    - 0
+    - 5
+    - 13
+    - 19
+    - 31
+    - 53
   max_steps:
-    value: 120000
+    value: 80000
   test_steps:
     value: 2000
   test_episodes:
@@ -42,7 +50,9 @@ parameters:
 #    max: -5.605
 #    min: -12.210
   min_variance:
-    value: 0.05
+    value: -5.0
+  max_variance:
+    value: 10.0
   policy_lr:
     value: 2e-5
   hidden_dim:

@@ -15,7 +15,7 @@ import math
 
 from algos import cql
 from distributions import ScaledTanhTransformedGaussian
-from config import exists_and_not_none, ArgumentParser, EvalAction
+from config import exists_and_not_none, ArgumentParser, EvalAction, str2bool
 import wandb
 import wandb_utils
 import checkpoint
@@ -78,6 +78,10 @@ if __name__ == '__main__':
     parser.add_argument('--max_variance', type=float, default=2.0)
     parser.add_argument('--min_variance', type=float, default=1e-5)
     parser.add_argument('--q_ensembles', type=int, default=2)
+
+    """ features """
+    parser.add_argument('--importance_sample', type=str2bool,  default=True)
+    parser.add_argument('--policy_variance_loss', type=str2bool, default=True)
 
     config = parser.parse_args()
 
@@ -266,7 +270,9 @@ if __name__ == '__main__':
                                  discount=config.discount, polyak=config.polyak, q_update_ratio=config.q_update_ratio,
                                  sample_actions=config.cql_samples, amin=min_action,
                                  amax=max_action, cql_alpha=config.cql_alpha, policy_alpha=policy_alpha,
-                                 device=config.device, precision=config.precision, log=eval)
+                                 device=config.device, precision=config.precision, log=eval,
+                                 feature_importance_sample=config.importance_sample,
+                                 feature_policy_variance_loss=config.policy_variance_loss)
             q_scheduler.step()
             policy_scheduler.step()
 

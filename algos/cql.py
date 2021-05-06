@@ -6,7 +6,8 @@ from logs import logger, tensor_stats
 def train_continuous(dl, q, target_q, policy, q_optim, policy_optim,
                      sample_actions=8, amin=-1.0, amax=1.0,
                      discount=0.99, polyak=0.095, q_update_ratio=2, policy_alpha=0.2, cql_alpha=1.0,
-                     device='cpu', precision=torch.float32, log=False, importance_sample=True,
+                     device='cpu', precision=torch.float32, log=False,
+                     feature_policy_variance_loss=True, feature_importance_sample=True
                      ):
     q_update = 1
 
@@ -43,14 +44,18 @@ def train_continuous(dl, q, target_q, policy, q_optim, policy_optim,
             a_sample = torch.stack(a_sample, dim=0).reshape(sample_actions * 3 * N, A)
             log_probs_sample = torch.stack(log_probs_sample, dim=0).reshape(sample_actions * 3, N, A, 1)
             log_probs_sample = torch.sum(log_probs_sample, dim=2, keepdim=True)
+
             s_sample = s.view(1, N, S)[torch.zeros(sample_actions * 3, dtype=torch.long), :, :].reshape(sample_actions * 3 * N, S)
 
         # the reference implementation includes q_replay in the logsumexp term
         # and does not detach gradients from the in-distribution action term
         q_sample = q(s_sample, a_sample).reshape(sample_actions * 3, N, 1, -1)
-
         q_replay = q(s, a)
-        cql_loss = torch.logsumexp(q_sample - log_probs_sample.detach(), dim=0) - q_replay
+
+        if feature_importance_sample:
+            cql_loss = torch.logsumexp(q_sample - log_probs_sample.detach(), dim=0) - q_replay
+        else:
+            cql_loss = torch.logsumexp(q_sample, dim=0) - q_replay
 
         td_loss = (q_replay - y) ** 2 / 2
         qloss = torch.mean(td_loss + cql_alpha * cql_loss)
@@ -67,8 +72,12 @@ def train_continuous(dl, q, target_q, policy, q_optim, policy_optim,
         a_ = a_dist.rsample()
         min_q, _ = torch.min(q(s, a_), dim=2)
         log_pi = a_dist.log_prob(a_).sum(1, keepdim=True)
-        policy_variance_loss = torch.relu(torch.log(a_dist.scale) - 2.0) + torch.relu(-torch.log(a_dist.scale) - 3.0)
-        policy_loss = - torch.mean(min_q - policy_alpha * log_pi - policy_variance_loss)
+
+        if feature_policy_variance_loss:
+            policy_variance_loss = torch.relu(torch.log(a_dist.scale) - 2.0) + torch.relu(-torch.log(a_dist.scale) - 3.0)
+            policy_loss = - torch.mean(min_q - policy_alpha * log_pi - policy_variance_loss)
+        else:
+            policy_loss = - torch.mean(min_q - policy_alpha * log_pi)
 
         policy_optim.zero_grad()
         policy_loss.backward()
@@ -82,7 +91,8 @@ def train_continuous(dl, q, target_q, policy, q_optim, policy_optim,
 
             logger.log['trainer-Policy Loss'] = policy_loss.item()
             logger.log.update(tensor_stats('trainer-Log Pis', log_pi))
-            logger.log.update(tensor_stats('trainer-Policy variance loss', policy_variance_loss))
+            if feature_policy_variance_loss:
+                logger.log.update(tensor_stats('trainer-Policy variance loss', policy_variance_loss))
             logger.log.update(tensor_stats('trainer-Policy mu', a_dist.mu))
             logger.log.update(tensor_stats('trainer-Policy log std', torch.log(a_dist.scale)))
 
