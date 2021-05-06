@@ -14,6 +14,8 @@ import wandb_utils
 import rl
 import torch_utils
 from rich.progress import track
+import logs
+
 
 if __name__ == '__main__':
 
@@ -63,7 +65,9 @@ if __name__ == '__main__':
     if config.seed is not None:
         torch.manual_seed(config.seed)
 
-    wandb.init(project=f"cql-{config.env_name}", config=config)
+    project = f"cql-{config.env_name}"
+    wandb.init(project=project, config=config)
+    logs.init(run_dir=config.run_dir)
 
     def make_env():
         """ environment """
@@ -146,10 +150,11 @@ if __name__ == '__main__':
     q_optim = torch.optim.Adam(q_net.parameters(), lr=1e-4)
     policy_optim = torch.optim.Adam(policy_net.parameters(), lr=3e-5)
 
+    all_params = {'q': q_net, 'q_optim': q_optim, 'policy': policy_net, 'policy_optim': policy_optim}
+
     """ load weights from file if required"""
     if exists_and_not_none(config, 'load'):
-        torch_utils.load_checkpoint(config.load, prefix='best', q=q_net, q_optim=q_optim, policy=policy_net,
-                        policy_optim=policy_optim)
+        torch_utils.load_checkpoint(config.load, prefix='best', **all_params)
 
 
     def policy(state):
@@ -188,27 +193,16 @@ if __name__ == '__main__':
 
         """ test """
         if step > config.test_steps * test_number:
-            stats = rl.evaluate(test_env, exploit_policy, sample_n=config.test_episodes)
+            improved = rl.evaluate(test_env, exploit_policy, sample_n=config.test_episodes)
 
-            if stats['best']:
-                torch_utils.save_checkpoint(config.run_dir, 'best', q=q_net, q_optim=q_optim, policy=policy_net,
-                                            policy_optim=policy_optim)
-
-            vid_filename = None
-            if 'video' in stats:
-                vid_filename = f'{config.run_dir}/test_run_{test_number}.mp4'
-                torch_utils.write_mp4(vid_filename, stats['video'])
-            test_log = wandb_utils.log_test_stats(stats, vid_filename)
-
+            if improved:
+                torch_utils.save_checkpoint(config.run_dir, 'best', **all_params)
             test_number += 1
 
+        logs.write()
+
     """ post summary of best policy for the run """
-    torch_utils.load_checkpoint(config.run_dir, prefix='best', q=q_net, q_optim=q_optim, policy=policy_net,
-                    policy_optim=policy_optim)
+    torch_utils.load_checkpoint(config.run_dir, prefix='best', **all_params)
     stats = rl.evaluate(test_env, exploit_policy, sample_n=config.test_episodes,
                         vid_sample_n=config.summary_video_episodes)
-    vid_filename = None
-    if 'video' in stats:
-        vid_filename = f'{config.run_dir}/best_policy.mp4'
-        torch_utils.write_mp4(vid_filename, stats['video'])
-    wandb_utils.log_summary_stats(stats, vid_filename)
+    logs.write()

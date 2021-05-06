@@ -11,7 +11,6 @@ import pybulletgym
 import env.wrappers as wrappers
 from gymviz import Plot
 import numpy as np
-import math
 
 from algos import cql
 from distributions import ScaledTanhTransformedGaussian
