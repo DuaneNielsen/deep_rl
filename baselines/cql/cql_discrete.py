@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, RandomSampler
+from torch.utils.data import DataLoader, RandomSampler, TensorDataset
 
 import gym
 import env
@@ -15,7 +15,7 @@ import rl
 import torch_utils
 from rich.progress import track
 import logs
-
+import d4rl
 
 if __name__ == '__main__':
 
@@ -47,14 +47,15 @@ if __name__ == '__main__':
     parser.add_argument('--env_render', action='store_true', default=False)
     parser.add_argument('--env_reward_scale', type=float, default=1.0)
     parser.add_argument('--env_reward_bias', type=float, default=0.0)
+    parser.add_argument('--d4rl', action='store_true', default=False)
 
     """ hyper-parameters """
     parser.add_argument('--optim_lr', type=float, default=1e-3)
     parser.add_argument('--batch_size', type=int, default=256)
     parser.add_argument('--discount', type=float, default=0.99)
     parser.add_argument('--polyak', type=float, default=0.005)
-    parser.add_argument('--policy_alpha', type=float, default=0.05)
-    parser.add_argument('--cql_alpha', type=float, default=1.0)
+    parser.add_argument('--policy_alpha', type=float, default=0.1)
+    parser.add_argument('--cql_alpha', type=float, default=3.0)
     parser.add_argument('--hidden_dim', type=int, default=16)
     parser.add_argument('--q_update_ratio', type=int, default=1)
     parser.add_argument('--min_return', type=float, default=-999999)
@@ -168,7 +169,7 @@ if __name__ == '__main__':
 
 
     def exploit_policy(state):
-        """ policy to run on test environment """
+        """ policy to run on eval environment """
         with torch.no_grad():
             state = torch.from_numpy(state).float()
             action = torch.exp(policy_net(state))
@@ -179,9 +180,16 @@ if __name__ == '__main__':
     """ demo  """
     rl.demo(config.demo, test_env, policy)
 
-    """ train loop """
-    buffer = rl.load(config.load_buffer)
+    """ load dataset """
+    if config.d4rl:
+        data = d4rl.qlearning_dataset(test_env)
+        buffer = TensorDataset(*[torch.from_numpy(numpy_array) for key, numpy_array in data.items()])
+    else:
+        buffer = rl.load(config.load_buffer)
+
     dl = DataLoader(buffer, batch_size=config.batch_size, sampler=RandomSampler(buffer, replacement=True))
+
+    """ train loop """
     test_number = 1
 
     for step in track(range(config.max_steps), description='Training'):
