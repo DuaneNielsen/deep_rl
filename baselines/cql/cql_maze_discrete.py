@@ -16,6 +16,8 @@ import torch_utils
 from rich.progress import track
 import logs
 import d4rl
+import os
+
 
 if __name__ == '__main__':
 
@@ -65,6 +67,9 @@ if __name__ == '__main__':
     """ random seed """
     if config.seed is not None:
         torch.manual_seed(config.seed)
+
+    if 'DEVICE' in os.environ:
+        config.device = os.environ['DEVICE']
 
     project = f"cql-{config.env_name}"
     wandb.init(project=project, config=config)
