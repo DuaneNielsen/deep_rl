@@ -200,5 +200,6 @@ def train_discrete(dl, q, target_q, policy, q_optim, policy_optim,
             logger.log.update(tensor_stats('value', v))
             logger.log.update(tensor_stats('in_distrib values', q_pred))
             logger.log.update(tensor_stats('q targets', y))
+            logger.log['policy_alpha'] = policy_alpha
 
         break
