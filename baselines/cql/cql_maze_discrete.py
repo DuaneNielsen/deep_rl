@@ -191,7 +191,7 @@ if __name__ == '__main__':
     def policy(state):
         """ policy to run on environment """
         with torch.no_grad():
-            state = torch.from_numpy(state).float()
+            state = torch.from_numpy(state['image']).float().unsqueeze(0).to(config.device)
             action = torch.exp(policy_net(state))
             a = torch.distributions.Categorical(probs=action).sample()
             assert ~torch.isnan(a).any()
@@ -201,7 +201,7 @@ if __name__ == '__main__':
     def exploit_policy(state):
         """ policy to run on eval environment """
         with torch.no_grad():
-            state = torch.from_numpy(state['image']).float().unsqueeze(0)
+            state = torch.from_numpy(state['image']).float().unsqueeze(0).to(config.device)
             action = torch.exp(policy_net(state))
             a = torch.argmax(action)
             assert ~torch.isnan(a).any()
