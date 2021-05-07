@@ -179,7 +179,7 @@ if __name__ == '__main__':
         hidden_dims=config.hidden_dim
     ).to(config.device)
 
-    q_optim = torch.optim.Adam(q_net.parameters(), lr=1e-4)
+    q_optim = torch.optim.Adam(q_net.parameters(), lr=1e-3)
     policy_optim = torch.optim.Adam(policy_net.parameters(), lr=3e-5)
 
     all_params = {'q': q_net, 'q_optim': q_optim, 'policy': policy_net, 'policy_optim': policy_optim}

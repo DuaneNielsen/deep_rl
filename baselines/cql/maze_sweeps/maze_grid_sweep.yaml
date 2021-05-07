@@ -34,19 +34,19 @@ parameters:
     value: 16
   batch_size:
     value: 256
-  warmup:
-    value: 1000
-  q_lr:
-    value: 1e-4
+#  warmup:
+#    value: 1000
+#  q_lr:
+#    value: 1e-3
 #    distribution: log_uniform
 #    max: -5.605
 #    min: -12.210
-  min_variance:
-    value: -5.0
-  max_variance:
-    value: 10.0
-  policy_lr:
-    value: 2e-5
+#  min_variance:
+#    value: -5.0
+#  max_variance:
+#    value: 10.0
+#  policy_lr:
+#    value: 2e-5
   hidden_dim:
     value: 64
-program: cql_d4rl.py
+program: cql_maze_discrete.py
