@@ -210,7 +210,7 @@ if __name__ == '__main__':
                 torch_utils.save_checkpoint(config.run_dir, 'best', **all_params)
             test_number += 1
 
-        logs.write()
+            logs.write()
 
     """ post summary of best policy for the run """
     torch_utils.load_checkpoint(config.run_dir, prefix='best', **all_params)

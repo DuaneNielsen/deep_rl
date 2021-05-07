@@ -56,7 +56,8 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=256)
     parser.add_argument('--discount', type=float, default=0.99)
     parser.add_argument('--polyak', type=float, default=0.005)
-    parser.add_argument('--policy_alpha', type=float, default=0.1)
+    parser.add_argument('--policy_alpha', type=float, default=0.05)
+    parser.add_argument('--policy_alpha_decay', type=float, default=3e-4)
     parser.add_argument('--cql_alpha', type=float, default=3.0)
     parser.add_argument('--hidden_dim', type=int, default=16)
     parser.add_argument('--q_update_ratio', type=int, default=1)
@@ -225,9 +226,10 @@ if __name__ == '__main__':
     for step in track(range(config.max_steps), description='Training'):
 
         epoch = step > config.test_steps * test_number
+        policy_alpha = (1.0 - config.policy_alpha_decay) ** step * (1.0 - config.policy_alpha) + config.policy_alpha
 
         cql.train_discrete(dl, q_net, target_q_net, policy_net, q_optim, policy_optim,
-                           discount=config.discount, polyak=config.polyak, policy_alpha=config.policy_alpha,
+                           discount=config.discount, polyak=config.polyak, policy_alpha=policy_alpha,
                            cql_alpha=config.cql_alpha, q_update_ratio=config.q_update_ratio,
                            device=config.device, precision=config.precision, log=epoch)
 

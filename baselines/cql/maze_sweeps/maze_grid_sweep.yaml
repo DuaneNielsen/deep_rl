@@ -1,0 +1,52 @@
+command:
+- ${env}
+- ${interpreter}
+- ${program}
+- ${args}
+method: grid
+metric:
+  goal: maximize
+  name: 'eval-best-return Mean'
+parameters:
+  policy_alpha_decay:
+    value: 3e-5
+  policy_alpha:
+    value: 0.05
+  cql_alpha:
+    values: 3.0
+  summary_video_episodes:
+    value: 5
+  env_name:
+    value: maze2d-medium-v1
+  seed:
+    values:
+    - 0
+    - 5
+    - 13
+    - 19
+    - 31
+    - 53
+  max_steps:
+    value: 80000
+  test_steps:
+    value: 2000
+  test_episodes:
+    value: 16
+  batch_size:
+    value: 256
+  warmup:
+    value: 1000
+  q_lr:
+    value: 1e-4
+#    distribution: log_uniform
+#    max: -5.605
+#    min: -12.210
+  min_variance:
+    value: -5.0
+  max_variance:
+    value: 10.0
+  policy_lr:
+    value: 2e-5
+  hidden_dim:
+    value: 64
+program: cql_d4rl.py
