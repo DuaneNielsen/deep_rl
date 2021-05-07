@@ -129,7 +129,7 @@ def train_continuous(dl, q, target_q, policy, q_optim, policy_optim,
 
 def train_discrete(dl, q, target_q, policy, q_optim, policy_optim,
                    discount=0.99, polyak=0.095, q_update_ratio=2, policy_alpha=0.2, cql_alpha=1.0,
-                   device='cpu', precision=torch.float32):
+                   device='cpu', precision=torch.float32, log=False):
     """
 
     Args:
@@ -191,5 +191,14 @@ def train_discrete(dl, q, target_q, policy, q_optim, policy_optim,
         """ polyak update target_q """
         for q_param, target_q_param in zip(q.parameters(), target_q.parameters()):
             target_q_param.data.copy_(polyak * q_param.data + (1.0 - polyak) * target_q_param.data)
+
+        if log:
+            logger.log['q_loss'] = ql.item()
+            logger.log['policy_loss'] = pl.item()
+            logger.log.update(tensor_stats('cql', cql))
+            logger.log.update(tensor_stats('a_dist', a_dist))
+            logger.log.update(tensor_stats('value', v))
+            logger.log.update(tensor_stats('in_distrib values', q_pred))
+            logger.log.update(tensor_stats('q targets', y))
 
         break
