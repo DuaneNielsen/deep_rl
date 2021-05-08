@@ -147,7 +147,8 @@ if __name__ == '__main__':
         def __init__(self, hidden_dims, actions):
             super().__init__()
             self.model = torch.hub.load('rwightman/gen-efficientnet-pytorch', config.vision_model, pretrained=True)
-            self.model.conv_stem = nn.Conv2d(2, 32, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+            self.model.conv_stem = nn.Conv2d(2, self.model.conv_stem.out_channels,
+                                             kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
             self.model.classifier = nn.Sequential(
                 MLP(feature_size=self.model.classifier.in_features, hidden_dims=hidden_dims, actions=actions))
 
@@ -161,7 +162,8 @@ if __name__ == '__main__':
             super().__init__()
             self.actions = actions
             self.model = torch.hub.load('rwightman/gen-efficientnet-pytorch', config.vision_model, pretrained=True)
-            self.model.conv_stem = nn.Conv2d(2, 32, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+            self.model.conv_stem = nn.Conv2d(2, self.model.conv_stem.out_channels,
+                                             kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
             self.model.classifier = nn.Sequential(
                 MLP(self.model.classifier.in_features, hidden_dims=hidden_dims, actions=actions))
 
