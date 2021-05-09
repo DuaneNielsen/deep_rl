@@ -62,15 +62,17 @@ if __name__ == '__main__':
     parser.add_argument('--env_timelimit', type=int, default=3000)
 
     """ hyper-parameters """
-    parser.add_argument('--vision_model', type=str, default='efficientnet_b0')
+    parser.add_argument('--vision_model', type=str, default='tf_efficientnet_lite0')
+    parser.add_argument('--pretrained', action='store_true', default=False)
+    parser.add_argument('--finetune', action='store_true', default=False)
     parser.add_argument('--optim_lr', type=float, default=2e-5)
-    parser.add_argument('--batch_size', type=int, default=8)
+    parser.add_argument('--batch_size', type=int, default=16)
     parser.add_argument('--discount', type=float, default=0.99)
     parser.add_argument('--polyak', type=float, default=0.005)
     parser.add_argument('--alpha', type=float, default=0.2)
     parser.add_argument('--hidden_dim', type=int, default=512)
     parser.add_argument('--replay_len', type=int, default=1000000)
-    parser.add_argument('--q_update_ratio', type=int, default=2)
+    parser.add_argument('--q_update_ratio', type=int, default=4)
 
     config = parser.parse_args()
 
@@ -146,7 +148,7 @@ if __name__ == '__main__':
     class Q(nn.Module):
         def __init__(self, hidden_dims, actions):
             super().__init__()
-            self.model = torch.hub.load('rwightman/gen-efficientnet-pytorch', config.vision_model, pretrained=True)
+            self.model = torch.hub.load('rwightman/gen-efficientnet-pytorch', config.vision_model, pretrained=config.pretrained)
             self.model.conv_stem = nn.Conv2d(2, self.model.conv_stem.out_channels,
                                              kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
             self.model.classifier = nn.Sequential(
@@ -161,7 +163,7 @@ if __name__ == '__main__':
         def __init__(self, hidden_dims, actions):
             super().__init__()
             self.actions = actions
-            self.model = torch.hub.load('rwightman/gen-efficientnet-pytorch', config.vision_model, pretrained=True)
+            self.model = torch.hub.load('rwightman/gen-efficientnet-pytorch', config.vision_model, pretrained=config.pretrained)
             self.model.conv_stem = nn.Conv2d(2, self.model.conv_stem.out_channels,
                                              kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
             self.model.classifier = nn.Sequential(
@@ -240,17 +242,19 @@ if __name__ == '__main__':
         hidden_dims=config.hidden_dim
     ).to(config.device)
 
-    q_optim = torch.optim.Adam([
-        {'params': q_net.untrained_parameters(), 'lr': config.optim_lr},
-        {'params': q_net.pretrained_parameters(), 'lr': config.optim_lr/10.0},
-    ])
-    policy_optim = torch.optim.Adam([
-        {'params': policy_net.untrained_parameters(), 'lr': config.optim_lr},
-        {'params': policy_net.pretrained_parameters(), 'lr': config.optim_lr/10.0},
-    ])
+    if config.finetune:
+        q_optim = torch.optim.Adam([
+            {'params': q_net.untrained_parameters(), 'lr': config.optim_lr},
+            {'params': q_net.pretrained_parameters(), 'lr': config.optim_lr/10.0},
+        ])
+        policy_optim = torch.optim.Adam([
+            {'params': policy_net.untrained_parameters(), 'lr': config.optim_lr},
+            {'params': policy_net.pretrained_parameters(), 'lr': config.optim_lr/10.0},
+        ])
+    else:
+        q_optim = torch.optim.Adam(q_net.parameters(), lr=config.optim_lr)
+        policy_optim = torch.optim.Adam(policy_net.parameters(), lr=config.optim_lr)
 
-    wandb.watch(policy_net)
-    wandb.watch(q_net)
 
     """ load weights from file if required"""
     if exists_and_not_none(config, 'load'):
