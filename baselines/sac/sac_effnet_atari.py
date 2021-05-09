@@ -14,7 +14,7 @@ import wandb
 import wandb_utils
 import checkpoint
 from gym.wrappers.transform_reward import TransformReward
-import capture
+import env.capture as capture
 import os
 import warnings
 from typing import *

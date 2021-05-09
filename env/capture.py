@@ -31,6 +31,40 @@ class LiveMonitor(gym.Wrapper):
         return state, reward, done, info
 
 
+class LiveMonitor2Channel(gym.Wrapper):
+    def __init__(self, env):
+        """
+        Visualizes 2 channel output
+        Args:
+            env:
+        """
+        super().__init__(env)
+        plt.ion()
+        self.fig = plt.figure()
+        spec = plt.GridSpec(nrows=1, ncols=2, figure=self.fig)
+        self.chan0 = self.fig.add_subplot(spec[0, 0])
+        self.chan1 = self.fig.add_subplot(spec[0, 1])
+        self.fig.canvas.draw()
+
+    def reset(self):
+        state = self.env.reset()
+        self.chan0.clear()
+        self.chan0.imshow(state[..., 0])
+        self.chan1.clear()
+        self.chan1.imshow(state[..., 1])
+        self.fig.canvas.draw()
+        return state
+
+    def step(self, action):
+        state, reward, done, info = self.env.step(action)
+        self.chan0.clear()
+        self.chan0.imshow(state[..., 0])
+        self.chan1.clear()
+        self.chan1.imshow(state[..., 1])
+        self.fig.canvas.draw()
+        return state, reward, done, info
+
+
 class VideoCapture(gym.Wrapper):
     """  Gym wrapper to create mp4 files from runs with visual output
 
