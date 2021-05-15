@@ -37,7 +37,7 @@ class DummyEnv(gym.Env):
 
     def reset(self):
         self.i = 0
-        return self.trajectories[self.t][0][self.i]
+        return self.trajectories[self.t][self.i][0]
 
     def step(self, action):
         self.i += 1
