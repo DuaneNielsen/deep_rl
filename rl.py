@@ -7,6 +7,7 @@ import pickle
 import warnings
 from logs import logger, list_stats
 import tables as tb
+import os
 
 global_step = 0
 global_best_mean_return = -999999999.0
@@ -381,6 +382,8 @@ class OnDiskStateBuffer:
         return OnDiskStateBuffer(fileh)
 
     def append(self, state):
+        expected_shape = self.fileh.root.replay.States.shape[1:]
+        assert state.shape == expected_shape, f"expected shape {expected_shape} but state has {state.shape}"
         state = state[np.newaxis, ...]
         self.fileh.root.replay.States.append(state)
         return StateRef(self, len(self.fileh.root.replay.States) - 1)
@@ -442,7 +445,8 @@ class OnDiskReplayBuffer:
         Returns:
 
         """
-        fileh = tb.open_file(filename, mode='a')
+        assert not os.path.isfile(filename), f"{filename} already exists"
+        fileh = tb.open_file(filename, mode='w')
         buffer = OnDiskReplayBuffer(fileh)
         fileh.create_group(fileh.root, "replay")
         fileh.create_table("/replay", "Transitions", Transition, "replay: Transitions")
