@@ -11,12 +11,17 @@ import numpy as np
 from argparse import ArgumentParser
 import driver
 import algos.ppo as ppo
+import rl
+from rich.progress import Progress
 
 if __name__ == '__main__':
 
     """ configuration """
     parser = ArgumentParser(description='configuration switches')
     parser.add_argument('--seed', type=int, default=None)
+    parser.add_argument('--record', action='store_true', default=False)
+    parser.add_argument('--filename', type=str, default='buffer.h5')
+    parser.add_argument('--steps', type=int, default=10000)
     config = parser.parse_args()
 
     """ random seed """
@@ -113,6 +118,21 @@ if __name__ == '__main__':
         assert torch.isnan(a) == False
         return a.cpu().numpy()
 
-    """ demo  """
-    while True:
-        driver.episode(env, policy, render=True)
+    if config.record:
+
+        with Progress() as progress:
+            task = progress.add_task('recording', total=config.steps)
+
+            buffer = rl.OnDiskReplayBuffer.create(config.filename, state_shape=(84, 84, 2), state_dtype=np.float32)
+
+            for step, s, a, s_p, r, d, i, m in rl.step(env, policy, buffer):
+                buffer.append(s, a, s_p, r, d, i)
+                progress.advance(task)
+                if step == config.steps:
+                    break
+            buffer.close()
+
+    else:
+        """ demo  """
+        while True:
+            driver.episode(env, policy, render=True)
