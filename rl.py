@@ -38,9 +38,10 @@ def step(env, policy, buffer, render=False, timing=False, **kwargs):
     epi_len = 0
     global_step = 0
     global_render = render
-    meta = {}
 
     while True:
+
+        meta = {}
 
         if timing:
             start_t = time.time()
@@ -73,15 +74,6 @@ def step(env, policy, buffer, render=False, timing=False, **kwargs):
         if timing:
             render_t = time.time()
 
-        yield global_step, state_ref, action, state_p_ref, reward, done, info, meta
-
-        state = state_p
-        state_ref = state_p_ref
-        done = done
-        global_step += 1
-        epi_len += 1
-        epi_returns += reward
-
         policy_time += [policy_t - start_t]
         step_time += [step_t - policy_t]
         render_time += [render_t - step_t]
@@ -90,16 +82,20 @@ def step(env, policy, buffer, render=False, timing=False, **kwargs):
             mean_policy_time = mean(policy_time) * 1000
             mean_step_time = mean(step_time) * 1000
             mean_render_time = mean(render_time) * 1000
-
-            if mean_render_time > 1.0:
-                meta['render_time (ms)'] = mean_render_time
-            if mean_step_time > 1.0:
-                meta['step_time (ms)'] = mean_step_time
-            if mean_policy_time > 1.0:
-                meta['policy_time (ms)'] = mean_policy_time
+            meta['render_time (ms)'] = mean_render_time
+            meta['step_time (ms)'] = mean_step_time
+            meta['policy_time (ms)'] = mean_policy_time
 
             step_time, render_time, policy_time = [], [], []
 
+        yield global_step, state_ref, action, state_p_ref, reward, done, info, meta
+
+        state = state_p
+        state_ref = state_p_ref
+        done = done
+        global_step += 1
+        epi_len += 1
+        epi_returns += reward
 
 def _render_env(env, render, delay):
     if render:
@@ -360,11 +356,11 @@ class OnDiskStateRef:
 
 
 class OnDiskStateBuffer:
-    def __init__(self, fileh):
-        self.fileh = fileh
+    def __init__(self, buffer):
+        self.buffer = buffer
 
     @staticmethod
-    def create(fileh, shape, dtype):
+    def create(fileh, expectedrows, shape, dtype, complevel):
         """
 
         Args:
@@ -376,23 +372,22 @@ class OnDiskStateBuffer:
         """
         _shape = (0, *shape)
         atom = tb.Atom.from_dtype(np.dtype(dtype))
-        filters = tb.Filters(complevel=5, complib='zlib')
+        filters = tb.Filters(complevel=complevel, complib='zlib')
         fileh.create_earray('/replay', name='States', atom=atom, shape=_shape,
-                                 title="replay: States", filters=filters)
-        return OnDiskStateBuffer(fileh)
+                                 title="replay: States", filters=filters, expectedrows=expectedrows)
 
     def append(self, state):
-        expected_shape = self.fileh.root.replay.States.shape[1:]
+        expected_shape = self.buffer.fileh.root.replay.States.shape[1:]
         assert state.shape == expected_shape, f"expected shape {expected_shape} but state has {state.shape}"
         state = state[np.newaxis, ...]
-        self.fileh.root.replay.States.append(state)
-        return StateRef(self, len(self.fileh.root.replay.States) - 1)
+        self.buffer.fileh.root.replay.States.append(state)
+        return StateRef(self, len(self.buffer.fileh.root.replay.States) - 1)
 
     def __getitem__(self, item):
-        return self.fileh.root.replay.States[item]
+        return self.buffer.fileh.root.replay.States[item]
 
     def __len__(self):
-        return len(self.fileh.root.replay.States)
+        return len(self.buffer.fileh.root.replay.States)
 
 
 class Transition(tb.IsDescription):
@@ -409,32 +404,40 @@ class Episode(tb.IsDescription):
 
 
 class Episodes:
-    def __init__(self, fileh):
-        self.fileh = fileh
+    def __init__(self, buffer):
+        self.buffer = buffer
 
     def __getitem__(self, item):
-        return slice(*self.fileh.root.replay.Episodes[item])
+        return slice(*self.buffer.fileh.root.replay.Episodes[item])
 
     def __len__(self):
-        return len(self.fileh.root.replay.Episodes)
+        return len(self.buffer.fileh.root.replay.Episodes)
 
 
 class OnDiskReplayBuffer:
-    def __init__(self, fileh):
-        self.fileh = fileh
-        self.statebuffer = None
-        self.episodes = Episodes(self.fileh)
+    def __init__(self):
+        self.fileh = None
+        self.statebuffer = OnDiskStateBuffer(self)
+        self.episodes = Episodes(self)
         self.traj_start = 0
+
+    @property
+    def transitions(self):
+        return self.fileh.root.replay.Transitions
+
+    @property
+    def states(self):
+        return self.fileh.root.replay.States
 
     @staticmethod
     def load(filename):
-        fileh = tb.open_file(filename, mode='a')
-        buffer = OnDiskReplayBuffer(fileh)
-        buffer.statebuffer = OnDiskStateBuffer(fileh)
+        assert os.path.isfile(filename), f"{filename} does not exist"
+        buffer = OnDiskReplayBuffer()
+        buffer.fileh = tb.open_file(filename, mode='a')
         return buffer
 
     @staticmethod
-    def create(filename, state_shape, state_dtype):
+    def create(filename, state_shape, state_dtype, expectedrows=1000000, state_complevel=5):
         """
 
         Args:
@@ -446,12 +449,13 @@ class OnDiskReplayBuffer:
 
         """
         assert not os.path.isfile(filename), f"{filename} already exists"
+        buffer = OnDiskReplayBuffer()
         fileh = tb.open_file(filename, mode='w')
-        buffer = OnDiskReplayBuffer(fileh)
+        buffer.fileh = fileh
         fileh.create_group(fileh.root, "replay")
-        fileh.create_table("/replay", "Transitions", Transition, "replay: Transitions")
-        fileh.create_table("/replay", "Episodes", Episode, "replay: Episodes")
-        buffer.statebuffer = OnDiskStateBuffer.create(fileh, state_shape, state_dtype)
+        fileh.create_table("/replay", "Transitions", Transition, "replay: Transitions", expectedrows=expectedrows)
+        fileh.create_table("/replay", "Episodes", Episode, "replay: Episodes", expectedrows=expectedrows)
+        OnDiskStateBuffer.create(fileh, expectedrows, state_shape, state_dtype, state_complevel)
         return buffer
 
     def close(self):
@@ -486,9 +490,6 @@ class OnDiskReplayBuffer:
     def __getitem__(self, item):
         transitions = self.fileh.root.replay.Transitions[item]
         if isinstance(item, slice):
-            episode = []
-            for trans in transitions:
-                episode.append(self.dereference(trans))
-            return episode
+            return [self.dereference(trans) for trans in transitions]
         else:
             return self.dereference(transitions)
