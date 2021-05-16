@@ -391,11 +391,13 @@ class OnDiskStateBuffer:
 
 
 class Transition(tb.IsDescription):
-    state = tb.UInt64Col(pos=0)
-    action = tb.UInt32Col(pos=1)
-    reward = tb.FloatCol(pos=2)
-    next_state = tb.UInt64Col(pos=3)
-    done = tb.BoolCol(pos=4)
+    state = tb.UInt64Col(pos=0)  # pointer to statebuffer
+    action = tb.UInt32Col(pos=1)  # action (to be relpaced with pointer in future)
+    reward = tb.FloatCol(pos=2)  # reward
+    next_state = tb.UInt64Col(pos=3)  # pointer to statebuffer
+    done = tb.BoolCol(pos=4)  # true if terminal transition
+    episode = tb.UInt64Col(pos=0)  # pointer to episode
+    split = tb.UInt64Col(pos=0)  # reserved for splitting the dataset
 
 
 class Episode(tb.IsDescription):
@@ -419,7 +421,7 @@ class OnDiskReplayBuffer:
         self.fileh = None
         self.statebuffer = OnDiskStateBuffer(self)
         self.episodes = Episodes(self)
-        self.traj_start = 0
+        self.prev_done = True
 
     @property
     def transitions(self):
@@ -444,6 +446,8 @@ class OnDiskReplayBuffer:
             filename: path to the file to store the replaybuffer
             state_shape: dimensions of the state space
             state_dtype: numpy dtype of the state space
+            expectedrows: expected number of transitions in the table, used to optimize performance
+            state_complevel: zlib compression level, 1 (fastest) -> 9 (smallest)
 
         Returns:
 
@@ -462,34 +466,53 @@ class OnDiskReplayBuffer:
         self.fileh.close()
 
     def append(self, s, a, s_p, r, d, i):
+        epi_row = self.fileh.root.replay.Episodes.row
         row = self.fileh.root.replay.Transitions.row
+
+        # if previous trajectory ended then append and start new one
+        if self.prev_done:
+            epi_row['initial'] = len(self.fileh.root.replay.Transitions)
         row['state'] = s.ref
         row['action'] = a
         row['next_state'] = s_p.ref
         row['reward'] = r
         row['done'] = d
+        row['split'] = 0
+        row['episode'] = len(self.fileh.root.replay.Episodes)
         row.append()
         self.fileh.root.replay.Transitions.flush()
 
+        epi_row['terminal'] = len(self.fileh.root.replay.Transitions)
         if d:
-            epi_row = self.fileh.root.replay.Episodes.row
-            epi_row['initial'] = self.traj_start
-            epi_row['terminal'] = len(self.fileh.root.replay.Transitions)
             epi_row.append()
-            self.fileh.root.replay.Episodes.flush()
-            self.traj_start = len(self.fileh.root.replay.Transitions)
 
-    def __len__(self):
-        return len(self.fileh.root.replay.Transitions)
+        self.fileh.root.replay.Episodes.flush()
 
-    def dereference(self, trans):
+        self.prev_done = d
+
+    def make_transition(self, trans):
+        """
+        Override this method to return what you want for downstream processing
+
+        Args:
+            trans: transition
+
+        Returns: data for downstream processing
+
+        """
         s = self.fileh.root.replay.States[trans['state']]
         s_p = self.fileh.root.replay.States[trans['next_state']]
         return s, trans['action'], s_p, trans['reward'], trans['done']
 
-    def __getitem__(self, item):
+    def gettransition(self, item):
         transitions = self.fileh.root.replay.Transitions[item]
         if isinstance(item, slice):
-            return [self.dereference(trans) for trans in transitions]
+            return [self.make_transition(trans) for trans in transitions]
         else:
-            return self.dereference(transitions)
+            return self.make_transition(transitions)
+
+    def __len__(self):
+        return len(self.fileh.root.replay.Transitions)
+
+    def __getitem__(self, item):
+        return self.gettransition(item)
