@@ -4,7 +4,7 @@ import os
 from functools import reduce
 import pytest
 from env.debug import DummyEnv
-
+import numpy.random
 
 def transition_equal(t1, t2):
     for i, field in enumerate(t1):
@@ -266,3 +266,38 @@ def test_load_child_class(filename):
     transition_equal(buffer[5], (0, 0, 1, 0.0, True))
     buffer.close()
 
+
+def test_random_split(filename):
+    np.random.seed(0)
+
+    t1 = [(np.array([0]), 0.0, False, {}), (np.array([1]), 0.0, False, {}), (np.array([2]), 1.0, True, {})]
+    t2 = [(np.array([3]), 0.0, False, {}), (np.array([4]), 0.0, True, {})]
+    traj = [t1, t2]
+
+    env = DummyEnv(traj)
+    buffer = rl.OnDiskReplayBuffer.create(filename, state_shape=(1,), state_dtype=np.int64)
+
+    def policy(state):
+        return 0
+
+    for step, s, a, s_p, r, d, i, m in rl.step(env, policy, buffer):
+        buffer.append(s, a, s_p, r, d, i)
+        if step + 1 == 3:
+            break
+
+    assert len(buffer) == 3
+    transition_equal(buffer[0], (0, 0, 1, 0.0, False))
+    transition_equal(buffer[1], (1, 0, 2, 1.0, True))
+    transition_equal(buffer[2], (3, 0, 4, 0.0, True))
+    buffer.close()
+
+    train, val = rl.OnDiskReplayBuffer.load_random_splits(filename, [2, 1])
+
+    assert len(train) == 2
+    assert len(val) == 1
+    transition_equal(train[0], (3, 0, 4, 0.0, True))
+    transition_equal(train[1], (1, 0, 2, 1.0, True))
+    transition_equal(val[0], (0, 0, 1, 0.0, False))
+
+    train.close()
+    val.close()

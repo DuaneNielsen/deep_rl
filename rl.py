@@ -16,7 +16,7 @@ global_render = False
 global_test_number = 1
 
 
-def step(env, policy, buffer, render=False, timing=False, **kwargs):
+def step(env, policy, buffer, render=False, timing=False, capture_raw=False, **kwargs):
     """
     Transition generator, advances a single transition each iteration
 
@@ -24,6 +24,7 @@ def step(env, policy, buffer, render=False, timing=False, **kwargs):
         env: gym environment to step
         policy: policy to use, policy(state) -> action
         global_render: calls env render function if True
+        capture_raw: logs the raw input into the buffer instead of the processed input
         timing: prints timing info to stdout if True
         kwargs: will be passed to the policy
     """
@@ -48,7 +49,10 @@ def step(env, policy, buffer, render=False, timing=False, **kwargs):
 
         if done:
             state, state_info = env.reset(), {}
-            state_ref = state_buffer.append(state)
+            if capture_raw:
+                state_ref = state_buffer.append(env.render('rgb_array'))
+            else:
+                state_ref = state_buffer.append(state)
             meta['epi_returns'] = epi_returns
             meta['epi_len'] = epi_len
             epi_returns = 0
@@ -62,7 +66,12 @@ def step(env, policy, buffer, render=False, timing=False, **kwargs):
             policy_t = time.time()
 
         state_p, reward, done, info = env.step(action)
-        state_p_ref = state_buffer.append(state_p)
+
+        if capture_raw:
+            state_p_ref = state_buffer.append(env.render('rgb_array'))
+        else:
+            state_p_ref = state_buffer.append(state_p)
+
 
         if timing:
             step_t = time.time()
@@ -339,7 +348,7 @@ class TopTrajectoryDataset:
 
 
 """
-On disk state buffer using Pytables
+On disk replay buffer using Pytables
 """
 
 
@@ -422,6 +431,7 @@ class OnDiskReplayBuffer:
         self.statebuffer = OnDiskStateBuffer(self)
         self.episodes = Episodes(self)
         self.prev_done = True
+        self.split = None
 
     @property
     def transitions(self):
@@ -437,6 +447,39 @@ class OnDiskReplayBuffer:
         buffer = OnDiskReplayBuffer()
         buffer.fileh = tb.open_file(filename, mode='a')
         return buffer
+
+    @staticmethod
+    def load_random_splits(filename, lengths):
+        """
+        returns non overlapping random splits of the dataset
+        filename: the filename
+        :param lengths: list of lengths of each split, [10, 4, 3] 10 is length of split 0, etc...
+        :return: None
+        """
+        assert os.path.isfile(filename), f"{filename} does not exist"
+        fileh = tb.open_file(filename, mode='r')
+        assert sum(lengths) == len(fileh.root.replay.Transitions), f'total {sum(lengths)} must equal number of transitions ' \
+                                                        f'{len(fileh.root.replay.Transitions)}'
+
+        indices = np.random.permutation(sum(lengths))
+        buffers = []
+        offset = 0
+        for l in lengths:
+            buffer = OnDiskReplayBuffer()
+            buffer.fileh = fileh
+            buffer.split = indices[offset:offset + l]
+            buffers += [buffer]
+            offset += l
+        return tuple(buffers)
+
+    @staticmethod
+    def load_splits(filename):
+        """
+
+        :param filename:
+        :return: the splits saved on disk
+        """
+        raise NotImplementedError
 
     @staticmethod
     def create(filename, state_shape, state_dtype, expectedrows=1000000, state_complevel=5):
@@ -512,7 +555,13 @@ class OnDiskReplayBuffer:
             return self.make_transition(transitions)
 
     def __len__(self):
-        return len(self.fileh.root.replay.Transitions)
+        if self.split is None:
+            return len(self.fileh.root.replay.Transitions)
+        else:
+            return len(self.split)
 
     def __getitem__(self, item):
-        return self.gettransition(item)
+        if self.split is None:
+            return self.gettransition(item)
+        else:
+            return self.gettransition(self.split[item])
