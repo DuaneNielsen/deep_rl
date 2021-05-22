@@ -115,6 +115,12 @@ class Buffer:
     def episodes(self):
         return self.f['/replay/episodes']
 
+    def get_epi_len(self, item):
+        if item < self.num_episodes-1:
+            return self.episodes[item+1] - self.episodes[item]
+        else:
+            return self.steps - self.episodes[self.num_episodes-1]
+
     def append(self, s, a, r, d, initial=False):
 
         if self.steps % self.chunk_size == 0:
@@ -145,14 +151,8 @@ class Buffer:
 
         self.steps += 1
 
-    def n_gram_len(self, size=2):
-        return self.steps - self.num_episodes * size
-
-    def get_epi_len(self, item):
-        if item < self.num_episodes-1:
-            return self.episodes[item+1] - self.episodes[item]
-        else:
-            return self.steps - self.episodes[self.num_episodes-1]
+    def n_gram_len(self, gram_len=2):
+        return self.steps - self.num_episodes * (gram_len - 1)
 
     def make_n_gram_index(self, gram_len):
         index = []
@@ -160,7 +160,7 @@ class Buffer:
             start = self.episodes[e]
             end = self.get_epi_len(e) + start
             if start < end:
-                index += [range(start + gram_len - 1, end)]
+                index += range(start + gram_len - 1, end)
         return index
 
     def n_gram(self, item, gram_len=2):
@@ -173,6 +173,14 @@ class Buffer:
         r = self.reward[gram]
         d = self.done[gram]
         return s, a, r, d
+
+    def __len__(self):
+        return self.n_gram_len(gram_len=2)
+
+    def __getitem__(self, item):
+        g = self.n_gram(item, gram_len=2)
+        s, a, s_p, r, d = g[0][0], g[1][1], g[1][0], g[1][2], g[1][3]
+        return s, a, s_p, r, d
 
     def step(self, env, policy, buffer, render=False, timing=False, capture_raw=False, **kwargs):
         """
@@ -256,23 +264,3 @@ class Buffer:
             self.run_step += 1
             epi_len += 1
             epi_returns += reward
-
-
-# bio = io.BytesIO()
-# with h5.File(bio, 'w') as f:
-#     f['dataset'] = range(10)
-#
-#     data = bio.getvalue()
-#     print(f'Total_size {len(data)}')
-#     print("First bytes:", data[:10])
-#     grp = f.create_group('replay')
-#     print(f.name)
-#     print(grp.name)
-#
-#     states =
-#     image = np.random.randint((210, 160, 3), dtype=np.uint8)
-#     states[0] = image
-#     f.close()
-#
-# with h5.File(bio, 'r') as f:
-#     print(f['/replay/state'][0])

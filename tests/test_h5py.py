@@ -36,19 +36,20 @@ a2 = np.random.randint(1, dtype=np.uint8)
 r2 = 0.0
 d2 = False
 
+t1 = [(np.array([0]), 0.0, False, {}), (np.array([1]), 0.0, False, {}), (np.array([2]), 1.0, True, {})]
+t2 = [(np.array([3]), 0.0, False, {}), (np.array([4]), 0.0, True, {})]
+t3 = [(np.array([5]), 0.0, False, {}), (np.array([6]), 1.0, False, {})]
 
-def pop_buffer(filename):
-    t1 = [(np.array([0]), 0.0, False, {}), (np.array([1]), 0.0, False, {}), (np.array([2]), 1.0, True, {})]
-    t2 = [(np.array([3]), 0.0, False, {}), (np.array([4]), 0.0, True, {})]
-    t3 = [(np.array([5]), 0.0, False, {}), (np.array([6]), 1.0, False, {})]
+
+def populated_buffer(filename):
     traj = [t1, t2, t3]
 
     env = DummyEnv(traj)
     b = b5.Buffer()
-    b.create(filename, state_shape=(1, ), state_dtype=np.int64)
+    b.create(filename, state_shape=(1, ), state_dtype=np.int64, action_dtype=np.int64)
 
     def policy(state):
-        return 0
+        return state
 
     for step, s, a, s_p, r, d, i, m in b.step(env, policy, b):
         if step + 1 == 4:
@@ -65,7 +66,7 @@ def assert_row(b, row, s, a, r, d):
 
 
 def test_pop_buffer(filename):
-    b = pop_buffer(filename)
+    b = populated_buffer(filename)
     b.close()
     b.load(filename)
 
@@ -74,11 +75,11 @@ def test_pop_buffer(filename):
 
     assert_row(b, 0, 0, 0, 0.0, False)
     assert_row(b, 1, 1, 0, 0.0, False)
-    assert_row(b, 2, 2, 0, 1.0, True)
+    assert_row(b, 2, 2, 1, 1.0, True)
     assert_row(b, 3, 3, 0, 0.0, False)
-    assert_row(b, 4, 4, 0, 0.0, True)
+    assert_row(b, 4, 4, 3, 0.0, True)
     assert_row(b, 5, 5, 0, 0.0, False)
-    assert_row(b, 6, 6, 0, 1.0, False)
+    assert_row(b, 6, 6, 5, 1.0, False)
 
     b.close()
 
@@ -116,5 +117,26 @@ def test_buffer(filename):
     assert b.episodes[1] == 2
     assert b.get_epi_len(1) == 2
 
-def test_n_gram():
-    pass
+
+def assert_two_gram(two_gram, s1, a1, s2, a2):
+    assert two_gram[0][0] == s1[0]
+    assert two_gram[0][1] == s2[0]
+    assert two_gram[1][0] == a1
+    assert two_gram[1][1] == a2
+    assert two_gram[2][0] == s1[1]
+    assert two_gram[2][1] == s2[1]
+    assert two_gram[3][0] == s1[2]
+    assert two_gram[3][1] == s2[2]
+
+
+def test_n_gram(filename):
+    b = populated_buffer(filename)
+    two_grams = [b.n_gram(i) for i in range(b.n_gram_len())]
+    assert len(two_grams) == 4
+    assert_two_gram(two_grams[0], t1[0], 0, t1[1], 0)
+    assert_two_gram(two_grams[1], t1[1], 0, t1[2], 1)
+    assert_two_gram(two_grams[2], t2[0], 0, t2[1], 3)
+    assert_two_gram(two_grams[3], t3[0], 0, t3[1], 5)
+
+
+
