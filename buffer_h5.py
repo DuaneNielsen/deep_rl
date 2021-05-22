@@ -1,5 +1,12 @@
 import h5py as h5
 import numpy as np
+import time
+from statistics import mean
+
+
+class Driver:
+    def __init__(self):
+        self.step = 0
 
 
 class Buffer:
@@ -8,6 +15,7 @@ class Buffer:
         self.replay = None
         self.chunk_size = 1000000
         self.n_gram_index = None
+        self.run_step = 0
 
     def create(self, filename,
                state_shape, state_dtype, compression=None, compression_opts=None,
@@ -57,7 +65,7 @@ class Buffer:
                                    chunks=scalar_chunks_, maxshape=scalar_max_,
                                    compression='gzip', compression_opts=3, shuffle=True)
 
-        self.replay.create_dataset('episodes', scalar_shape_, dtype=np.bool_,
+        self.replay.create_dataset('episodes', scalar_shape_, dtype=np.int64,
                                    chunks=scalar_chunks_, maxshape=scalar_max_,
                                    compression='gzip', compression_opts=3, shuffle=True)
 
@@ -117,7 +125,14 @@ class Buffer:
         self.state.resize(self.steps + 1, axis=0)
 
         self.state[self.steps] = s
+
+        if a is None:
+            if len(self.action.shape) > 1:
+                a = np.zeros(self.action.shape[1:], dtype=self.action.dtype)
+            else:
+                a = np.zeros(1, dtype=self.action.dtype)
         self.action[self.steps] = a
+
         self.reward[self.steps] = r
         self.done[self.steps] = d
 
@@ -139,22 +154,108 @@ class Buffer:
         else:
             return self.steps - self.episodes[self.num_episodes-1]
 
-    def get_n_gram_index(self, size=2):
+    def make_n_gram_index(self, gram_len):
         index = []
         for e in range(self.num_episodes):
             start = self.episodes[e]
             end = self.get_epi_len(e) + start
-            index += [range(start + size - 1, end)]
+            if start < end:
+                index += [range(start + gram_len - 1, end)]
         return index
 
-    def n_gram(self, item, size=2):
+    def n_gram(self, item, gram_len=2):
+        if self.n_gram_index is None:
+            self.n_gram_index = self.make_n_gram_index(gram_len)
         i = self.n_gram_index[item]
-        gram = slice(i+1-size, i+1)
+        gram = slice(i + 1 - gram_len, i + 1)
         s = self.state[gram]
         a = self.action[gram]
         r = self.reward[gram]
         d = self.done[gram]
         return s, a, r, d
+
+    def step(self, env, policy, buffer, render=False, timing=False, capture_raw=False, **kwargs):
+        """
+        Transition generator, advances a single transition each iteration
+
+        Args:
+            env: gym environment to step
+            policy: policy to use, policy(state) -> action
+            render: calls env render function if True
+            capture_raw: logs the raw input into the buffer instead of the processed input
+            timing: prints timing info to stdout if True
+            kwargs: will be passed to the policy
+        """
+        step_time, render_time, policy_time = [], [], []
+        step_t, start_t, policy_t, render_t = 0, 0, 0, 0
+        done = True
+        state = None
+        epi_returns = 0
+        epi_len = 0
+
+        while True:
+
+            meta = {}
+
+            if timing:
+                start_t = time.time()
+
+            if done:
+                state = env.reset()
+                if capture_raw:
+                    state = env.render('rgb_array')
+                meta['epi_returns'] = epi_returns
+                meta['epi_len'] = epi_len
+                epi_returns = 0
+                epi_len = 0
+                if render:
+                    env.render()
+
+                buffer.append(state, None, 0.0, False, initial=True)
+
+            action = policy(state, **kwargs)
+
+            if timing:
+                policy_t = time.time()
+
+            state_p, reward, done, info = env.step(action)
+
+            if capture_raw:
+                state = env.render('rgb_array')
+
+            buffer.append(state_p, action, reward, done)
+
+            if timing:
+                step_t = time.time()
+
+            if render:
+                env.render()
+                meta['frame'] = env.render('rgb_array')
+
+            if timing:
+                render_t = time.time()
+
+            policy_time += [policy_t - start_t]
+            step_time += [step_t - policy_t]
+            render_time += [render_t - step_t]
+
+            if self.run_step % 1000 == 0:
+                mean_policy_time = mean(policy_time) * 1000
+                mean_step_time = mean(step_time) * 1000
+                mean_render_time = mean(render_time) * 1000
+                meta['render_time (ms)'] = mean_render_time
+                meta['step_time (ms)'] = mean_step_time
+                meta['policy_time (ms)'] = mean_policy_time
+
+                step_time, render_time, policy_time = [], [], []
+
+            yield self.run_step, state, action, state_p, reward, done, info, meta
+
+            state = state_p
+            done = done
+            self.run_step += 1
+            epi_len += 1
+            epi_returns += reward
 
 
 # bio = io.BytesIO()
