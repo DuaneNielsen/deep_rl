@@ -2,6 +2,8 @@ import h5py as h5
 import numpy as np
 import time
 from statistics import mean
+import rich.table
+from rich import print
 
 
 class Driver:
@@ -198,6 +200,20 @@ class Buffer:
         r = self.reward[gram]
         d = self.done[gram]
         return s, a, r, d
+
+    def print_stats(self):
+        table = rich.table.Table(title=f"{self.__class__.__name__}")
+        table.add_column("Stat", justify="right", style="cyan", no_wrap=True)
+        table.add_column("Title", style="magenta")
+        table.add_row("File", f'{self.f.filename}')
+        table.add_row("Episodes", f"{self.num_episodes}")
+        epi_lengths = [self.get_epi_len(self.episodes[e]) for e in range(self.num_episodes)]
+        table.add_row("Mean episode len", f"{mean(epi_lengths)}")
+        table.add_row("Transitions", f"{self.n_gram_len(gram_len=2)}")
+        # table.add_row("Transitions with + reward", f"{len(self.transitions.get_where_list('reward > 0'))}")
+        # table.add_row("Transitions with - reward", f"{len(self.transitions.get_where_list('reward < 0'))}")
+        # table.add_row("Transitions with 0 reward", f"{len(self.transitions.get_where_list('reward == 0'))}")
+        print(table)
 
     def __len__(self):
         return self.n_gram_len(gram_len=2)

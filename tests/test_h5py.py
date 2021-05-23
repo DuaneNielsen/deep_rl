@@ -178,3 +178,8 @@ def test_raw(filename):
     assert shape[1] == 160
     assert shape[2] == 3
     assert len(b.raw) == len(b.state)
+
+
+def test_print_stats(filename):
+    b = populated_buffer(filename)
+    b.print_stats()
