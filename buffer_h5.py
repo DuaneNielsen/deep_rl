@@ -28,12 +28,6 @@ class Column:
                              chunks=chunkshape, maxshape=maxshape,
                              compression=self.compression, compression_opts=self.compression_opts, shuffle=self.shuffle)
 
-    # def append(self, group, name, step, data):
-    #     if step % chunk_size[0] == 0:
-    #         resized = step + self.chunk_size
-    #         group[name].resize(resized, axis=0)
-    #     group[name][step] = data
-
 
 class Buffer:
     def __init__(self):
@@ -43,7 +37,7 @@ class Buffer:
         self.n_gram_index = None
         self.run_step = 0
 
-    def create(self, filename, columns):
+    def create(self, filename, state_col, action_col=None, raw_col=None):
         """
 
         Args:
@@ -64,6 +58,21 @@ class Buffer:
         self.replay.attrs.create('steps', 0)
         self.replay.attrs.create('episodes', 0)
 
+        # force the names to be sure
+        state_col.name = 'state'
+        if action_col is None:
+            action_col = Column('action', dtype=np.int64)
+        else:
+            action_col.name = 'action'
+
+        columns = [state_col, action_col]
+
+        # raw col is optional
+        if raw_col is not None:
+            raw_col.name = 'raw'
+            columns.append(raw_col)
+
+        # the below columns are not optional
         reward_col = Column('reward', dtype=np.float32, chunk_size=self.chunk_size)
         done_col = Column('done', dtype=np.bool_, chunk_size=self.chunk_size)
         episodes_col = Column('episodes', dtype=np.int64, chunk_size=self.chunk_size)

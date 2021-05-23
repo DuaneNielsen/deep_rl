@@ -48,7 +48,7 @@ def populated_buffer(filename):
     b = b5.Buffer()
     state_col = b5.Column('state', (1, ), np.uint8, compression='gzip')
     action_col = b5.Column('action', dtype=np.int64, chunk_size=100000)
-    b.create(filename, columns=[state_col, action_col])
+    b.create(filename, state_col=state_col, action_col=action_col)
 
     def policy(state):
         return state
@@ -98,7 +98,7 @@ def test_buffer(filename):
     b = b5.Buffer()
     state_col = b5.Column('state', shape, np.uint8, compression='gzip')
     action_col = b5.Column('action', dtype=np.uint8, chunk_size=100000)
-    b.create(filename, columns=[state_col, action_col])
+    b.create(filename, state_col=state_col, action_col=action_col)
 
     b.append(s1, a1, r1, d1, initial=True)
     b.append(s1, a1, r1, d1)
@@ -159,7 +159,7 @@ def populated_raw_buffer(filename):
     state_col = b5.Column('state', (1, ), np.uint8, compression='gzip')
     raw_col = b5.Column('raw', (240, 160, 3), np.uint8, compression='gzip')
     action_col = b5.Column('action', dtype=np.int64, chunk_size=100000)
-    b.create(filename, columns=[state_col, raw_col, action_col])
+    b.create(filename, state_col=state_col, raw_col=raw_col, action_col=action_col)
 
     def policy(state):
         return state
