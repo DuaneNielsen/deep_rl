@@ -6,7 +6,6 @@ import rich.table
 from rich import print
 
 
-
 class Column:
     def __init__(self, name, shape=None, dtype=None, chunk_size=1, compression=None, compression_opts=None, shuffle=True):
         self.shape = shape
