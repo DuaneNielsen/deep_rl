@@ -35,6 +35,10 @@ class DummyEnv(gym.Env):
         self.t = 0
         self.i = 0
 
+    def render(self, mode='human'):
+        if mode == 'rgb_array':
+            return np.random.randint((210, 160, 3), dtype=np.uint8)
+
     def reset(self):
         self.i = 0
         return self.trajectories[self.t][self.i][0]

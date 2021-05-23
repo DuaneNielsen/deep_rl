@@ -31,11 +31,17 @@ class Column:
 
 class Buffer:
     def __init__(self):
+        """
+        Append is expected to be sequential
+        Simultaneous reading and writing not really supported (poor perforrmance or might not work)
+        """
         self.f = None
         self.replay = None
         self.chunk_size = 1000000
         self.n_gram_index = None
         self.run_step = 0
+        self._episode_len = None
+        self.dirty = True
 
     def create(self, filename, state_col, action_col=None, raw_col=None):
         """
@@ -82,7 +88,7 @@ class Buffer:
             column.create(self.replay)
 
     def load(self, filename, mode='r'):
-        self.f = h5.File(filename, mode=mode)
+        self.f = h5.File(filename, mode=mode, rdcc_nbytes=10 * 1073741824, rdcc_nslots=1000000, rdcc_w0=0)
 
     def close(self):
         self.f.close()
@@ -131,7 +137,23 @@ class Buffer:
     def episodes(self):
         return self.f['/replay/episodes']
 
-    def get_epi_len(self, item, gram_len=2):
+    def clean(self):
+        self.compute_1_gram_epi_lengths()
+        self.dirty = False
+
+    def compute_1_gram_epi_lengths(self):
+        epi_start = self.episodes[:self.num_episodes]
+        epi_end = np.roll(epi_start.copy(), shift=-1, axis=0)
+        self._episode_len = epi_end - epi_start
+        self._episode_len[-1] = self.steps - epi_start[-1]
+
+    @property
+    def episode_len(self):
+        if self.dirty:
+            self.clean()
+        return self._episode_len
+
+    def get_epi_len(self, item_or_slice, gram_len=2):
         """
         Number of grams in a episode
         Args:
@@ -142,12 +164,10 @@ class Buffer:
         to get number of steps set gram_len = 1
 
         """
-        if item < self.num_episodes - 1:
-            return self.episodes[item + 1] - self.episodes[item] - gram_len + 1
-        else:
-            return self.steps - self.episodes[self.num_episodes - 1] - gram_len + 1
+        return self.episode_len[item_or_slice] - gram_len + 1
 
     def append(self, state, action, reward, done, initial=False, **kwargs):
+        self.dirty = True
 
         if self.steps % self.chunk_size == 0:
             resized = self.steps + self.chunk_size
@@ -205,18 +225,24 @@ class Buffer:
         d = self.done[gram]
         return s, a, r, d
 
-    def print_stats(self):
+    def make_stat_table(self):
         table = rich.table.Table(title=f"{self.__class__.__name__}")
         table.add_column("Stat", justify="right", style="cyan", no_wrap=True)
         table.add_column("Value", style="magenta")
         table.add_row("File", f'{self.f.filename}')
         table.add_row("Episodes", f"{self.num_episodes}")
-        epi_lengths = [self.get_epi_len(self.episodes[e]) for e in range(self.num_episodes)]
-        table.add_row("Mean episode len", f"{mean(epi_lengths)}")
+        epi_lengths = self.episode_len - 1
+        table.add_row("Mean episode len", f"{np.mean(epi_lengths):.0f}")
+        table.add_row("Max episode len", f"{epi_lengths.max()}")
+        table.add_row("Min episode len", f"{epi_lengths.min()}")
         table.add_row("Transitions", f"{self.n_gram_len(gram_len=2)}")
-        # table.add_row("Transitions with + reward", f"{len(self.transitions.get_where_list('reward > 0'))}")
-        # table.add_row("Transitions with - reward", f"{len(self.transitions.get_where_list('reward < 0'))}")
-        # table.add_row("Transitions with 0 reward", f"{len(self.transitions.get_where_list('reward == 0'))}")
+        table.add_row("Transitions with + reward", f"{np.count_nonzero(self.reward[:] > 0.0)}")
+        table.add_row("Transitions with - reward", f"{np.count_nonzero(self.reward[:] < 0.0)}")
+        table.add_row("Transitions with 0 reward", f"{np.count_nonzero(self.reward[:] == 0.0)}")
+        return table
+
+    def print_stats(self):
+        table = self.make_stat_table()
         print(table)
 
     def __len__(self):
@@ -239,8 +265,8 @@ class Buffer:
             timing: prints timing info to stdout if True
             kwargs: will be passed to the policy
         """
-        step_time, render_time, policy_time = [], [], []
-        step_t, start_t, policy_t, render_t = 0, 0, 0, 0
+        step_time, render_time, policy_time, append_time = [], [], [], []
+        step_t, start_t, policy_t, append_t, render_t = 0, 0, 0, 0, 0
         done = True
         state = None
         epi_returns = 0
@@ -282,10 +308,13 @@ class Buffer:
             else:
                 raw_state = None
 
+            if timing:
+                step_t = time.time()
+
             self.append(state_p, action, reward, done, raw=raw_state)
 
             if timing:
-                step_t = time.time()
+                append_t = time.time()
 
             if render:
                 env.render()
@@ -293,20 +322,23 @@ class Buffer:
 
             if timing:
                 render_t = time.time()
-
-            policy_time += [policy_t - start_t]
-            step_time += [step_t - policy_t]
-            render_time += [render_t - step_t]
+                policy_time += [policy_t - start_t]
+                step_time += [step_t - policy_t]
+                append_time += [append_t - step_t]
+                render_time += [render_t - append_t]
 
             if self.run_step % 1000 == 0:
-                mean_policy_time = mean(policy_time) * 1000
-                mean_step_time = mean(step_time) * 1000
-                mean_render_time = mean(render_time) * 1000
-                meta['render_time (ms)'] = mean_render_time
-                meta['step_time (ms)'] = mean_step_time
-                meta['policy_time (ms)'] = mean_policy_time
+                if timing:
+                    mean_policy_time = mean(policy_time) * 1000
+                    mean_step_time = mean(step_time) * 1000
+                    mean_append_time = mean(append_time) * 1000
+                    mean_render_time = mean(render_time) * 1000
+                    meta['render_time (ms)'] = mean_render_time
+                    meta['step_time (ms)'] = mean_step_time
+                    meta['append_time (ms)'] = mean_append_time
+                    meta['policy_time (ms)'] = mean_policy_time
 
-                step_time, render_time, policy_time = [], [], []
+                    step_time, render_time, policy_time, append_time = [], [], [], []
 
             yield self.run_step, state, action, state_p, reward, done, info, meta
 
