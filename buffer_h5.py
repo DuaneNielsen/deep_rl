@@ -204,7 +204,7 @@ class Buffer:
     def print_stats(self):
         table = rich.table.Table(title=f"{self.__class__.__name__}")
         table.add_column("Stat", justify="right", style="cyan", no_wrap=True)
-        table.add_column("Title", style="magenta")
+        table.add_column("Value", style="magenta")
         table.add_row("File", f'{self.f.filename}')
         table.add_row("Episodes", f"{self.num_episodes}")
         epi_lengths = [self.get_epi_len(self.episodes[e]) for e in range(self.num_episodes)]
