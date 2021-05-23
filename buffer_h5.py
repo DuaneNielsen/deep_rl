@@ -9,6 +9,35 @@ class Driver:
         self.step = 0
 
 
+class Column:
+    def __init__(self, name, shape=None, dtype=None, chunk_size=1, compression=None, compression_opts=None, shuffle=True):
+        self.shape = shape
+        self.name = name
+        self.dtype = dtype
+        self.compression = compression
+        self.compression_opts = compression_opts
+        self.shuffle = shuffle
+        self.chunk_size = chunk_size
+
+    def make_scm_tuples(self):
+        if self.shape is not None:
+            return (0, *self.shape), (self.chunk_size, *self.shape), (None, *self.shape)
+        else:
+            return (0,), (self.chunk_size,), (None,)
+
+    def create(self, group):
+        shape, chunkshape, maxshape = self.make_scm_tuples()
+        group.create_dataset(self.name, shape, dtype=self.dtype,
+                             chunks=chunkshape, maxshape=maxshape,
+                             compression=self.compression, compression_opts=self.compression_opts, shuffle=self.shuffle)
+
+    # def append(self, group, name, step, data):
+    #     if step % chunk_size[0] == 0:
+    #         resized = step + self.chunk_size
+    #         group[name].resize(resized, axis=0)
+    #     group[name][step] = data
+
+
 class Buffer:
     def __init__(self):
         self.f = None
@@ -17,9 +46,7 @@ class Buffer:
         self.n_gram_index = None
         self.run_step = 0
 
-    def create(self, filename,
-               state_shape, state_dtype, compression=None, compression_opts=None,
-               action_shape=None, action_dtype=None):
+    def create(self, filename, columns):
         """
 
         Args:
@@ -33,18 +60,6 @@ class Buffer:
 
         """
 
-        def make_scm_tuples(shape, chunk_size):
-            return (0, *shape), (chunk_size, *shape), (None, *shape)
-
-        state_shape_, state_chunks_, state_max_ = make_scm_tuples(state_shape, 1)
-
-        if action_shape is None:
-            action_shape_, action_chunks_, action_max_ = (0, ), (self.chunk_size, ), (None, )
-        else:
-            action_shape_, action_chunks_, action_max_ = make_scm_tuples(action_shape, self.chunk_size)
-
-        scalar_shape_, scalar_chunks_, scalar_max_ = (0, ), (self.chunk_size, ), (None, )
-
         self.f = h5.File(filename, 'w')
 
         self.replay = self.f.create_group('replay')
@@ -52,22 +67,13 @@ class Buffer:
         self.replay.attrs.create('steps', 0)
         self.replay.attrs.create('episodes', 0)
 
-        self.replay.create_dataset('state', state_shape_, dtype=state_dtype,
-                                   chunks=state_chunks_, maxshape=state_max_,
-                                   compression=compression, compression_opts=compression_opts, shuffle=True)
-        self.replay.create_dataset('action', action_shape_, dtype=action_dtype,
-                                   chunks=action_chunks_, maxshape=action_max_,
-                                   compression='gzip', compression_opts=3, shuffle=True)
-        self.replay.create_dataset('reward', scalar_shape_, dtype=np.float32,
-                                   chunks=scalar_chunks_, maxshape=scalar_max_,
-                                   compression='gzip', compression_opts=3, shuffle=True)
-        self.replay.create_dataset('done', scalar_shape_, dtype=np.bool_,
-                                   chunks=scalar_chunks_, maxshape=scalar_max_,
-                                   compression='gzip', compression_opts=3, shuffle=True)
+        reward_col = Column('reward', dtype=np.float32, chunk_size=self.chunk_size)
+        done_col = Column('done', dtype=np.bool_, chunk_size=self.chunk_size)
+        episodes_col = Column('episodes', dtype=np.int64, chunk_size=self.chunk_size)
+        columns += [reward_col, done_col, episodes_col]
 
-        self.replay.create_dataset('episodes', scalar_shape_, dtype=np.int64,
-                                   chunks=scalar_chunks_, maxshape=scalar_max_,
-                                   compression='gzip', compression_opts=3, shuffle=True)
+        for column in columns:
+            column.create(self.replay)
 
     def load(self, filename, mode='r'):
         self.f = h5.File(filename, mode=mode)
@@ -78,6 +84,10 @@ class Buffer:
     @property
     def state(self):
         return self.f['/replay/state']
+
+    @property
+    def raw(self):
+        return self.f['/replay/raw']
 
     @property
     def action(self):
@@ -115,32 +125,47 @@ class Buffer:
     def episodes(self):
         return self.f['/replay/episodes']
 
-    def get_epi_len(self, item):
-        if item < self.num_episodes-1:
-            return self.episodes[item+1] - self.episodes[item]
-        else:
-            return self.steps - self.episodes[self.num_episodes-1]
+    def get_epi_len(self, item, gram_len=2):
+        """
+        Number of grams in a episode
+        Args:
+            item: episode index
+            gram_len: length of gram
 
-    def append(self, s, a, r, d, initial=False):
+        Returns: the number of grams in an episode,
+        to get number of steps set gram_len = 1
+
+        """
+        if item < self.num_episodes - 1:
+            return self.episodes[item + 1] - self.episodes[item] - gram_len + 1
+        else:
+            return self.steps - self.episodes[self.num_episodes - 1] - gram_len + 1
+
+    def append(self, state, action, reward, done, initial=False, **kwargs):
 
         if self.steps % self.chunk_size == 0:
             resized = self.steps + self.chunk_size
             self.action.resize(resized, axis=0)
             self.reward.resize(resized, axis=0)
             self.done.resize(resized, axis=0)
+
         self.state.resize(self.steps + 1, axis=0)
+        self.state[self.steps] = state
 
-        self.state[self.steps] = s
+        if 'raw' in kwargs:
+            if kwargs['raw'] is not None:
+                self.replay['raw'].resize(self.steps + 1, axis=0)
+                self.replay['raw'][self.steps] = kwargs['raw']
 
-        if a is None:
+        if action is None:
             if len(self.action.shape) > 1:
-                a = np.zeros(self.action.shape[1:], dtype=self.action.dtype)
+                action = np.zeros(self.action.shape[1:], dtype=self.action.dtype)
             else:
-                a = np.zeros(1, dtype=self.action.dtype)
-        self.action[self.steps] = a
+                action = np.zeros(1, dtype=self.action.dtype)
+        self.action[self.steps] = action
 
-        self.reward[self.steps] = r
-        self.done[self.steps] = d
+        self.reward[self.steps] = reward
+        self.done[self.steps] = done
 
         if initial:
             if self.num_episodes % self.chunk_size == 0:
@@ -158,7 +183,7 @@ class Buffer:
         index = []
         for e in range(self.num_episodes):
             start = self.episodes[e]
-            end = self.get_epi_len(e) + start
+            end = self.get_epi_len(e, gram_len=1) + start
             if start < end:
                 index += range(start + gram_len - 1, end)
         return index
@@ -182,7 +207,7 @@ class Buffer:
         s, a, s_p, r, d = g[0][0], g[1][1], g[1][0], g[1][2], g[1][3]
         return s, a, s_p, r, d
 
-    def step(self, env, policy, buffer, render=False, timing=False, capture_raw=False, **kwargs):
+    def step(self, env, policy, render=False, timing=False, capture_raw=False, **kwargs):
         """
         Transition generator, advances a single transition each iteration
 
@@ -210,8 +235,12 @@ class Buffer:
 
             if done:
                 state = env.reset()
+
                 if capture_raw:
-                    state = env.render('rgb_array')
+                    raw_state = env.render('rgb_array')
+                else:
+                    raw_state = None
+
                 meta['epi_returns'] = epi_returns
                 meta['epi_len'] = epi_len
                 epi_returns = 0
@@ -219,7 +248,7 @@ class Buffer:
                 if render:
                     env.render()
 
-                buffer.append(state, None, 0.0, False, initial=True)
+                self.append(state, None, 0.0, False, initial=True, raw=raw_state)
 
             action = policy(state, **kwargs)
 
@@ -229,9 +258,11 @@ class Buffer:
             state_p, reward, done, info = env.step(action)
 
             if capture_raw:
-                state = env.render('rgb_array')
+                raw_state = env.render('rgb_array')
+            else:
+                raw_state = None
 
-            buffer.append(state_p, action, reward, done)
+            self.append(state_p, action, reward, done, raw=raw_state)
 
             if timing:
                 step_t = time.time()

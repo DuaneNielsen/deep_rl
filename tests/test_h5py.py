@@ -46,12 +46,14 @@ def populated_buffer(filename):
 
     env = DummyEnv(traj)
     b = b5.Buffer()
-    b.create(filename, state_shape=(1, ), state_dtype=np.int64, action_dtype=np.int64)
+    state_col = b5.Column('state', (1, ), np.uint8, compression='gzip')
+    action_col = b5.Column('action', dtype=np.int64, chunk_size=100000)
+    b.create(filename, columns=[state_col, action_col])
 
     def policy(state):
         return state
 
-    for step, s, a, s_p, r, d, i, m in b.step(env, policy, b):
+    for step, s, a, s_p, r, d, i, m in b.step(env, policy):
         if step + 1 == 4:
             break
 
@@ -81,12 +83,22 @@ def test_pop_buffer(filename):
     assert_row(b, 5, 5, 0, 0.0, False)
     assert_row(b, 6, 6, 5, 1.0, False)
 
+    assert b.get_epi_len(0) == 2
+    assert b.get_epi_len(1) == 1
+    assert b.get_epi_len(2) == 1
+
+    assert b.get_epi_len(0, gram_len=1) == 3
+    assert b.get_epi_len(1, gram_len=1) == 2
+    assert b.get_epi_len(2, gram_len=1) == 2
+
     b.close()
 
 
 def test_buffer(filename):
     b = b5.Buffer()
-    b.create(filename, state_shape=shape, state_dtype=np.uint8)
+    state_col = b5.Column('state', shape, np.uint8, compression='gzip')
+    action_col = b5.Column('action', dtype=np.uint8, chunk_size=100000)
+    b.create(filename, columns=[state_col, action_col])
 
     b.append(s1, a1, r1, d1, initial=True)
     b.append(s1, a1, r1, d1)
@@ -100,7 +112,7 @@ def test_buffer(filename):
     assert b.num_episodes == 1
     assert b.steps == 2
     assert b.episodes[0] == 0
-    assert b.get_epi_len(0) == 2
+    assert b.get_epi_len(0, gram_len=1) == 2
 
     b.append(s2, a2, r2, d2, initial=True)
     b.append(s2, a2, r2, d2)
@@ -115,7 +127,7 @@ def test_buffer(filename):
     assert b.steps == 4
     assert b.episodes[0] == 0
     assert b.episodes[1] == 2
-    assert b.get_epi_len(1) == 2
+    assert b.get_epi_len(1, gram_len=1) == 2
 
 
 def assert_two_gram(two_gram, s1, a1, s2, a2):
@@ -139,4 +151,30 @@ def test_n_gram(filename):
     assert_two_gram(two_grams[3], t3[0], 0, t3[1], 5)
 
 
+def populated_raw_buffer(filename):
+    traj = [t1, t2, t3]
 
+    env = DummyEnv(traj)
+    b = b5.Buffer()
+    state_col = b5.Column('state', (1, ), np.uint8, compression='gzip')
+    raw_col = b5.Column('raw', (240, 160, 3), np.uint8, compression='gzip')
+    action_col = b5.Column('action', dtype=np.int64, chunk_size=100000)
+    b.create(filename, columns=[state_col, raw_col, action_col])
+
+    def policy(state):
+        return state
+
+    for step, s, a, s_p, r, d, i, m in b.step(env, policy, capture_raw=True):
+        if step + 1 == 4:
+            break
+
+    return b
+
+
+def test_raw(filename):
+    b = populated_raw_buffer(filename)
+    shape = b.replay['raw'][0].shape
+    assert shape[0] == 240
+    assert shape[1] == 160
+    assert shape[2] == 3
+    assert len(b.raw) == len(b.state)
