@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, RandomSampler
-
+from torch.utils.data import DataLoader
+from torch_utils import RandomSampler
 import gym
 import env
 import env.wrappers as wrappers
@@ -19,6 +19,8 @@ import os
 import warnings
 from typing import *
 from torch import Tensor
+from rich.progress import track
+import rl
 
 warnings.filterwarnings("ignore", message="Setting attributes on ParameterList is not supported.")
 
@@ -62,7 +64,7 @@ if __name__ == '__main__':
     parser.add_argument('--env_timelimit', type=int, default=3000)
 
     """ hyper-parameters """
-    parser.add_argument('--vision_model', type=str, default='tf_efficientnet_lite0')
+    parser.add_argument('--vision_model', type=str, default='tf_mobilenetv3_small_100')
     parser.add_argument('--pretrained', action='store_true', default=False)
     parser.add_argument('--finetune', action='store_true', default=False)
     parser.add_argument('--optim_lr', type=float, default=2e-5)
@@ -88,10 +90,8 @@ if __name__ == '__main__':
 
     wandb.init(project=f"sac-{config.env_name}", config=config)
 
-    """ environment """
-
-
     def make_env():
+        """ environment """
         env = gym.make(config.env_name)
         env = wrappers.TimeLimit(env.unwrapped, max_episode_steps=config.env_timelimit)
         env = capture.VideoCapture(env, config.run_dir, freq=config.capture_freq)
@@ -101,7 +101,7 @@ if __name__ == '__main__':
         if 'FIRE' in env.unwrapped.get_action_meanings():
             env = wrappers.FireResetEnv(env)
         env = wrappers.ClipState2D(env, 0, 24, 210 - 24, 160)
-        env = wrappers.WarpFrame(env, width=224, height=224, grayscale=True)
+        env = wrappers.WarpFrame(env, width=88, height=88, grayscale=True)
         env = wrappers.ScaledFloatFrame(env)
         env = wrappers.Gradient(env)
         env = wrappers.ClipRewardEnv(env)
@@ -148,7 +148,8 @@ if __name__ == '__main__':
     class Q(nn.Module):
         def __init__(self, hidden_dims, actions):
             super().__init__()
-            self.model = torch.hub.load('rwightman/gen-efficientnet-pytorch', config.vision_model, pretrained=config.pretrained)
+            self.model = torch.hub.load('rwightman/gen-efficientnet-pytorch', config.vision_model,
+                                        pretrained=config.pretrained)
             self.model.conv_stem = nn.Conv2d(2, self.model.conv_stem.out_channels,
                                              kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
             self.model.classifier = nn.Sequential(
@@ -163,7 +164,8 @@ if __name__ == '__main__':
         def __init__(self, hidden_dims, actions):
             super().__init__()
             self.actions = actions
-            self.model = torch.hub.load('rwightman/gen-efficientnet-pytorch', config.vision_model, pretrained=config.pretrained)
+            self.model = torch.hub.load('rwightman/gen-efficientnet-pytorch', config.vision_model,
+                                        pretrained=config.pretrained)
             self.model.conv_stem = nn.Conv2d(2, self.model.conv_stem.out_channels,
                                              kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
             self.model.classifier = nn.Sequential(
@@ -245,21 +247,25 @@ if __name__ == '__main__':
     if config.finetune:
         q_optim = torch.optim.Adam([
             {'params': q_net.untrained_parameters(), 'lr': config.optim_lr},
-            {'params': q_net.pretrained_parameters(), 'lr': config.optim_lr/10.0},
+            {'params': q_net.pretrained_parameters(), 'lr': config.optim_lr / 10.0},
         ])
         policy_optim = torch.optim.Adam([
             {'params': policy_net.untrained_parameters(), 'lr': config.optim_lr},
-            {'params': policy_net.pretrained_parameters(), 'lr': config.optim_lr/10.0},
+            {'params': policy_net.pretrained_parameters(), 'lr': config.optim_lr / 10.0},
         ])
     else:
         q_optim = torch.optim.Adam(q_net.parameters(), lr=config.optim_lr)
         policy_optim = torch.optim.Adam(policy_net.parameters(), lr=config.optim_lr)
 
 
+    def checkpoint_dict(**kwargs):
+        return kwargs
+
+    models_optims = checkpoint_dict(q=q_net, q_optim=q_optim, policy=policy_net, policy_optim=policy_optim)
+
     """ load weights from file if required"""
     if exists_and_not_none(config, 'load'):
-        checkpoint.load(config.load, prefix='best', q=q_net, q_optim=q_optim, policy=policy_net,
-                        policy_optim=policy_optim)
+        checkpoint.load(config.load, prefix='best', **models_optims)
 
     """ policy to run on environment """
 
@@ -267,6 +273,7 @@ if __name__ == '__main__':
     def policy(state):
         with torch.no_grad():
             state = torch.from_numpy(state).unsqueeze(0).to(config.device)
+            policy_net.eval()
             probs = policy_net(state)
             assert ~torch.isnan(probs).any()
             a_dist = Categorical(probs=probs)
@@ -280,6 +287,7 @@ if __name__ == '__main__':
     def exploit_policy(state):
         with torch.no_grad():
             state = torch.from_numpy(state).unsqueeze(0).to(config.device)
+            policy_net.eval()
             dist = policy_net(state)
             assert ~torch.isnan(dist).any()
             a = torch.argmax(dist)
@@ -292,16 +300,12 @@ if __name__ == '__main__':
     """ train loop """
     evaluator = wandb_utils.Evaluator()
     ds = wandb_utils.StateBufferDataset(maxlen=config.replay_len, statebuffer=wandb_utils.ZCompressedBuffer())
-    dl = None
+    dl = DataLoader(ds, batch_size=config.batch_size, sampler=RandomSampler(ds, replacement=True),
+                    num_workers=config.worker_threads)
 
-    for step, (s, a, s_p, r, d, i) in enumerate(
-            wandb_utils.step_environment(train_env, policy, ds, render=config.env_render)):
+    for step, s, a, s_p, r, d, i, m in track(rl.step(train_env, policy, ds, render=config.env_render), total=config.max_steps):
 
         ds.append((s, a, s_p, r, d))
-
-        if dl is None:
-            dl = DataLoader(ds, batch_size=config.batch_size, sampler=RandomSampler(ds, replacement=True),
-                            num_workers=config.worker_threads)
 
         if len(ds) < config.batch_size * config.q_update_ratio or len(ds) < config.warmup:
             continue  # sample at least a couple full batches for the first update
@@ -312,8 +316,7 @@ if __name__ == '__main__':
 
         if evaluator.evaluate_now(config.test_steps):
             evaluator.evaluate(test_env, exploit_policy, run_dir=config.run_dir, capture=config.test_capture,
-                               params={'q': q_net, 'q_optim': q_optim, 'policy': policy_net,
-                                       'policy_optim': policy_optim})
+                               params=models_optims)
 
         if step > config.max_steps:
             break

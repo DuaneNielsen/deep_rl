@@ -3,7 +3,7 @@ command:
 - ${interpreter}
 - ${program}
 - ${args}
-method: grid
+method: bayes
 metric:
   goal: maximize
   name: 'eval-best-return Mean'
@@ -11,25 +11,23 @@ parameters:
   policy_alpha_decay:
     value: 3e-5
   policy_alpha:
-    value: 0.05
+    distribution: uniform
+    max: 0.3
+    min: 0.0
   cql_alpha:
-    values: 3.0
+    distribution: uniform
+    max: 20.0
+    min: 0.0
   summary_video_episodes:
     value: 5
   env_name:
-    value: maze2d-medium-v1
+    value: minigrid-fourrooms-v0
   seed:
-    values:
-    - 0
-    - 5
-    - 13
-    - 19
-    - 31
-    - 53
+    value: 0
   max_steps:
-    value: 80000
+    value: 10000
   test_steps:
-    value: 2000
+    value: 500
   test_episodes:
     value: 16
   batch_size:

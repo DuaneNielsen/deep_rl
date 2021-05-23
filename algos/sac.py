@@ -6,6 +6,7 @@ def train(dl, q, target_q, policy, q_optim, policy_optim,
           discount=0.99, polyak=0.095, q_update_ratio=2, alpha=0.2,
           device='cpu', precision=torch.float32):
 
+    policy.train()
     q_update = 1
 
     for s, a, s_p, r, d in dl:
@@ -66,6 +67,7 @@ def train_discrete(dl, q, target_q, policy, q_optim, policy_optim,
 
     """
 
+    policy.train()
     q_update = 1
 
     for s, a, s_p, r, d in dl:

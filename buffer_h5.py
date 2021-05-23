@@ -231,7 +231,7 @@ class Buffer:
         table.add_column("Value", style="magenta")
         table.add_row("File", f'{self.f.filename}')
         table.add_row("Episodes", f"{self.num_episodes}")
-        epi_lengths = self.episode_len - 1
+        epi_lengths = self.episode_len - 1  # subtrct one because we measure in 2 grams
         table.add_row("Mean episode len", f"{np.mean(epi_lengths):.0f}")
         table.add_row("Max episode len", f"{epi_lengths.max()}")
         table.add_row("Min episode len", f"{epi_lengths.min()}")
