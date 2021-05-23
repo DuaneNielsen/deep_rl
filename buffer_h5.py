@@ -6,10 +6,6 @@ import rich.table
 from rich import print
 
 
-class Driver:
-    def __init__(self):
-        self.step = 0
-
 
 class Column:
     def __init__(self, name, shape=None, dtype=None, chunk_size=1, compression=None, compression_opts=None, shuffle=True):
