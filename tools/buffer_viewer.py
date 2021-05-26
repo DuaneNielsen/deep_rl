@@ -63,5 +63,5 @@ if __name__ == '__main__':
     viewer = Viewer()
 
     for s, a, s_p, r, d in buffer:
-        viewer.update(s[..., 0], a, s_p[..., 0], d)
+        viewer.update(s, a, s_p, d)
 

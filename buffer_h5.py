@@ -3,11 +3,14 @@ import numpy as np
 import time
 from statistics import mean
 import rich.table
+from rich.progress import track
 from rich import print
+import argparse
 
 
 class Column:
-    def __init__(self, name, shape=None, dtype=None, chunk_size=1, compression=None, compression_opts=None, shuffle=True):
+    def __init__(self, name, shape=None, dtype=None, chunk_size=1, compression=None, compression_opts=None,
+                 shuffle=True):
         self.shape = shape
         self.name = name
         self.dtype = dtype
@@ -36,7 +39,6 @@ class Buffer:
         Simultaneous reading and writing not really supported (poor perforrmance or might not work)
         """
         self.f = None
-        self.replay = None
         self.chunk_size = 1000000
         self.n_gram_index = None
         self.run_step = 0
@@ -59,7 +61,7 @@ class Buffer:
 
         self.f = h5.File(filename, 'w')
 
-        self.replay = self.f.create_group('replay')
+        self.f.create_group('replay')
 
         self.replay.attrs.create('steps', 0)
         self.replay.attrs.create('episodes', 0)
@@ -87,11 +89,15 @@ class Buffer:
         for column in columns:
             column.create(self.replay)
 
-    def load(self, filename, mode='r'):
-        self.f = h5.File(filename, mode=mode, rdcc_nbytes=10 * 1073741824, rdcc_nslots=1000000, rdcc_w0=0)
+    def load(self, filename, mode='r', cache_bytes=1073741824, cache_slots=100000, cache_w0=0.0, **kwargs):
+        self.f = h5.File(filename, mode=mode, rdcc_nbytes=cache_bytes, rdcc_nslots=cache_slots, rdcc_w0=cache_w0)
 
     def close(self):
         self.f.close()
+
+    @property
+    def replay(self):
+        return self.f['/replay']
 
     @property
     def state(self):
@@ -214,16 +220,30 @@ class Buffer:
                 index += range(start + gram_len - 1, end)
         return index
 
-    def n_gram(self, item, gram_len=2):
+    def n_gram(self, item, gram_len=2, fields=None):
+        """
+
+        Args:
+            item: the index of the gram
+            gram_len: the n in n-gram, a transition is a 2-gram, defaults to 2-gram
+            fields: list of fields to return, default ['state', 'action', 'reward', 'done']
+
+        Returns: tuple in order of the fields, gram is the first index, if 1 gram first index is omitted,
+        order of gram is same order as append sequence
+
+        """
+        fields = ['state', 'action', 'reward', 'done'] if fields is None else fields
         if self.n_gram_index is None:
             self.n_gram_index = self.make_n_gram_index(gram_len)
         i = self.n_gram_index[item]
         gram = slice(i + 1 - gram_len, i + 1)
-        s = self.state[gram]
-        a = self.action[gram]
-        r = self.reward[gram]
-        d = self.done[gram]
-        return s, a, r, d
+        results = []
+        for field in fields:
+            results.append(self.replay[field][gram])
+        if len(results) == 1:
+            return results[0]
+        else:
+            return tuple(results)
 
     def make_stat_table(self):
         table = rich.table.Table(title=f"{self.__class__.__name__}")
@@ -250,7 +270,7 @@ class Buffer:
 
     def __getitem__(self, item):
         g = self.n_gram(item, gram_len=2)
-        s, a, s_p, r, d = g[0][0], g[1][1], g[1][0], g[1][2], g[1][3]
+        s, a, s_p, r, d = g[0][0], g[1][1], g[0][1], g[2][1], g[3][1]
         return s, a, s_p, r, d
 
     def step(self, env, policy, render=False, timing=False, capture_raw=False, **kwargs):
@@ -347,3 +367,67 @@ class Buffer:
             self.run_step += 1
             epi_len += 1
             epi_returns += reward
+
+
+def postprocess_raw(filename, new_column, f, batch_size):
+    # not tested
+    b = Buffer()
+    b.load(filename)
+    if new_column.name in b.replay:
+        exit()
+    new_column.create(b.replay)
+    f.replay[new_column.name].resize(b.steps, axis=0)
+    num_batches = b.steps // batch_size
+    remainder = b.steps % batch_size
+    for batch in range(num_batches):
+        f.replay[new_column.name][batch:batch + batch_size] = f(b.raw[batch:batch + batch_size])
+    if remainder > 0:
+        f.replay[new_column.name][-remainder:b.steps] = f(b.raw[-remainder:b.steps])
+    b.close()
+
+
+def grayConversion(image):
+    grayValue = 0.07 * image[:, :, 2] + 0.72 * image[:, :, 1] + 0.21 * image[:, :, 0]
+    gray_img = grayValue.astype(np.uint8)
+    return gray_img
+
+
+import cv2
+
+
+def postprocess_gradient(filename, new_column, debug=False):
+    b = Buffer()
+    b.load(filename, mode='a')
+
+    # recreate the column if it already exists
+    try:
+        if '/replay/grad' in b.f:
+            del b.f['/replay/grad']
+        new_column.create(b.replay)
+    except KeyError:
+        print('table existed but could not delete')
+
+    b.replay['grad'].resize(b.steps, axis=0)
+    for i in track(range(b.steps), description='[blue] writing zeros'):
+        b.replay['grad'][i] = np.zeros(new_column.shape, dtype=new_column.dtype)
+
+    for i in track(range(len(b)), description='[blue] adding gradient'):
+        raw = b.n_gram(i, fields=['raw'])
+        grad = raw[1] - raw[0]
+        iw = b.n_gram_index[i]
+        b.replay['grad'][iw] = grad
+        if debug:
+            cv2.imshow('grad', grad)
+            cv2.waitKey(0)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('postprocessing', choices=['grad'])
+    parser.add_argument('filename')
+    parser.add_argument('--debug', action='store_true', default=False)
+    args = parser.parse_args()
+
+    if args.postprocessing == 'grad':
+        grad_col = Column('grad', shape=(210, 160, 3), dtype=np.uint8, compression='gzip', compression_opts=9)
+        postprocess_gradient(args.filename, grad_col, args.debug)
