@@ -256,9 +256,9 @@ class Buffer:
         table.add_row("Max episode len", f"{epi_lengths.max()}")
         table.add_row("Min episode len", f"{epi_lengths.min()}")
         table.add_row("Transitions", f"{self.n_gram_len(gram_len=2)}")
-        table.add_row("Transitions with + reward", f"{np.count_nonzero(self.reward[:] > 0.0)}")
-        table.add_row("Transitions with - reward", f"{np.count_nonzero(self.reward[:] < 0.0)}")
-        table.add_row("Transitions with 0 reward", f"{np.count_nonzero(self.reward[:] == 0.0)}")
+        table.add_row("Transitions with + reward", f"{np.count_nonzero(self.reward[:self.steps] > 0.0)}")
+        table.add_row("Transitions with - reward", f"{np.count_nonzero(self.reward[:self.steps] < 0.0)}")
+        table.add_row("Transitions with 0 reward", f"{np.count_nonzero(self.reward[:self.steps] == 0.0)}")
         return table
 
     def print_stats(self):
