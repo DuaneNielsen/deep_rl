@@ -1,10 +1,10 @@
-import rl
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import GridSpec
 import matplotlib.colors
 from collections import deque
 import numpy as np
 from argparse import ArgumentParser
+import buffer_h5 as b5
 
 
 class Trakker():
@@ -46,8 +46,9 @@ class Viewer:
     def update(self, state, action, next_state, terminal):
         self.state_ax.clear()
         self.state_ax.imshow(state)
-        self.next_state_ax.clear()
-        self.next_state_ax.imshow(next_state)
+        if next_state:
+            self.next_state_ax.clear()
+            self.next_state_ax.imshow(next_state)
         self.action_trakker.update(action)
         self.terminal_trakker.update(1 if terminal else 0)
         self.fig.canvas.draw()
@@ -59,9 +60,11 @@ if __name__ == '__main__':
     parser.add_argument('--filename', type=str, default='buffer.h5')
     config = parser.parse_args()
 
-    buffer = rl.OnDiskReplayBuffer.load(config.filename)
+    buffer = b5.Buffer()
+    buffer.load(config.filename)
     viewer = Viewer()
 
-    for s, a, s_p, r, d in buffer:
-        viewer.update(s, a, s_p, d)
+    for i in range(buffer.steps):
+        raw, a, d = buffer.n_gram(i, 1, ['raw', 'action', 'done'])
+        viewer.update(raw[0], a[0], None, d[0])
 
