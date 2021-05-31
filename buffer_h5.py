@@ -36,7 +36,7 @@ class NumpyColumn(Column):
         shape, chunkshape, maxshape = self.make_scm_tuples()
         group.create_dataset(self.name, shape, dtype=self.dtype,
                              chunks=chunkshape, maxshape=maxshape,
-                             compression=self.compression, compression_opts=self.compression_opts, shuffle=self.shuffle)
+                             compression=self.compression, compression_opts=self.compression_opts, shuffle=False)
 
 
 class Buffer:
