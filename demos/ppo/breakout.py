@@ -119,12 +119,12 @@ if __name__ == '__main__':
         hidden_dims=64,
         actions=actions)
     a2c_net = ppo.PPOWrapModel(a2c_net).to(config.device)
-    a2c_net.load_state_dict(torch.load('breakout.sd'))
-
-    """ policy to run on environment """
+    a2c_net.load_state_dict(torch.load('breakout.sd', map_location='cpu'))
 
 
     def policy(state):
+        """ policy to run on environment """
+
         state = torch.from_numpy(state).float().unsqueeze(0).to(config.device)
         value, action = a2c_net(state)
         a = action.sample()
@@ -138,9 +138,9 @@ if __name__ == '__main__':
             task = progress.add_task('recording', total=config.steps)
 
             buffer = b5.Buffer()
-            state_col = b5.Column('state', (84, 84, 2), np.uint8, compression='gzip', compression_opts=6)
-            raw_col = b5.Column('raw', (210, 160, 3), np.uint8, compression='gzip', compression_opts=6)
-            action_col = b5.Column('action', dtype=np.int64, chunk_size=100000)
+            state_col = b5.NumpyColumn('state', (84, 84, 2), np.uint8, compression='gzip', compression_opts=6)
+            raw_col = b5.NumpyColumn('raw', (210, 160, 3), np.uint8, compression='gzip', compression_opts=6)
+            action_col = b5.NumpyColumn('action', dtype=np.int64, chunk_size=100000)
             buffer.create(config.filename, state_col=state_col, raw_col=raw_col, action_col=action_col)
 
             for step, s, a, s_p, r, d, i, m in buffer.step(env, policy, timing=True, capture_raw=True):
