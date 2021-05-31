@@ -6,9 +6,16 @@ import rich.table
 from rich.progress import track
 from rich import print
 import argparse
+from abc import ABC
 
 
-class Column:
+class Column(ABC):
+
+    def create(self, group):
+        raise NotImplementedError
+
+
+class NumpyColumn(Column):
     def __init__(self, name, shape=None, dtype=None, chunk_size=1, compression=None, compression_opts=None,
                  shuffle=True):
         self.shape = shape
@@ -46,6 +53,7 @@ class Buffer:
         self.dirty = True
 
     def create(self, filename, state_col, action_col=None, raw_col=None):
+        # todo add metadata for size and type of action space
         """
 
         Args:
@@ -69,7 +77,7 @@ class Buffer:
         # force the names to be sure
         state_col.name = 'state'
         if action_col is None:
-            action_col = Column('action', dtype=np.int64)
+            action_col = NumpyColumn('action', dtype=np.int64)
         else:
             action_col.name = 'action'
 
@@ -81,9 +89,9 @@ class Buffer:
             columns.append(raw_col)
 
         # the below columns are not optional
-        reward_col = Column('reward', dtype=np.float32, chunk_size=self.chunk_size)
-        done_col = Column('done', dtype=np.bool_, chunk_size=self.chunk_size)
-        episodes_col = Column('episodes', dtype=np.int64, chunk_size=self.chunk_size)
+        reward_col = NumpyColumn('reward', dtype=np.float32, chunk_size=self.chunk_size)
+        done_col = NumpyColumn('done', dtype=np.bool_, chunk_size=self.chunk_size)
+        episodes_col = NumpyColumn('episodes', dtype=np.int64, chunk_size=self.chunk_size)
         columns += [reward_col, done_col, episodes_col]
 
         for column in columns:
@@ -429,5 +437,5 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.postprocessing == 'grad':
-        grad_col = Column('grad', shape=(210, 160, 3), dtype=np.uint8, compression='gzip', compression_opts=9)
+        grad_col = NumpyColumn('grad', shape=(210, 160, 3), dtype=np.uint8, compression='gzip', compression_opts=9)
         postprocess_gradient(args.filename, grad_col, args.debug)
