@@ -5,6 +5,9 @@ from collections import deque
 import numpy as np
 from argparse import ArgumentParser
 import buffer_h5 as b5
+import cv2
+import torch
+from torchvision.utils import make_grid
 
 
 class Trakker():
@@ -57,14 +60,24 @@ class Viewer:
 
 if __name__ == '__main__':
     parser = ArgumentParser(description='configuration switches')
-    parser.add_argument('--filename', type=str, default='buffer.h5')
-    config = parser.parse_args()
+    parser.add_argument('mode', choices=['transition', 'grid'], default='transition')
+    parser.add_argument('filename', type=str, default='buffer.h5')
+    parser.add_argument('--gridsize', type=int, default=32)
+    args = parser.parse_args()
 
     buffer = b5.Buffer()
-    buffer.load(config.filename)
-    viewer = Viewer()
+    buffer.load(args.filename)
 
-    for i in range(buffer.steps):
-        raw, a, d = buffer.n_gram(i, 1, ['raw', 'action', 'done'])
-        viewer.update(raw[0], a[0], None, d[0])
+    if args.mode == 'transition':
+        viewer = Viewer()
+        for i in range(buffer.steps):
+            raw, a, d = buffer.n_gram(i, 1, ['raw', 'action', 'done'])
+            viewer.update(raw[0], a[0], None, d[0])
 
+    if args.mode == 'grid':
+        for i in range(buffer.steps//args.gridsize):
+            offset = i * args.gridsize
+            raw = buffer.f['/replay/raw'][offset:offset+args.gridsize]
+            grid = make_grid(torch.from_numpy(raw).permute(0, 3, 1, 2))
+            cv2.imshow('raw', grid.permute(1, 2, 0).numpy())
+            cv2.waitKey(20)
