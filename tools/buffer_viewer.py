@@ -8,6 +8,7 @@ import buffer_h5 as b5
 import cv2
 import torch
 from torchvision.utils import make_grid
+from time import time
 
 
 class Trakker():
@@ -60,9 +61,11 @@ class Viewer:
 
 if __name__ == '__main__':
     parser = ArgumentParser(description='configuration switches')
-    parser.add_argument('mode', choices=['transition', 'grid'], default='transition')
+    parser.add_argument('mode', choices=['transition', 'grid', 'episodes'], default='transition')
     parser.add_argument('filename', type=str, default='buffer.h5')
     parser.add_argument('--gridsize', type=int, default=32)
+    parser.add_argument('--start_at', type=int, default=0)
+    parser.add_argument('--delay', type=int, default=20)
     args = parser.parse_args()
 
     buffer = b5.Buffer()
@@ -75,9 +78,71 @@ if __name__ == '__main__':
             viewer.update(raw[0], a[0], None, d[0])
 
     if args.mode == 'grid':
-        for i in range(buffer.steps//args.gridsize):
+        for i in range(args.start_at//args.gridsize, buffer.steps//args.gridsize):
             offset = i * args.gridsize
             raw = buffer.f['/replay/raw'][offset:offset+args.gridsize]
             grid = make_grid(torch.from_numpy(raw).permute(0, 3, 1, 2))
             cv2.imshow('raw', grid.permute(1, 2, 0).numpy())
-            cv2.waitKey(20)
+            cv2.waitKey(args.delay)
+
+    if args.mode == 'episodes':
+
+        assert args.start_at < buffer.num_episodes, f"--start_at must be smaller than number of episodes {buffer.num_episodes}"
+
+        def episode(start_at=0):
+            i = start_at
+            while True:
+                start = buffer.episodes[i]
+                if i < buffer.num_episodes -1:
+                    end = buffer.episodes[i + 1]
+                    assert end - start > 0
+                    yield [buffer.raw[start:end], 0]
+                elif i == buffer.num_episodes-1:
+                    end = buffer.steps
+                    assert end - start > 0
+                    i += 1
+                    yield [buffer.raw[start:end], 0]
+                else:
+                    yield None
+                i += 1
+
+        frames = [[np.empty(0), 0] for _ in range(args.gridsize)]
+        none_count = 0
+        grid = None
+        next_episode = episode(args.start_at)
+        while True:
+
+            start_t = time()
+
+            for f in range(args.gridsize):
+                if frames[f] is not None:
+                    if frames[f][1] >= frames[f][0].shape[0]:
+                        frames[f] = next(next_episode)
+
+            grid = []
+            for f in frames:
+                if f is not None:
+                    grid.append(f[0][f[1]])
+
+            for f in range(args.gridsize):
+                if frames[f] is not None:
+                    frames[f][1] += 1
+                else:
+                    none_count += 1
+
+            grid_t = time()
+
+            if none_count == args.gridsize:
+                exit()
+            else:
+                print(none_count)
+                none_count = 0
+
+            grid = np.stack(grid)
+            grid = make_grid(torch.from_numpy(grid).permute(0, 3, 1, 2))
+            cv2.imshow('raw', grid.permute(1, 2, 0).numpy())
+            cv2.waitKey(args.delay)
+
+            display_t = time()
+            #print(f'grid_t: {grid_t-start_t} display_t: {display_t-grid_t} delete_t: {delete_t-display_t}')
+
