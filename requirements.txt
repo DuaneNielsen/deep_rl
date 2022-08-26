@@ -8,5 +8,4 @@ pybullet
 rich
 moviepy
 imageio
-d4rl
 tables
