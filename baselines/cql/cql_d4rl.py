@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, RandomSampler, TensorDataset
 from rich.progress import Progress
+from rich import print
 from collections import ChainMap
 
 import gym
@@ -20,7 +21,7 @@ import wandb_utils
 import checkpoint
 import rl
 import torch_utils
-from torchlars import LARS
+# from torchlars import LARS
 import os
 import logs
 
@@ -99,6 +100,7 @@ if __name__ == '__main__':
     project = f"cql-v0.1-{config.env_name}" if config.project is None else config.project
     wandb.init(project=project, config=config, tags=config.tags)
     logs.init(run_dir=config.run_dir)
+    print(f"checkpoints will be written to: [bold blue]{os.getcwd()}/{config.run_dir}[/bold blue]")
 
 
     def make_env():
@@ -217,12 +219,12 @@ if __name__ == '__main__':
         max_action=max_action,
     ).to(config.device)
 
-    if config.lars:
-        q_optim = LARS(torch.optim.SGD(q_net.parameters(), lr=config.q_lr))
-        policy_optim = LARS(torch.optim.SGD(policy_net.parameters(), lr=config.policy_lr))
-    else:
-        q_optim = torch.optim.Adam(q_net.parameters(), lr=config.q_lr)
-        policy_optim = torch.optim.Adam(policy_net.parameters(), lr=config.policy_lr)
+    # if config.lars:
+    #     q_optim = LARS(torch.optim.SGD(q_net.parameters(), lr=config.q_lr))
+    #     policy_optim = LARS(torch.optim.SGD(policy_net.parameters(), lr=config.policy_lr))
+    # else:
+    q_optim = torch.optim.Adam(q_net.parameters(), lr=config.q_lr)
+    policy_optim = torch.optim.Adam(policy_net.parameters(), lr=config.policy_lr)
 
     warmup = lambda epoch: min(1.0, epoch / config.warmup)
     q_scheduler = torch.optim.lr_scheduler.LambdaLR(q_optim, lr_lambda=warmup)

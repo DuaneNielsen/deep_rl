@@ -165,7 +165,7 @@ def demo(demo, env, policy):
             episode(env, policy, render=True)
 
 
-def evaluate(env, policy, sample_n=10, vid_sample_n=0):
+def evaluate(env, policy, sample_n=10, vid_sample_n=0, render=True):
     """
     Evaluate the policy and save if improved
 
