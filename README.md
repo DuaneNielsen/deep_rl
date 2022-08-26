@@ -15,6 +15,34 @@ Minimal pytorch framework for developing Deep Reinforcement Learning algorithms.
 
 [Docs](https://duanenielsen.github.io/deep_rl/)
 
+### Installing
+
+```commandline
+sudo apt install swig ffmpeg python3-dev libglew-dev patchelf libosmesa6-dev libgl1-mesa-glx libglfw3
+```
+
+install the requirements in requirements.txt using pip3
+
+install mujoco 210
+
+```commandline
+cd ~/Downloads
+wget https://mujoco.org/download/mujoco210-linux-x86_64.tar.gz
+cd ~
+mkdir .mujoco
+cd mujoco
+tar xvf ~/Downloads/mujoco210-linux-x86_64.tar.gz
+```
+
+The following environment variables must be set in bashrc and in pycharm for mujoco_py to work
+```commandline
+export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/duane/.mujoco/mujoco210/bin:/usr/lib/nvidia
+```
+
+install d4rl using it's documentation
+
+
 ## Replay buffer
 
 Replay buffer is implemented as a gym wrapper
