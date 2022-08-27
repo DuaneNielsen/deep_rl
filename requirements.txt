@@ -1,4 +1,4 @@
-gym
+gym==0.23.1
 box2D-py
 torch
 wandb
@@ -9,3 +9,5 @@ rich
 moviepy
 imageio
 tables
+opencv-python
+av

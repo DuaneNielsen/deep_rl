@@ -25,6 +25,9 @@ import torch_utils
 import os
 import logs
 
+from mujoco_py import GlfwContext
+GlfwContext(offscreen=True)
+
 
 if __name__ == '__main__':
 

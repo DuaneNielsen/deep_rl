@@ -146,3 +146,20 @@ Transition(s=array([0.01236617, 0.04175304, ...]),
            g=8.02526121523242)
 
 ```
+
+## Workarounds
+
+RuntimeError: Failed to initialize OpenGL
+
+in the file venv/lib/python3.10/site-packages/gym/envs/mujoco/mujoco_env.py
+
+change
+```
+            elif mode == "rgb_array" or mode == "depth_array":
+                self.viewer = mujoco_py.MjRenderContextOffscreen(self.sim, -1)
+```
+to
+```
+            elif mode == "rgb_array" or mode == "depth_array":
+                self.viewer = mujoco_py.MjRenderContextOffscreen(self.sim, 0)
+```
