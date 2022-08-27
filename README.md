@@ -42,6 +42,24 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/duane/.mujoco/mujoco210/bin:/usr/l
 
 install d4rl using it's documentation
 
+## Workarounds
+
+dr4l doesn't seem to play well on ubuntu 20.04, you may encounter this error
+
+RuntimeError: Failed to initialize OpenGL
+
+in the file venv/lib/python3.10/site-packages/gym/envs/mujoco/mujoco_env.py
+
+change
+```
+            elif mode == "rgb_array" or mode == "depth_array":
+                self.viewer = mujoco_py.MjRenderContextOffscreen(self.sim, -1)
+```
+to
+```
+            elif mode == "rgb_array" or mode == "depth_array":
+                self.viewer = mujoco_py.MjRenderContextOffscreen(self.sim, 0)
+```
 
 ## Replay buffer
 
@@ -145,21 +163,4 @@ Transition(s=array([0.01236617, 0.04175304, ...]),
            d=False,
            g=8.02526121523242)
 
-```
-
-## Workarounds
-
-RuntimeError: Failed to initialize OpenGL
-
-in the file venv/lib/python3.10/site-packages/gym/envs/mujoco/mujoco_env.py
-
-change
-```
-            elif mode == "rgb_array" or mode == "depth_array":
-                self.viewer = mujoco_py.MjRenderContextOffscreen(self.sim, -1)
-```
-to
-```
-            elif mode == "rgb_array" or mode == "depth_array":
-                self.viewer = mujoco_py.MjRenderContextOffscreen(self.sim, 0)
 ```
