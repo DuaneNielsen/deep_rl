@@ -71,6 +71,8 @@ The config will automatically create and return local run_dir for each run.
 
 This is implemented by a custom ArgumentParser
 
+The config can also be configured by a yaml file.
+
 ```python
 from config import ArgumentParser
 import torch
