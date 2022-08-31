@@ -18,7 +18,7 @@ Minimal pytorch framework for developing Deep Reinforcement Learning algorithms.
 ### Installing
 
 ```commandline
-sudo apt install swig ffmpeg python3-dev libglew-dev patchelf libosmesa6-dev libgl1-mesa-glx libglfw3
+sudo apt install swig ffmpeg python3-dev libglew-dev patchelf libosmesa6-dev libgl1-mesa-glx libglfw3 python3-tk
 ```
 
 install the requirements in requirements.txt using pip3
@@ -61,25 +61,16 @@ to
                 self.viewer = mujoco_py.MjRenderContextOffscreen(self.sim, 0)
 ```
 
-## Replay buffer
-
-Replay buffer is implemented as a gym wrapper
-
-```python
-import gym
-import buffer as bf
-
-env = gym.make('CartPole-v1')
-env, replay_buffer = bf.wrap(env, plot=True, plot_blocksize=8)
-```
+## Running a policy on environment  
 
 Step the environment one step at a time using a generator
 
 ```python
 import driver
 
-for transition in driver.step_environment(env, policy):
-    continue
+for s, a, s_p, r, done, info in driver.step_environment(env, policy):
+    if done:
+        break
 ```
 
 or collect an episode
@@ -88,6 +79,20 @@ or collect an episode
 import driver
 
 driver.episode(env, policy)
+```
+
+## Replay buffer
+
+```python
+from driver import step_environment
+from buffer import ReplayBuffer
+
+buffer = ReplayBuffer()
+
+for s, a, s_p, r, done, info in step_environment(env, policy):
+    buffer.append(s, a, s_p, r, done, info)
+    if done:
+        break
 ```
 
 sample an off-policy batch from the replay buffer

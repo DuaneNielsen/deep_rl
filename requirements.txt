@@ -11,3 +11,4 @@ imageio
 tables
 opencv-python
 av
+pytest
