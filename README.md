@@ -61,6 +61,72 @@ to
                 self.viewer = mujoco_py.MjRenderContextOffscreen(self.sim, 0)
 ```
 
+## Config
+
+### Boilerplate
+
+Since the free wandb has very little online storage, and also large models take a lot of time to upload.
+
+The config will automatically create and return local run_dir for each run.
+
+This is implemented by a custom ArgumentParser
+
+```python
+from config import ArgumentParser
+import torch
+import wandb
+from rich import print
+
+if __name__ == '__main__':
+
+    """ configuration """
+    parser = ArgumentParser(description='configuration switches')
+    parser.add_argument('-c', '--config', type=str)
+    parser.add_argument('-d', '--device', type=str)
+    parser.add_argument('-r', '--run_id', type=int, default=-1)
+    parser.add_argument('--comment', type=str)
+    parser.add_argument('--silent', action='store_true', default=False)
+    parser.add_argument('--tags', type=str, nargs='+', default=[])
+    
+    """ reproducibility """
+    parser.add_argument('--seed', type=int, default=None)
+    
+    """ main loop control """
+    parser.add_argument('--max_steps', type=int, default=20)
+    parser.add_argument('--test_episodes', type=int, default=2)
+    
+    """ resume settings """
+    parser.add_argument('--demo', action='store_true', default=False)
+    parser.add_argument('-l', '--load', type=str, default=None)
+    
+    """ environment """
+    parser.add_argument('--env_name', type=str, default='MiniGrid-Empty-8x8-v0')
+    parser.add_argument('--env_render', action='store_true', default=False)
+    parser.add_argument('--env_reward_scale', type=float, default=1.0)
+    parser.add_argument('--env_reward_bias', type=float, default=0.0)
+    
+    """ hyper-parameters """
+    parser.add_argument('--optim_lr', type=float, default=1e-2)
+    parser.add_argument('--batch_size', type=int, default=8)
+    parser.add_argument('--discount', type=float, default=0.99)
+    parser.add_argument('--hidden_dim', type=int, default=16)
+    
+    config = parser.parse_args()
+    
+    
+    """ random seed """
+    if config.seed is not None:
+        torch.manual_seed(config.seed)
+    
+    wandb.init(project=f"bc-v0.1-{config.env_name}", config=config, tags=config.tags)
+    print(f"checkpoints will be written to: [bold blue]{os.getcwd()}/{config.run_dir}[/bold blue]")
+
+```
+
+### making optimizer configurable
+
+#todo
+
 ## Running a policy on environment  
 
 Step the environment one step at a time using a generator
