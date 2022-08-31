@@ -149,6 +149,46 @@ import driver
 driver.episode(env, policy)
 ```
 
+## Evaluating a policy
+
+The evaluator object can be used to evaluate a policy.
+
+The evaluator will
+
+* Run the policy  on a given environment a number of times and collect the states
+* Report the stats in wandb
+* Capture a subset or all of the runs and create a video
+* Save a checkpoint of the policy and optimizer to the local run_dir
+
+You will need to provide a wrapper for your policy that takes a single observation as input and returns an action on the
+environment
+
+use the config boilerplate above to fill in the 
+
+```python
+import baselines.helper
+from rich import print
+
+evaluator = baselines.helper.Evaluator()
+
+policy_net = "Your torch.nn module here"
+
+def policy_net_eval(s):
+    """ wrap the policy for inference"""
+    s = torch.from_numpy(s).to(policy_net.dummy_param.dtype)
+    a = policy_net(s.unsqueeze(0))
+    return torch.argmax(a).item()
+
+for epoch in range(100):
+    bc.train_discrete(dl, policy_net, optim)
+    mean_return, stdev_return = evaluator.evaluate(
+        env, policy_net_eval, sample_n=config.test_episodes, render=True, run_dir=config.run_dir,
+        params={'a2c_net': policy_net, 'optim': optim}
+    )
+    print(f'[blue]mean return: {mean_return}[/blue]')
+
+```
+
 ## Replay buffer
 
 ```python
@@ -236,4 +276,41 @@ Transition(s=array([0.01236617, 0.04175304, ...]),
            d=False,
            g=8.02526121523242)
 
+```
+
+## Checkpoints
+
+the torch_utils module provides utility functions to save and load checkpoints.  Checkpoints contain weights statedict 
+only, so you will need to provide the model code.
+
+loading a checkpoint, the below example will load the weights and optimizer from
+
+* policy_net: runs/run_1/best_policy_net.sd
+* optim: runs/run_1/best_optim.sd
+
+```python
+import torch_utils
+from baselines.bc.minigrid import PolicyNet
+from torch.optim import Adam
+
+policy_net = PolicyNet(linear_in_dims=16, actions=3)
+optim = Adam(policy_net.parameters())
+
+torch_utils.load_checkpoint("runs/run_1", prefix='best', policy_net=policy_net, optim=optim)
+```
+
+saving a checkpoint, files will be written to
+
+* policy_net: runs/run_1/best_policy_net.sd
+* optim: runs/run1/best_optim.sd
+
+```pythop
+import torch_utils
+from baselines.bc.minigrid import PolicyNet
+from torch.optim import Adam
+
+policy_net = PolicyNet(linear_in_dims=16, actions=3)
+optim = Adam(policy_net.parameters())
+
+torch_utils.save_checkpoint("runs/run_1", prefix='best', policy_net=policy_net, optim=optim)
 ```
