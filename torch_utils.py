@@ -18,7 +18,7 @@ def save_checkpoint(directory, prefix=None, **kwargs):
 
     .. code-block:: python
 
-        checkpoint.save('runs/run_42', 'best', policy=policy_net, optim=optim)
+        torch_utils.save_checkpoint('runs/run_42', 'best', policy=policy_net, optim=optim)
 
     will write out files
 
@@ -41,7 +41,7 @@ def load_checkpoint(directory, prefix=None, **kwargs):
     Args:
         directory: the directory to load from
         prefix: a prefix associated with the files
-        kwargs: argument name is take to be the file to look for, argument value is a torch.nn.Module to load
+        kwargs: argument name is taken to be the file to look for, argument value is a torch.nn.Module to load
 
     given files
 
