@@ -7,7 +7,7 @@ from torch.distributions import Categorical
 import gym
 import env
 import env.wrappers as wrappers
-from capture import LiveMonitor
+#from capture import LiveMonitor
 
 import driver
 from gymviz import Plot
@@ -21,7 +21,7 @@ import checkpoint
 import baselines.helper as helper
 import numpy as np
 import os
-import capture
+# import capture
 import random
 import models.atari as models
 
