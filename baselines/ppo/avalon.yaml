@@ -1,0 +1,15 @@
+comment:  Avalon-v1-PPOAC2
+seed: 0
+env:
+  name: Avalon-v1
+max_steps: 10000000
+test:
+  steps: 200000
+  episodes: 10
+discount: 0.99
+batch_size: 64
+hidden_dim: 64
+exploration: 0.1
+optim_lr: 0.0001838
+# load: runs/run_831
+capture_freq: 1000000
