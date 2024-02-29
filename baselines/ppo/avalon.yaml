@@ -2,9 +2,9 @@ comment:  Avalon-v1-PPOAC2
 seed: 0
 env:
   name: Avalon-v1
-max_steps: 10000000
+max_steps: 200000
 test:
-  steps: 200000
+  steps: 40000
   episodes: 10
 discount: 0.99
 batch_size: 8
