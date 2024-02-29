@@ -4,6 +4,7 @@ from torch.nn.functional import mse_loss
 from torch.utils.data import DataLoader
 import buffer as bf
 import copy
+from algos.utils import polyak_update
 
 
 class PPOWrapModel(nn.Module):
@@ -118,5 +119,58 @@ def train_a2c(dl, a2c_net, optim, discount=0.95, clip=0.2, batch_size=64, device
 
         loss.backward()
         optim.step()
+
+        break
+
+
+def train_a2c_stable(dl, value_net, value_optim, policy_net, policy_optim, discount=0.95, clip=0.2, batch_size=64,
+                     device='cpu', precision=torch.float):
+    """
+
+    Advantage Actor Critic
+
+    Args:
+        buffer: replay buffer
+        a2c_net: a2c_net(state) -> values, a_dist
+        optim: optimizer for a2c_net
+        discount: discount factor, default 0.95
+        batch_size: batch size
+        device: device to train on
+        precision: all floats will be cast to dtype
+
+    """
+
+    """ loads 1 batch and runs a single training step """
+    for s, a, s_p, r, d in dl:
+        state = s.type(precision).to(device)
+        action = a.type(precision).to(device).squeeze()
+        state_p = s_p.type(precision).to(device)
+        r = r.type(precision).to(device).unsqueeze(1)
+        d = d.to(device).unsqueeze(1)
+
+        value_optim.zero_grad()
+        policy_optim.zero_grad()
+
+        v_s, a_dist = value_net(state), policy_net(state)
+
+        with torch.no_grad():
+            v_sp = value_net(state_p)
+            td_tar = td_targets(v_sp[-1, :], r, d, discount)
+            advantage = r + v_sp * discount * (~d).float() - v_s
+
+        critic_loss = mse_loss(td_tar, v_s)
+        critic_loss.backward()
+        value_optim.step()
+
+        new_logprob = a_dist.log_prob(action)
+        old_dist = policy_net(state, old=True)
+        old_logprob = old_dist.log_prob(action).detach()
+        actor_loss = ppo_loss(new_logprob, old_logprob, advantage.squeeze(), clip=clip)
+        policy_net.backup()
+
+        loss = actor_loss - 0.01 * a_dist.entropy().mean()
+
+        loss.backward()
+        policy_optim.step()
 
         break
