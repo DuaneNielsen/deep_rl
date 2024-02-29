@@ -7,9 +7,9 @@ test:
   steps: 200000
   episodes: 10
 discount: 0.99
-batch_size: 64
-hidden_dim: 64
-exploration: 0.1
+batch_size: 8
+hidden_dim: 128
+exploration_noise: 0.0565
 optim_lr: 0.0001838
 # load: runs/run_831
 capture_freq: 1000000
