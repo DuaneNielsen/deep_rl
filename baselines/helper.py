@@ -99,7 +99,8 @@ class Evaluator:
         """
         return global_step > test_steps * (self.test_number + 1)
 
-    def evaluate(self, env, policy, run_dir, params, sample_n=10, render=False, capture=False, global_step=None):
+    def evaluate(self, env, policy, run_dir, params, prefix='', sample_n=10, render=False,
+                 capture=False, capture_wandb=False, global_step=None):
         """
         Evaluate the policy and save if improved
 
@@ -129,33 +130,35 @@ class Evaluator:
         for _ in range(sample_n):
             retn, length, video = episode(env, policy, render=render, capture=capture)
             returns.append(retn)
-            if capture:
+            if capture or capture_wandb:
                 vidstream.extend(video)
 
         mean_return = mean(returns)
         stdev_return = stdev(returns)
-        wandb.run.summary["last_mean_return"] = mean_return
-        wandb.run.summary["last_stdev_return"] = stdev_return
+        wandb.run.summary[f"{prefix}last_mean_return"] = mean_return
+        wandb.run.summary[f"{prefix}last_stdev_return"] = stdev_return
 
         # checkpoint policy if mean return is better
         if mean_return > self.best_mean_return:
             self.best_mean_return = mean_return
-            wandb.run.summary["best_mean_return"] = self.best_mean_return
-            wandb.run.summary["best_stdev_return"] = stdev_return
+            wandb.run.summary[f"{prefix}best_mean_return"] = self.best_mean_return
+            wandb.run.summary[f"{prefix}best_stdev_return"] = stdev_return
             checkpoint.save(run_dir, 'best', **params)
 
         if capture:
-            write_mp4(f'{run_dir}/test_run_{self.test_number}.mp4', vidstream)
-            wandb.log({"video": wandb.Video(f'{run_dir}/test_run_{self.test_number}.mp4', fps=4, format="gif")})
+            write_mp4(f'{run_dir}/{prefix}test_run_{self.test_number}.mp4', vidstream)
+
+        if capture_wandb:
+            wandb.log({"video": wandb.Video(f'{run_dir}/{prefix}test_run_{self.test_number}.mp4', fps=4, format="gif")})
 
         end_t = time.time()
         total_t = end_t - start_t
 
-        wandb.log({"test_returns": wandb.Histogram(returns),
-                   "test_mean_return": mean_return,
-                   "test_wall_time": total_t,
-                   "global_step": global_step,
-                   "test_number": self.test_number})
+        wandb.log({f"{prefix}test_returns": wandb.Histogram(returns),
+                   f"{prefix}test_mean_return": mean_return,
+                   f"{prefix}test_wall_time": total_t,
+                   f"{prefix}global_step": global_step,
+                   f"{prefix}test_number": self.test_number})
 
         self.test_number += 1
 
