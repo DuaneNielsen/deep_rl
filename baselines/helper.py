@@ -101,11 +101,21 @@ class Evaluator:
 
     def evaluate(self, env, policy, run_dir, params, prefix='', sample_n=10, render=False,
                  capture=False, capture_wandb=False, global_step=None):
+        def collect_episode_f():
+            return episode(env, policy, render=render, capture=capture)
+
+        return self._evaluate(collect_episode_f, run_dir, params, prefix, sample_n, render,
+                              capture, capture_wandb, global_step)
+
+    def _evaluate(self, collect_episode_f, run_dir, params, prefix='', sample_n=10, render=False,
+                  capture=False, capture_wandb=False, global_step=None):
         """
         Evaluate the policy and save if improved
 
         Args:
-            policy: policy(state) -> action to evaluate
+
+            collect_episode_f: returns, length, video = collect_episode_f()
+
             run_dir: directory to save parameters to
             params: dict of parameters to write..
 
@@ -128,7 +138,7 @@ class Evaluator:
         vidstream = []
 
         for _ in range(sample_n):
-            retn, length, video = episode(env, policy, render=render, capture=capture)
+            retn, length, video = collect_episode_f()
             returns.append(retn)
             if capture or capture_wandb:
                 vidstream.extend(video)

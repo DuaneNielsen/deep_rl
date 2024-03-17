@@ -4,8 +4,8 @@ env:
   name: Avalon-v1
 max_steps: 200000
 test:
-  epoch: 1000
-  episodes: 10
+  epoch: 500
+  episodes: 3
 discount: 0.99
 batch_size: 8
 hidden_dim: 128

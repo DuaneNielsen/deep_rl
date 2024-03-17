@@ -6,7 +6,7 @@ from models.mlp import MLP, ValueHead, ActionHead
 from torch.utils.data import DataLoader
 
 import gymnasium as gym
-from gymnasium.wrappers import RecordEpisodeStatistics
+from gymnasium.wrappers import RecordEpisodeStatistics, RecordVideo
 import env
 from copy import deepcopy
 from gymviz import Plot
@@ -72,18 +72,20 @@ if __name__ == '__main__':
     wandb.init(project=f"ppo-a2c-{config.env_name}", config=config)
 
     """ environment """
-    # def make_env():
-    #     env = gym.make(config.env_name, render_mode='rgb_array')
-    #     env = NoTurnaroundWrapper(env)
-    #     if config.seed is not None:
-    #         env.unwrapped.seed(config.seed)
-    #         env.unwrapped.action_space.seed(config.seed)
-    #     return env
 
 
     def make_env():
-        env = gym.make('IteratedRockPaperScissors-v1')
+        env = gym.make(config.env_name, render_mode='rgb_array')
+        env = NoTurnaroundWrapper(env)
+        if config.seed is not None:
+            env.unwrapped.seed(config.seed)
+            env.unwrapped.action_space.seed(config.seed)
         return env
+
+
+    # def make_env():
+    #     env = gym.make('IteratedRockPaperScissors-v1')
+    #     return env
 
     """ training env with replay buffer """
     train_env = make_env()
@@ -95,6 +97,8 @@ if __name__ == '__main__':
     """ test env """
     test_player_env = make_env()
     test_enemy_env = InvertRewardWrapper(make_env())
+    test_player_env = RecordVideo(test_player_env, video_folder=config.run_dir + '/player')
+    test_enemy_env = RecordVideo(test_enemy_env, video_folder=config.run_dir + '/enemy')
 
     if config.debug:
         test_env = Plot(test_player_env, episodes_per_point=config.test_episodes,
@@ -127,6 +131,7 @@ if __name__ == '__main__':
         policy_net = ppo.PPOWrapModel(policy_net).to(config.device)
         return value_net, value_optim, policy_net, policy_optim
 
+
     player_value_net, player_value_optim, player_policy_net, player_policy_optim = make_net()
     enemy_value_net, enemy_value_optim, enemy_policy_net, enemy_policy_optim = make_net()
 
@@ -140,6 +145,7 @@ if __name__ == '__main__':
                         )
 
     player_prev_policy_net, enemy_prev_policy_net = deepcopy(player_policy_net), deepcopy(enemy_policy_net)
+
 
     def player_policy(state, exploration_noise=0.):
         """ rollout against a frozen adversarial policy """
@@ -157,6 +163,7 @@ if __name__ == '__main__':
                     enemy_prev_policy_net(state).probs.argmax(1).item()
                 ]
 
+
     def enemy_policy(state, exploration_noise=0.):
         with torch.no_grad():
             state = torch.from_numpy(state).type(config.precision).unsqueeze(0).to(config.device)
@@ -170,6 +177,7 @@ if __name__ == '__main__':
                     player_prev_policy_net(state).probs.argmax(1).item(),
                     enemy_policy_net(state, exploration_noise).sample().item()
                 ]
+
 
     player_explore_policy = lambda state: player_policy(state, config.exploration_noise)
     enemy_explore_policy = lambda state: enemy_policy(state, config.exploration_noise)
@@ -199,11 +207,6 @@ if __name__ == '__main__':
     player_reward_ma = 0.
     enemy_reward_ma = 0.
 
-    rlplot = RLPlot()
-
-    rlplot.update(player_value_net, player_policy_net, test_player_env.states())
-    rlplot.draw()
-
     for epoch in tqdm(range(100000)):
         player_prev_policy_net.load_state_dict(player_policy_net.state_dict())
         enemy_prev_policy_net.load_state_dict(enemy_policy_net.state_dict())
@@ -215,10 +218,13 @@ if __name__ == '__main__':
                 player_reward_ma = player_reward_ma * 0.99 + r * 0.01
                 if "episode" in i:
                     epi_stats = i["episode"]
-                    wandb.log({key: epi_stats[old_key] for old_key, key in [('r', 'player_returns'), ('l', 'player_epi_len'), ('t', 'player_epi_t')]})
+                    wandb.log({key: epi_stats[old_key] for old_key, key in
+                               [('r', 'player_returns'), ('l', 'player_epi_len'), ('t', 'player_epi_t')]})
 
-            player_stats = ppo.train_a2c_stable(dl, player_value_net, player_value_optim, player_policy_net, player_policy_optim,
-                                 discount=config.discount, device=config.device, precision=config.precision)
+            player_stats = ppo.train_a2c_stable(dl, player_value_net, player_value_optim, player_policy_net,
+                                                player_policy_optim,
+                                                discount=config.discount, device=config.device,
+                                                precision=config.precision)
             buffer.clear()
             wandb.log(player_stats)
 
@@ -234,27 +240,36 @@ if __name__ == '__main__':
 
         wandb.log({'player_reward_ma': player_reward_ma, 'enemy_reward_ma': enemy_reward_ma})
 
+
+        def collect_episode(env, policy):
+            env = RecordEpisodeStatistics(env)
+            (s_p, i), d, t = env.reset(), False, False
+            while not (d or t):
+                s, a, s_p, r, d, t, i = step_env(env, policy, s_p, d)
+            epi_stats = i['episode']
+            return epi_stats['r'][0], epi_stats['l'][0], []
+
+
         """ test  """
         if player_evaluator.evaluate_now(epoch, config.test_epoch):
-            player_evaluator.evaluate(test_player_env, player_policy, config.run_dir,
-                                      params={
-                                          'player_policy_net': player_policy_net,
-                                          'player_policy_optim': player_policy_optim,
-                                          'player_value_net': player_value_net,
-                                          'player_value_optim': player_value_optim
-                                      },
-                                      prefix='player_', sample_n=config.test_episodes, capture=True)
+            player_evaluator._evaluate(
+                lambda: collect_episode(test_player_env, player_policy),
+                config.run_dir,
+                params={
+                    'player_policy_net': player_policy_net,
+                    'player_policy_optim': player_policy_optim,
+                    'player_value_net': player_value_net,
+                    'player_value_optim': player_value_optim
+                },
+                prefix='player_', sample_n=config.test_episodes, capture=False)
 
         if enemy_evaluator.evaluate_now(epoch, config.test_epoch):
-            enemy_evaluator.evaluate(test_enemy_env, enemy_policy, config.run_dir,
-                                     params={
-                                         'enemy_policy_net': enemy_policy_net,
-                                         'enemy_policy_optim': enemy_policy_optim,
-                                         'enemy_value_net': enemy_value_net,
-                                         'enemy_value_optim': enemy_value_optim
-                                     },
-                                     prefix='enemy_', sample_n=config.test_episodes, capture=True)
-
-        if epoch % 10 == 0:
-            rlplot.update(player_value_net, player_policy_net, test_player_env.states())
-            rlplot.draw()
+            enemy_evaluator._evaluate(
+                lambda: collect_episode(test_enemy_env, enemy_policy), config.run_dir,
+                params={
+                    'enemy_policy_net': enemy_policy_net,
+                    'enemy_policy_optim': enemy_policy_optim,
+                    'enemy_value_net': enemy_value_net,
+                    'enemy_value_optim': enemy_value_optim
+                },
+                prefix='enemy_', sample_n=config.test_episodes, capture=False)

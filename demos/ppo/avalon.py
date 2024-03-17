@@ -6,8 +6,13 @@ import torch
 import checkpoint
 from algos.ppo import PPOWrapModel
 from avalonsim.wrappers import NoTurnaroundWrapper
+from argparse import ArgumentParser
 
 if __name__ == "__main__":
+
+    parser = ArgumentParser()
+    parser.add_argument('--auto', action='store_true')
+    args = parser.parse_args()
 
     env = gym.make('Avalon-v1')
     env = NoTurnaroundWrapper(env)
@@ -17,17 +22,35 @@ if __name__ == "__main__":
         hidden_dims=hidden_dim,
         head=ActionHead(
             hidden_dims=hidden_dim,
-            actions=env.action_space.n,
-            exploration_noise=0.)
+            actions=env.action_space.n)
     )
     enemy_policy_net = PPOWrapModel(enemy_policy_net)
 
-    checkpoint.load('C:/Users/Cabron/PycharmProjects/deep_rl/baselines/ppo/runs/run_75', prefix='best', enemy_policy_net=enemy_policy_net)
+    player_policy_net = MLP(
+        in_features=env.observation_space.shape[0],
+        hidden_dims=hidden_dim,
+        head=ActionHead(
+            hidden_dims=hidden_dim,
+            actions=env.action_space.n)
+    )
+    player_policy_net = PPOWrapModel(player_policy_net)
+
+    checkpoint.load(
+        'C:/Users/Cabron/PycharmProjects/deep_rl/baselines/ppo/runs/run_92', prefix='best',
+        player_policy_net=player_policy_net,
+        enemy_policy_net=enemy_policy_net
+    )
+
+    def player_policy(state):
+        with torch.no_grad():
+            state = torch.from_numpy(state).type(torch.float32).unsqueeze(0)
+            return player_policy_net(state).probs.argmax(1).item()
+
 
     def enemy_policy(state):
         with torch.no_grad():
             state = torch.from_numpy(state).type(torch.float32).unsqueeze(0)
-            return enemy_policy_net(state).sample().item()
+            return enemy_policy_net(state).probs.argmax(1).item()
 
     import pygame
 
@@ -36,11 +59,12 @@ if __name__ == "__main__":
     state = env.reset()
     print(state)
 
-    rgb = env.render(mode='human')
+    rgb = env.render()
     random.seed(42)
 
     trajectory = []
     done = False
+    actions = []
 
     while running:
         for event in pygame.event.get():
@@ -65,18 +89,21 @@ if __name__ == "__main__":
             if event.type == pygame.QUIT:
                 running = False
 
+            if args.auto:
+                actions = [Action(player_policy(state)), Action(enemy_policy(state))]
+
             if len(actions) == 2:
                 print([a.name for a in actions])
                 trajectory += [actions]
                 state, reward, done, info = env.step(actions)
                 print(state, reward, done)
 
-                rgb = env.render(mode='human')
+                rgb = env.render()
 
             if done:
                 print([[s[0].name, s[1].name] for s in trajectory])
                 state = env.reset()
-                rgb = env.render(mode='human')
+                rgb = env.render()
                 done = False
                 trajectory = []
 

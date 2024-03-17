@@ -3,6 +3,7 @@ import torch.nn as nn
 from matplotlib import pyplot as plt
 import numpy as np
 import time
+import warnings
 
 def moving_ave(ave, update):
     return ave * 0.9 + update * 0.1
@@ -23,11 +24,12 @@ class RLPlot(nn.Module):
     def update(self, value_f, policy, states, titles=None, xlabels=None, ylabels=None):
         self.ax.cla()
         param = next(value_f.parameters())
+
         states = torch.from_numpy(states).type(param.dtype).to(param.device)
         with torch.no_grad():
             values = value_f(states).cpu().numpy()
             self.value_min, self.value_max = moving_ave(self.value_min, values.min()), moving_ave(self.value_max, values.max())
-            actions = policy(states).probs.argmax(1).cpu().numpy()
+            # actions = policy(states).probs.argmax(1).cpu().numpy()
             self.ax.scatter(list(range(states.size(0))), values)
             self.ax.set_title('value')
             self.ax.set_xlabel('states')
