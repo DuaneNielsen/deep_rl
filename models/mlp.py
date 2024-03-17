@@ -7,24 +7,22 @@ from torch.distributions import Categorical
 class ValueHead(nn.Module):
     def __init__(self, hidden_dims):
         super().__init__()
-        self.head = nn.Linear(hidden_dims, 1)
+        self.head = nn.Linear(hidden_dims, 1, bias=False)
 
     def forward(self, state):
         return self.head(state)
 
 
 class ActionHead(nn.Module):
-    def __init__(self, hidden_dims, actions, exploration_noise):
+    def __init__(self, hidden_dims, actions):
         super().__init__()
-        self.head = nn.Linear(hidden_dims, actions)
-        self.actions = actions
-        self.exploration_noise = exploration_noise
+        self.head = nn.Linear(hidden_dims, actions, bias=False)
 
-    def forward(self, state):
-        action = log_softmax(self.head(state), dim=1)
-        action = torch.log((1 - self.exploration_noise) * torch.exp(action) +
-                           self.exploration_noise * torch.ones_like(action) / self.actions)
-        return Categorical(logits=action)
+    def forward(self, state, exploration_noise=0.):
+        action_probs = torch.softmax(self.head(state), dim=-1)
+        uniform_kernel = torch.ones_like(action_probs) / action_probs.size(-1)
+        action = (1 - exploration_noise) * action_probs + exploration_noise * uniform_kernel
+        return Categorical(probs=action)
 
 
 class MLP(nn.Module):
@@ -35,9 +33,9 @@ class MLP(nn.Module):
 
     def __init__(self, in_features, hidden_dims, head):
         super().__init__()
-        self.net = nn.Sequential(nn.Linear(in_features, hidden_dims), nn.SELU(inplace=True),
-                                 nn.Linear(hidden_dims, hidden_dims), nn.SELU(inplace=True),
+        self.net = nn.Sequential(nn.Linear(in_features, hidden_dims), nn.Hardswish(inplace=True),
+                                 nn.Linear(hidden_dims, hidden_dims), nn.Hardswish(inplace=True),
                                  head)
 
-    def forward(self, state):
-        return self.net(state)
+    def forward(self, state, *args, **kwargs):
+        return self.net(state, *args, **kwargs)

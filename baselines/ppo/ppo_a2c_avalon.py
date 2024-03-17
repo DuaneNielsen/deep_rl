@@ -5,7 +5,8 @@ import avalonsim
 from models.mlp import MLP, ValueHead, ActionHead
 from torch.utils.data import DataLoader
 
-import gym
+import gymnasium as gym
+from gymnasium.wrappers import RecordEpisodeStatistics
 import env
 from copy import deepcopy
 from gymviz import Plot
@@ -18,8 +19,11 @@ import checkpoint
 import baselines.helper as helper
 import os
 from avalonsim.wrappers import InvertRewardWrapper, NoTurnaroundWrapper
-from buffer import FullTransition
 from tqdm import tqdm
+from collections import namedtuple
+from models.visual import RLPlot
+
+FullTransition = namedtuple('FullTransition', ['s', 'a', 's_p', 'r', 'd', 't', 'i'])
 
 if __name__ == '__main__':
 
@@ -68,18 +72,22 @@ if __name__ == '__main__':
     wandb.init(project=f"ppo-a2c-{config.env_name}", config=config)
 
     """ environment """
-    def make_env():
-        env = gym.make(config.env_name)
-        env = NoTurnaroundWrapper(env)
-        if config.seed is not None:
-            env.seed(config.seed)
-            env.action_space.seed(config.seed)
-        return env
+    # def make_env():
+    #     env = gym.make(config.env_name, render_mode='rgb_array')
+    #     env = NoTurnaroundWrapper(env)
+    #     if config.seed is not None:
+    #         env.unwrapped.seed(config.seed)
+    #         env.unwrapped.action_space.seed(config.seed)
+    #     return env
 
+
+    def make_env():
+        env = gym.make('IteratedRockPaperScissors-v1')
+        return env
 
     """ training env with replay buffer """
     train_env = make_env()
-    train_env = wandb_utils.LogRewards(train_env)
+    train_env = RecordEpisodeStatistics(train_env)
     if config.debug:
         train_env = Plot(train_env, episodes_per_point=20, title=f'Train ppo-a2c-{config.env_name}-{config.run_id}',
                          refresh_cooldown=5.0)
@@ -111,15 +119,13 @@ if __name__ == '__main__':
             hidden_dims=config.hidden_dim,
             head=ActionHead(
                 hidden_dims=config.hidden_dim,
-                actions=train_env.action_space.n,
-                exploration_noise=config.exploration_noise)
+                actions=train_env.action_space.n)
         )
 
         policy_optim = torch.optim.Adam(policy_net.parameters(), lr=config.optim_lr, weight_decay=0.0)
 
         policy_net = ppo.PPOWrapModel(policy_net).to(config.device)
         return value_net, value_optim, policy_net, policy_optim
-
 
     player_value_net, player_value_optim, player_policy_net, player_policy_optim = make_net()
     enemy_value_net, enemy_value_optim, enemy_policy_net, enemy_policy_optim = make_net()
@@ -135,24 +141,38 @@ if __name__ == '__main__':
 
     player_prev_policy_net, enemy_prev_policy_net = deepcopy(player_policy_net), deepcopy(enemy_policy_net)
 
-    enemy_prev_policy_net_exploration_noise = 0.
-    player_prev_policy_net_exploration_noise = 0.
-
-    def player_policy(state):
+    def player_policy(state, exploration_noise=0.):
         """ rollout against a frozen adversarial policy """
 
         with torch.no_grad():
-            enemy_prev_policy_net.new.exploration_noise = enemy_prev_policy_net_exploration_noise
             state = torch.from_numpy(state).type(config.precision).unsqueeze(0).to(config.device)
-            return [player_policy_net(state).sample().item(), enemy_prev_policy_net(state).sample().item()]
+            if exploration_noise == 0.:
+                return [
+                    player_policy_net(state).probs.argmax(1).item(),
+                    enemy_prev_policy_net(state).probs.argmax(1).item()
+                ]
+            else:
+                return [
+                    player_policy_net(state, exploration_noise).sample().item(),
+                    enemy_prev_policy_net(state).probs.argmax(1).item()
+                ]
 
-
-    def enemy_policy(state):
+    def enemy_policy(state, exploration_noise=0.):
         with torch.no_grad():
-            player_prev_policy_net.new.exploration_noise = player_prev_policy_net_exploration_noise
             state = torch.from_numpy(state).type(config.precision).unsqueeze(0).to(config.device)
-            return [player_prev_policy_net(state).sample().item(), enemy_policy_net(state).sample().item()]
+            if exploration_noise == 0.:
+                return [
+                    player_prev_policy_net(state).probs.argmax(1).item(),
+                    enemy_policy_net(state).probs.argmax(1).item()
+                ]
+            else:
+                return [
+                    player_prev_policy_net(state).probs.argmax(1).item(),
+                    enemy_policy_net(state, exploration_noise).sample().item()
+                ]
 
+    player_explore_policy = lambda state: player_policy(state, config.exploration_noise)
+    enemy_explore_policy = lambda state: enemy_policy(state, config.exploration_noise)
 
     """ demo  """
     helper.demo(config.demo, env, player_policy)
@@ -166,18 +186,23 @@ if __name__ == '__main__':
 
     def step_env(env, policy, state=None, done=True, render=False):
         if state is None or done:
-            state = env.reset()
+            state, info = env.reset()
         action = policy(state)
-        state_p, reward, done, info = env.step(action)
+        state_p, reward, done, truncated, info = env.step(action)
         if render:
             env.render()
-        return FullTransition(state, action, state_p, reward, done, info)
+        return FullTransition(state, action, state_p, reward, done, truncated, info)
 
 
-    s, d = train_env.reset(), False
+    (s_p, info), d = train_env.reset(), False
 
     player_reward_ma = 0.
     enemy_reward_ma = 0.
+
+    rlplot = RLPlot()
+
+    rlplot.update(player_value_net, player_policy_net, test_player_env.states())
+    rlplot.draw()
 
     for epoch in tqdm(range(100000)):
         player_prev_policy_net.load_state_dict(player_policy_net.state_dict())
@@ -185,22 +210,28 @@ if __name__ == '__main__':
 
         for player_updates in range(8):
             for _ in range(config.batch_size):
-                s, a, s_p, r, d, i = step_env(train_env, player_policy, s, d)
+                s, a, s_p, r, d, _, i = step_env(train_env, player_explore_policy, s_p, d)
                 buffer.append((s, a[0], s_p, r, d))
                 player_reward_ma = player_reward_ma * 0.99 + r * 0.01
+                if "episode" in i:
+                    epi_stats = i["episode"]
+                    wandb.log({key: epi_stats[old_key] for old_key, key in [('r', 'player_returns'), ('l', 'player_epi_len'), ('t', 'player_epi_t')]})
 
-            ppo.train_a2c_stable(dl, player_value_net, player_value_optim, player_policy_net, player_policy_optim,
+            player_stats = ppo.train_a2c_stable(dl, player_value_net, player_value_optim, player_policy_net, player_policy_optim,
                                  discount=config.discount, device=config.device, precision=config.precision)
             buffer.clear()
+            wandb.log(player_stats)
 
         for enemy_updates in range(8):
             for _ in range(config.batch_size):
-                s, a, s_p, r, d, i = step_env(train_env, enemy_policy, s, d)
+                s, a, s_p, r, d, _, i = step_env(train_env, enemy_explore_policy, s_p, d)
                 buffer.append((s, a[1], s_p, -r, d))
-                enemy_reward_ma = enemy_reward_ma * 0.99 + -r * 0.01
+                enemy_reward_ma = enemy_reward_ma * 0.99 - r * 0.01
+
             ppo.train_a2c_stable(dl, enemy_value_net, enemy_value_optim, enemy_policy_net, enemy_policy_optim,
                                  discount=config.discount, device=config.device, precision=config.precision)
             buffer.clear()
+
         wandb.log({'player_reward_ma': player_reward_ma, 'enemy_reward_ma': enemy_reward_ma})
 
         """ test  """
@@ -209,14 +240,21 @@ if __name__ == '__main__':
                                       params={
                                           'player_policy_net': player_policy_net,
                                           'player_policy_optim': player_policy_optim,
-                                          'player_value_net': player_value_net, 'player_value_optim': player_value_optim
+                                          'player_value_net': player_value_net,
+                                          'player_value_optim': player_value_optim
                                       },
                                       prefix='player_', sample_n=config.test_episodes, capture=True)
 
         if enemy_evaluator.evaluate_now(epoch, config.test_epoch):
             enemy_evaluator.evaluate(test_enemy_env, enemy_policy, config.run_dir,
                                      params={
-                                         'enemy_policy_net': enemy_policy_net, 'enemy_policy_optim': enemy_policy_optim,
-                                         'enemy_value_net': enemy_value_net, 'enemy_value_optim': enemy_value_optim
+                                         'enemy_policy_net': enemy_policy_net,
+                                         'enemy_policy_optim': enemy_policy_optim,
+                                         'enemy_value_net': enemy_value_net,
+                                         'enemy_value_optim': enemy_value_optim
                                      },
                                      prefix='enemy_', sample_n=config.test_episodes, capture=True)
+
+        if epoch % 10 == 0:
+            rlplot.update(player_value_net, player_policy_net, test_player_env.states())
+            rlplot.draw()
