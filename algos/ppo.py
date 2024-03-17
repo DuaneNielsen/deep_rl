@@ -63,13 +63,14 @@ def train(buffer, policy_net, optim, clip=0.2, dtype=torch.float, device='cpu'):
         buffer.clear()
         break
 
+
 def td_targets(bootstrap_value, rewards, done, discount):
     v_targets = torch.zeros_like(rewards)
-    prev = bootstrap_value
+    next_state_value = bootstrap_value
 
     for i in reversed(range(0, len(rewards))):
-        prev = rewards[i] + discount * prev * (~done[i]).float()
-        v_targets[i] = prev
+        next_state_value = rewards[i] + discount * next_state_value * (~done[i]).float()
+        v_targets[i] = next_state_value
 
     return v_targets
 
@@ -130,13 +131,13 @@ def train_a2c_stable(dl, value_net, value_optim, policy_net, policy_optim, disco
     Advantage Actor Critic
 
     Args:
-        buffer: replay buffer
-        a2c_net: a2c_net(state) -> values, a_dist
-        optim: optimizer for a2c_net
-        discount: discount factor, default 0.95
-        batch_size: batch size
-        device: device to train on
-        precision: all floats will be cast to dtype
+        dl: dataloader that loads a sequence
+        value_net: the value function: state -> value
+        value_optim: pytorch optimiser
+        policy_net: policy: state -> action
+        discount:
+        clip: gradient clip
+        batch_size:
 
     """
 
@@ -173,4 +174,9 @@ def train_a2c_stable(dl, value_net, value_optim, policy_net, policy_optim, disco
         loss.backward()
         policy_optim.step()
 
-        break
+        return {
+            "targets_max": td_tar.max(),
+            "targets_min": td_tar.min(),
+            "targets_mean": td_tar.mean(),
+            "policy_entropy": a_dist.entropy().mean(),
+        }
