@@ -4,12 +4,13 @@ from torch import nn
 import numpy as np
 
 import driver
-import observer
+# import observer
 from algos import reinforce
 import gym
 from env import debug
 import pytest
 from matplotlib import pyplot as plt
+
 
 def test_linear_env():
     env = debug.LinearEnv()
