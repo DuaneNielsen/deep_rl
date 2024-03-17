@@ -1,4 +1,5 @@
 from gym.envs.registration import register
+from gymnasium.envs.registration import register as gymnasium_register
 
 register(
     id='CartPoleContinuous-v1',
@@ -65,4 +66,20 @@ register(
     max_episode_steps=50,
     reward_threshold=1.0,
     kwargs={'initial_state': 3, 'n_states': 7, 'easy': False}
+)
+
+gymnasium_register(
+    id='TugOfWar-v1',
+    entry_point='env.gymnasium_debug:TugOfWar',
+    max_episode_steps=50,
+    reward_threshold=1.0,
+    kwargs={}
+)
+
+gymnasium_register(
+    id='IteratedRockPaperScissors-v1',
+    entry_point='env.gymnasium_debug:IteratedRockPaperScissors',
+    max_episode_steps=50,
+    reward_threshold=1.0,
+    kwargs={"max_iterations": 3}
 )
