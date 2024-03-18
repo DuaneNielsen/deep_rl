@@ -1,12 +1,13 @@
 from avalonsim import Action
 import random
-import gym
+import gymnasium as gym
 from models.mlp import MLP, ActionHead
 import torch
 import checkpoint
 from algos.ppo import PPOWrapModel
 from avalonsim.wrappers import NoTurnaroundWrapper
 from argparse import ArgumentParser
+
 
 if __name__ == "__main__":
 
@@ -35,11 +36,19 @@ if __name__ == "__main__":
     )
     player_policy_net = PPOWrapModel(player_policy_net)
 
+    run_dir = 'C:/Users/Cabron/PycharmProjects/deep_rl/baselines/ppo/runs/run_253'
+
     checkpoint.load(
-        'C:/Users/Cabron/PycharmProjects/deep_rl/baselines/ppo/runs/run_92', prefix='best',
+        run_dir, prefix='best',
         player_policy_net=player_policy_net,
         enemy_policy_net=enemy_policy_net
     )
+
+    checkpoint_paths = checkpoint.checkpoint_paths(run_dir, prefix='best')
+
+    prev_player_timestamp = checkpoint_paths['player_policy_net'].stat().st_mtime
+    prev_enemy_timestamp = checkpoint_paths['enemy_policy_net'].stat().st_mtime
+
 
     def player_policy(state):
         with torch.no_grad():
@@ -56,7 +65,7 @@ if __name__ == "__main__":
 
     running = True
 
-    state = env.reset()
+    state, info = env.reset()
     print(state)
 
     rgb = env.render()
@@ -67,6 +76,19 @@ if __name__ == "__main__":
     actions = []
 
     while running:
+
+        player_timestamp = checkpoint_paths['player_policy_net'].stat().st_mtime
+        enemy_timestamp = checkpoint_paths['enemy_policy_net'].stat().st_mtime
+
+        if player_timestamp > prev_player_timestamp or enemy_timestamp > prev_enemy_timestamp:
+            prev_player_timestamp = player_timestamp
+            prev_enemy_timestamp = enemy_timestamp
+            checkpoint.load(
+                run_dir, prefix='best',
+                player_policy_net=player_policy_net,
+                enemy_policy_net=enemy_policy_net
+            )
+
         for event in pygame.event.get():
 
             actions = []
@@ -89,22 +111,22 @@ if __name__ == "__main__":
             if event.type == pygame.QUIT:
                 running = False
 
-            if args.auto:
-                actions = [Action(player_policy(state)), Action(enemy_policy(state))]
+        if args.auto:
+            actions = [Action(player_policy(state)), Action(enemy_policy(state))]
 
-            if len(actions) == 2:
-                print([a.name for a in actions])
-                trajectory += [actions]
-                state, reward, done, info = env.step(actions)
-                print(state, reward, done)
+        if len(actions) == 2:
+            print([a.name for a in actions])
+            trajectory += [actions]
+            state, reward, done, trunc, info = env.step(actions)
+            print(state, reward, done)
 
-                rgb = env.render()
+            rgb = env.render()
 
-            if done:
-                print([[s[0].name, s[1].name] for s in trajectory])
-                state = env.reset()
-                rgb = env.render()
-                done = False
-                trajectory = []
+        if done:
+            print([[s[0].name, s[1].name] for s in trajectory])
+            state, info = env.reset()
+            rgb = env.render()
+            done = False
+            trajectory = []
 
     pygame.quit()

@@ -20,16 +20,13 @@ class ActionHead(nn.Module):
 
     def forward(self, state, exploration_noise=0.):
         action_probs = torch.softmax(self.head(state), dim=-1)
+        assert not action_probs.isnan().any()
         uniform_kernel = torch.ones_like(action_probs) / action_probs.size(-1)
         action = (1 - exploration_noise) * action_probs + exploration_noise * uniform_kernel
         return Categorical(probs=action)
 
 
 class MLP(nn.Module):
-    """
-    policy(state) returns distribution over actions
-    uses ScaledTanhTransformedGaussian as per Hafner
-    """
 
     def __init__(self, in_features, hidden_dims, head):
         super().__init__()

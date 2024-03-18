@@ -4,12 +4,12 @@ env:
   name: Avalon-v1
 max_steps: 200000
 test:
-  epoch: 500
-  episodes: 3
+  epoch: 100
+  episodes: 2
 discount: 0.99
-batch_size: 8
+batch_size: 128
 hidden_dim: 128
-exploration_noise: 0.0565
+exploration_noise: 0.1
 optim_lr: 0.0001838
 # load: runs/run_831
 capture_freq: 1000000

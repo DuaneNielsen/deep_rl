@@ -97,8 +97,10 @@ if __name__ == '__main__':
     """ test env """
     test_player_env = make_env()
     test_enemy_env = InvertRewardWrapper(make_env())
-    test_player_env = RecordVideo(test_player_env, video_folder=config.run_dir + '/player')
-    test_enemy_env = RecordVideo(test_enemy_env, video_folder=config.run_dir + '/enemy')
+    test_player_env = RecordVideo(test_player_env, video_folder=config.run_dir + '/player',
+                                  episode_trigger=lambda episode_id: episode_id % 2 == 0)
+    test_enemy_env = RecordVideo(test_enemy_env, video_folder=config.run_dir + '/enemy',
+                                 episode_trigger=lambda episode_id: episode_id % 2 == 0)
 
     if config.debug:
         test_env = Plot(test_player_env, episodes_per_point=config.test_episodes,
@@ -143,6 +145,14 @@ if __name__ == '__main__':
                         enemy_value_net=player_value_net, enemy_value_optim=player_value_optim,
                         enemy_policy_net=player_policy_net, enemy_policy_optim=player_policy_optim,
                         )
+    else:
+        checkpoint.save(
+            config.run_dir, prefix='best',
+            player_value_net=player_value_net, player_value_optim=player_value_optim,
+            player_policy_net=player_policy_net, player_policy_optim=player_policy_optim,
+            enemy_value_net=player_value_net, enemy_value_optim=player_value_optim,
+            enemy_policy_net=player_policy_net, enemy_policy_optim=player_policy_optim,
+        )
 
     player_prev_policy_net, enemy_prev_policy_net = deepcopy(player_policy_net), deepcopy(enemy_policy_net)
 
@@ -182,8 +192,6 @@ if __name__ == '__main__':
     player_explore_policy = lambda state: player_policy(state, config.exploration_noise)
     enemy_explore_policy = lambda state: enemy_policy(state, config.exploration_noise)
 
-    """ demo  """
-    helper.demo(config.demo, env, player_policy)
 
     """ training loop """
     buffer = []

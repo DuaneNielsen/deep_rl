@@ -65,3 +65,11 @@ def load(directory, prefix=None, **kwargs):
         net.load_state_dict(torch.load(sd[key]))
 
 
+def checkpoint_paths(directory, prefix=None):
+    sd = {}
+    prefix = prefix + '_' if prefix is not None else ''
+    for file in Path(directory).glob(f'{prefix}*.sd'):
+        key = file.name[len(prefix):-3]
+        sd[key] = file
+
+    return sd
