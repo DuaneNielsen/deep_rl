@@ -66,10 +66,10 @@ def load(directory, prefix=None, **kwargs):
 
 
 def checkpoint_paths(directory, prefix=None):
-    sd = {}
+    sd = []
     prefix = prefix + '_' if prefix is not None else ''
     for file in Path(directory).glob(f'{prefix}*.sd'):
-        key = file.name[len(prefix):-3]
-        sd[key] = file
+        key = file.name
+        sd.append(key)
 
     return sd

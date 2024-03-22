@@ -20,10 +20,80 @@ import baselines.helper as helper
 import os
 from avalonsim.wrappers import InvertRewardWrapper, NoTurnaroundWrapper
 from tqdm import tqdm
-from collections import namedtuple
+from collections import namedtuple, deque
 from models.visual import RLPlot
+import numpy as np
 
 FullTransition = namedtuple('FullTransition', ['s', 'a', 's_p', 'r', 'd', 't', 'i'])
+
+
+class Dojo:
+    def __init__(self, size):
+        self.top_n_players = []
+        self.top_n_enemy = []
+        self.scores = np.full((size+1, size+1), fill_value=-np.inf)
+        """
+                   player        
+              |    |    |    |
+        enemy |    |    |    |
+              |    |    |    |
+              
+        """
+        self.size = size
+
+    def evaluate(self, last_player, last_enemy, make_env):
+
+        self.top_n_players += [last_player]
+        self.top_n_enemy += [last_enemy]
+
+        def policy(state, player_eval_policy, enemy_eval_policy):
+            state = torch.from_numpy(state).type(config.precision).unsqueeze(0).to(config.device)
+            return player_eval_policy(state).probs.argmax(1).item(), enemy_eval_policy(state).probs.argmax(1).item()
+
+        """ evaluate the player against all the enemies"""
+        for i, enemy_policy in enumerate(self.top_n_enemy):
+            eval_env = make_env()
+
+            def eval_policy(state):
+                return policy(state, last_player, enemy_policy)
+
+            returns, l, _ = collect_episode(eval_env, eval_policy)
+            self.scores[i, len(self.top_n_players)-1] = returns
+
+        """ evalute the enemy against all the players"""
+        for i, player_policy in enumerate(self.top_n_players):
+            eval_env = make_env()
+
+            def eval_policy(state):
+                return policy(state, player_policy, last_enemy)
+
+            returns, l, _ = collect_episode(eval_env, eval_policy)
+            self.scores[len(self.top_n_enemy)-1, i] = returns
+
+        print()
+        print(self.scores)
+        print("player_marginals", self.scores.sum(0))
+        print("enemy marginals", -self.scores.sum(1))
+
+        player_rankings = np.argsort(-self.scores.sum(0))
+        enemy_rankings = np.argsort(self.scores.sum(1))
+        self.scores = self.scores[:, player_rankings]
+        self.scores = self.scores[enemy_rankings, :]
+
+        print(self.scores)
+        print("ranked player", self.scores.sum(0))
+        print("ranked enemy", -self.scores.sum(1))
+
+        self.top_n_players = [self.top_n_players[i] for i in player_rankings[:len(self.top_n_enemy)]]
+        self.top_n_enemy = [self.top_n_enemy[i] for i in enemy_rankings[:len(self.top_n_players)]]
+
+        if len(self.top_n_players) > self.size:
+            self.top_n_players.pop(-1)
+            self.top_n_enemy.pop(-1)
+
+        return self.top_n_players, self.top_n_enemy
+
+
 
 if __name__ == '__main__':
 
@@ -76,7 +146,7 @@ if __name__ == '__main__':
 
     def make_env():
         env = gym.make(config.env_name, render_mode='rgb_array')
-        env = NoTurnaroundWrapper(env)
+        # env = NoTurnaroundWrapper(env)
         if config.seed is not None:
             env.unwrapped.seed(config.seed)
             env.unwrapped.action_space.seed(config.seed)
@@ -137,6 +207,8 @@ if __name__ == '__main__':
     player_value_net, player_value_optim, player_policy_net, player_policy_optim = make_net()
     enemy_value_net, enemy_value_optim, enemy_policy_net, enemy_policy_optim = make_net()
 
+    dojo = Dojo(3)
+
     """ load weights from file if required"""
     if exists_and_not_none(config, 'load'):
         checkpoint.load(config.load, prefix='best',
@@ -147,7 +219,7 @@ if __name__ == '__main__':
                         )
     else:
         checkpoint.save(
-            config.run_dir, prefix='best',
+            config.run_dir, prefix='last',
             player_value_net=player_value_net, player_value_optim=player_value_optim,
             player_policy_net=player_policy_net, player_policy_optim=player_policy_optim,
             enemy_value_net=player_value_net, enemy_value_optim=player_value_optim,
@@ -192,7 +264,6 @@ if __name__ == '__main__':
     player_explore_policy = lambda state: player_policy(state, config.exploration_noise)
     enemy_explore_policy = lambda state: enemy_policy(state, config.exploration_noise)
 
-
     """ training loop """
     buffer = []
     dl = DataLoader(buffer, batch_size=config.batch_size)
@@ -208,6 +279,15 @@ if __name__ == '__main__':
         if render:
             env.render()
         return FullTransition(state, action, state_p, reward, done, truncated, info)
+
+
+    def collect_episode(env, policy):
+        env = RecordEpisodeStatistics(env)
+        (s_p, i), d, t = env.reset(), False, False
+        while not (d or t):
+            s, a, s_p, r, d, t, i = step_env(env, policy, s_p, d)
+        epi_stats = i['episode']
+        return epi_stats['r'][0], epi_stats['l'][0], []
 
 
     (s_p, info), d = train_env.reset(), False
@@ -249,35 +329,42 @@ if __name__ == '__main__':
         wandb.log({'player_reward_ma': player_reward_ma, 'enemy_reward_ma': enemy_reward_ma})
 
 
-        def collect_episode(env, policy):
-            env = RecordEpisodeStatistics(env)
-            (s_p, i), d, t = env.reset(), False, False
-            while not (d or t):
-                s, a, s_p, r, d, t, i = step_env(env, policy, s_p, d)
-            epi_stats = i['episode']
-            return epi_stats['r'][0], epi_stats['l'][0], []
+        # """ test  """
+        # if player_evaluator.evaluate_now(epoch, config.test_epoch):
+        #     player_evaluator._evaluate(
+        #         lambda: collect_episode(test_player_env, player_policy),
+        #         config.run_dir,
+        #         params={
+        #             'player_policy_net': player_policy_net,
+        #             'player_policy_optim': player_policy_optim,
+        #             'player_value_net': player_value_net,
+        #             'player_value_optim': player_value_optim
+        #         },
+        #         prefix='player_', sample_n=config.test_episodes, capture=False)
+        #
+        #     enemy_evaluator._evaluate(
+        #         lambda: collect_episode(test_enemy_env, enemy_policy), config.run_dir,
+        #         params={
+        #             'enemy_policy_net': enemy_policy_net,
+        #             'enemy_policy_optim': enemy_policy_optim,
+        #             'enemy_value_net': enemy_value_net,
+        #             'enemy_value_optim': enemy_value_optim
+        #         },
+        #         prefix='enemy_', sample_n=config.test_episodes, capture=False)
+        #
+        #     checkpoint.save(
+        #         config.run_dir, prefix='last',
+        #         player_value_net=player_value_net, player_value_optim=player_value_optim,
+        #         player_policy_net=player_policy_net, player_policy_optim=player_policy_optim,
+        #         enemy_value_net=player_value_net, enemy_value_optim=player_value_optim,
+        #         enemy_policy_net=player_policy_net, enemy_policy_optim=player_policy_optim,
+        #     )
 
+        if epoch % config.test_epoch == 0:
 
-        """ test  """
-        if player_evaluator.evaluate_now(epoch, config.test_epoch):
-            player_evaluator._evaluate(
-                lambda: collect_episode(test_player_env, player_policy),
-                config.run_dir,
-                params={
-                    'player_policy_net': player_policy_net,
-                    'player_policy_optim': player_policy_optim,
-                    'player_value_net': player_value_net,
-                    'player_value_optim': player_value_optim
-                },
-                prefix='player_', sample_n=config.test_episodes, capture=False)
+            top_n_players, top_n_enemy = dojo.evaluate(player_policy_net, enemy_policy_net, make_env)
 
-        if enemy_evaluator.evaluate_now(epoch, config.test_epoch):
-            enemy_evaluator._evaluate(
-                lambda: collect_episode(test_enemy_env, enemy_policy), config.run_dir,
-                params={
-                    'enemy_policy_net': enemy_policy_net,
-                    'enemy_policy_optim': enemy_policy_optim,
-                    'enemy_value_net': enemy_value_net,
-                    'enemy_value_optim': enemy_value_optim
-                },
-                prefix='enemy_', sample_n=config.test_episodes, capture=False)
+            checkpoint.save(config.run_dir, prefix='top',
+                            player_policy_net=top_n_players[0],
+                            enemy_policy_net=top_n_enemy[0],
+                            )
