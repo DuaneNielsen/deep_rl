@@ -23,6 +23,7 @@ from tqdm import tqdm
 from collections import namedtuple, deque
 from models.visual import RLPlot
 import numpy as np
+from statistics import mean
 
 FullTransition = namedtuple('FullTransition', ['s', 'a', 's_p', 'r', 'd', 't', 'i'])
 
@@ -48,7 +49,7 @@ class Dojo:
 
         def policy(state, player_eval_policy, enemy_eval_policy):
             state = torch.from_numpy(state).type(config.precision).unsqueeze(0).to(config.device)
-            return player_eval_policy(state).probs.argmax(1).item(), enemy_eval_policy(state).probs.argmax(1).item()
+            return player_eval_policy(state).sample().item(), enemy_eval_policy(state).sample().item()
 
         """ evaluate the player against all the enemies"""
         for i, enemy_policy in enumerate(self.top_n_enemy):
@@ -57,8 +58,12 @@ class Dojo:
             def eval_policy(state):
                 return policy(state, last_player, enemy_policy)
 
-            returns, l, _ = collect_episode(eval_env, eval_policy)
-            self.scores[i, len(self.top_n_players)-1] = returns
+            all_returns, all_lengths = [], []
+            for _ in range(5):
+                returns, l, _ = collect_episode(eval_env, eval_policy)
+                all_returns.append(returns)
+                all_lengths.append(l)
+            self.scores[i, len(self.top_n_players)-1] = mean(all_returns)
 
         """ evalute the enemy against all the players"""
         for i, player_policy in enumerate(self.top_n_players):
@@ -67,8 +72,12 @@ class Dojo:
             def eval_policy(state):
                 return policy(state, player_policy, last_enemy)
 
-            returns, l, _ = collect_episode(eval_env, eval_policy)
-            self.scores[len(self.top_n_enemy)-1, i] = returns
+            all_returns, all_lengths = [], []
+            for _ in range(5):
+                returns, l, _ = collect_episode(eval_env, eval_policy)
+                all_returns.append(returns)
+                all_lengths.append(l)
+            self.scores[len(self.top_n_enemy)-1, i] = mean(all_returns)
 
         print()
         print(self.scores)
@@ -81,8 +90,10 @@ class Dojo:
         self.scores = self.scores[enemy_rankings, :]
 
         print(self.scores)
-        print("ranked player", self.scores.sum(0))
-        print("ranked enemy", -self.scores.sum(1))
+        print("ranked player", self.scores.sum(0)/self.scores.shape[1])
+        print("ranked enemy", -self.scores.sum(1)/self.scores.shape[0])
+        print("expected score", self.scores[0, 0])
+        wandb.log({'dojo - expected score': self.scores[0, 0]})
 
         self.top_n_players = [self.top_n_players[i] for i in player_rankings[:len(self.top_n_enemy)]]
         self.top_n_enemy = [self.top_n_enemy[i] for i in enemy_rankings[:len(self.top_n_players)]]
@@ -207,7 +218,7 @@ if __name__ == '__main__':
     player_value_net, player_value_optim, player_policy_net, player_policy_optim = make_net()
     enemy_value_net, enemy_value_optim, enemy_policy_net, enemy_policy_optim = make_net()
 
-    dojo = Dojo(3)
+    dojo = Dojo(10)
 
     """ load weights from file if required"""
     if exists_and_not_none(config, 'load'):
@@ -229,36 +240,54 @@ if __name__ == '__main__':
     player_prev_policy_net, enemy_prev_policy_net = deepcopy(player_policy_net), deepcopy(enemy_policy_net)
 
 
-    def player_policy(state, exploration_noise=0.):
-        """ rollout against a frozen adversarial policy """
+    # def player_policy(state, exploration_noise=0.):
+    #     """ rollout against a frozen adversarial policy """
+    #
+    #     with torch.no_grad():
+    #         state = torch.from_numpy(state).type(config.precision).unsqueeze(0).to(config.device)
+    #         if exploration_noise == 0.:
+    #             return [
+    #                 player_policy_net(state).probs.argmax(1).item(),
+    #                 enemy_prev_policy_net(state).probs.argmax(1).item()
+    #             ]
+    #         else:
+    #             return [
+    #                 player_policy_net(state, exploration_noise).sample().item(),
+    #                 enemy_prev_policy_net(state).probs.argmax(1).item()
+    #             ]
 
+
+    def player_policy(state, exploration_noise=0.):
         with torch.no_grad():
             state = torch.from_numpy(state).type(config.precision).unsqueeze(0).to(config.device)
-            if exploration_noise == 0.:
-                return [
-                    player_policy_net(state).probs.argmax(1).item(),
-                    enemy_prev_policy_net(state).probs.argmax(1).item()
-                ]
-            else:
-                return [
-                    player_policy_net(state, exploration_noise).sample().item(),
-                    enemy_prev_policy_net(state).probs.argmax(1).item()
-                ]
+            return [
+                player_policy_net(state, exploration_noise).sample().item(),
+                enemy_policy_net(state, 0).sample().item()
+            ]
+
+
+    # def enemy_policy(state, exploration_noise=0.):
+    #     with torch.no_grad():
+    #         state = torch.from_numpy(state).type(config.precision).unsqueeze(0).to(config.device)
+    #         if exploration_noise == 0.:
+    #             return [
+    #                 player_prev_policy_net(state).probs.argmax(1).item(),
+    #                 enemy_policy_net(state).probs.argmax(1).item()
+    #             ]
+    #         else:
+    #             return [
+    #                 player_prev_policy_net(state).probs.argmax(1).item(),
+    #                 enemy_policy_net(state, exploration_noise).sample().item()
+    #             ]
 
 
     def enemy_policy(state, exploration_noise=0.):
         with torch.no_grad():
             state = torch.from_numpy(state).type(config.precision).unsqueeze(0).to(config.device)
-            if exploration_noise == 0.:
-                return [
-                    player_prev_policy_net(state).probs.argmax(1).item(),
-                    enemy_policy_net(state).probs.argmax(1).item()
-                ]
-            else:
-                return [
-                    player_prev_policy_net(state).probs.argmax(1).item(),
-                    enemy_policy_net(state, exploration_noise).sample().item()
-                ]
+            return [
+                player_policy_net(state, 0).sample().item(),
+                enemy_policy_net(state, exploration_noise).sample().item()
+            ]
 
 
     player_explore_policy = lambda state: player_policy(state, config.exploration_noise)
@@ -267,12 +296,9 @@ if __name__ == '__main__':
     """ training loop """
     buffer = []
     dl = DataLoader(buffer, batch_size=config.batch_size)
-    player_evaluator = helper.Evaluator()
-    enemy_evaluator = helper.Evaluator()
 
-
-    def step_env(env, policy, state=None, done=True, render=False):
-        if state is None or done:
+    def step_env(env, policy, state=None, done=True, truncated=False, render=False):
+        if state is None or done or truncated:
             state, info = env.reset()
         action = policy(state)
         state_p, reward, done, truncated, info = env.step(action)
@@ -289,8 +315,13 @@ if __name__ == '__main__':
         epi_stats = i['episode']
         return epi_stats['r'][0], epi_stats['l'][0], []
 
+    def write_trajectory_stats(i, prefix):
+        if "episode" in i:
+            epi_stats = i["episode"]
+            wandb.log({key: epi_stats[old_key] for old_key, key in
+                       [('r', f'{prefix}_returns'), ('l', f'{prefix}_epi_len'), ('t', f'{prefix}_epi_t')]})
 
-    (s_p, info), d = train_env.reset(), False
+    (s_p, info), d, tr = train_env.reset(), False, False
 
     player_reward_ma = 0.
     enemy_reward_ma = 0.
@@ -301,13 +332,9 @@ if __name__ == '__main__':
 
         for player_updates in range(8):
             for _ in range(config.batch_size):
-                s, a, s_p, r, d, _, i = step_env(train_env, player_explore_policy, s_p, d)
+                s, a, s_p, r, d, tr, i = step_env(train_env, player_explore_policy, s_p, d, tr)
                 buffer.append((s, a[0], s_p, r, d))
-                player_reward_ma = player_reward_ma * 0.99 + r * 0.01
-                if "episode" in i:
-                    epi_stats = i["episode"]
-                    wandb.log({key: epi_stats[old_key] for old_key, key in
-                               [('r', 'player_returns'), ('l', 'player_epi_len'), ('t', 'player_epi_t')]})
+                write_trajectory_stats(i, 'player')
 
             player_stats = ppo.train_a2c_stable(dl, player_value_net, player_value_optim, player_policy_net,
                                                 player_policy_optim,
@@ -318,47 +345,13 @@ if __name__ == '__main__':
 
         for enemy_updates in range(8):
             for _ in range(config.batch_size):
-                s, a, s_p, r, d, _, i = step_env(train_env, enemy_explore_policy, s_p, d)
+                s, a, s_p, r, d, tr, i = step_env(train_env, enemy_explore_policy, s_p, d, tr)
                 buffer.append((s, a[1], s_p, -r, d))
-                enemy_reward_ma = enemy_reward_ma * 0.99 - r * 0.01
+                write_trajectory_stats(i, 'enemy')
 
             ppo.train_a2c_stable(dl, enemy_value_net, enemy_value_optim, enemy_policy_net, enemy_policy_optim,
                                  discount=config.discount, device=config.device, precision=config.precision)
             buffer.clear()
-
-        wandb.log({'player_reward_ma': player_reward_ma, 'enemy_reward_ma': enemy_reward_ma})
-
-
-        # """ test  """
-        # if player_evaluator.evaluate_now(epoch, config.test_epoch):
-        #     player_evaluator._evaluate(
-        #         lambda: collect_episode(test_player_env, player_policy),
-        #         config.run_dir,
-        #         params={
-        #             'player_policy_net': player_policy_net,
-        #             'player_policy_optim': player_policy_optim,
-        #             'player_value_net': player_value_net,
-        #             'player_value_optim': player_value_optim
-        #         },
-        #         prefix='player_', sample_n=config.test_episodes, capture=False)
-        #
-        #     enemy_evaluator._evaluate(
-        #         lambda: collect_episode(test_enemy_env, enemy_policy), config.run_dir,
-        #         params={
-        #             'enemy_policy_net': enemy_policy_net,
-        #             'enemy_policy_optim': enemy_policy_optim,
-        #             'enemy_value_net': enemy_value_net,
-        #             'enemy_value_optim': enemy_value_optim
-        #         },
-        #         prefix='enemy_', sample_n=config.test_episodes, capture=False)
-        #
-        #     checkpoint.save(
-        #         config.run_dir, prefix='last',
-        #         player_value_net=player_value_net, player_value_optim=player_value_optim,
-        #         player_policy_net=player_policy_net, player_policy_optim=player_policy_optim,
-        #         enemy_value_net=player_value_net, enemy_value_optim=player_value_optim,
-        #         enemy_policy_net=player_policy_net, enemy_policy_optim=player_policy_optim,
-        #     )
 
         if epoch % config.test_epoch == 0:
 
