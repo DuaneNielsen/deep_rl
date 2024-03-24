@@ -63,13 +63,18 @@ if __name__ == "__main__":
     def player_policy(state):
         with torch.no_grad():
             state = torch.from_numpy(state).type(torch.float32).unsqueeze(0).to("cuda")
-            return player_policy_net(state).probs.argmax(1).item()
+            action_dist = player_policy_net(state)
+            # print("player_probs", action_dist.probs)
+            return action_dist.sample().item()
+            # return action_dist.probs.argmax(1).item()
 
 
     def enemy_policy(state):
         with torch.no_grad():
             state = torch.from_numpy(state).type(torch.float32).unsqueeze(0).to("cuda")
-            return enemy_policy_net(state).probs.argmax(1).item()
+            action_dist = enemy_policy_net(state)
+            return action_dist.sample().item()
+            # return action_dist.probs.argmax(1).item()
 
     import pygame
 
@@ -97,7 +102,7 @@ if __name__ == "__main__":
             prev_player_timestamp = player_timestamp
             prev_enemy_timestamp = enemy_timestamp
             checkpoint.load(
-                run_dir, prefix='last',
+                run_dir, prefix='top',
                 player_policy_net=player_policy_net,
                 enemy_policy_net=enemy_policy_net
             )
@@ -129,8 +134,9 @@ if __name__ == "__main__":
         #     if event.type == pygame.QUIT:
         #         running = False
 
-
         actions = [Action(player_policy(state)), Action(enemy_policy(state))]
+
+        print(actions)
 
         if len(actions) == 2:
             trajectory += [actions]
@@ -138,7 +144,7 @@ if __name__ == "__main__":
 
             rgb = env.render()
 
-            print(len(trajectory))
+            # print(len(trajectory))
 
         if done or trunc:
             # print([[s[0].name, s[1].name] for s in trajectory])
